@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+
+# Coverage
+coverage
+*.lcov
+.nyc_output
+
+# Dependencies
+node_modules/
+
+# TypeScript
+*.tsbuildinfo
+dist
+
+# Optional caches
+.eslintcache
+
+# dotenv
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+/generated/prisma
+
+# Uploads / local storage
+uploads/
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.idea/
+*.swp
+*.swo
+*~
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.cursor/
+
+# documentation
+docs/
