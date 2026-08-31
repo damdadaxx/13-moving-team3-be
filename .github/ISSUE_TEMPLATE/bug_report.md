@@ -1,7 +1,7 @@
 ---
 name: "🐛 버그 리포트 (Bug Report)"
 about: 백엔드(API/서버) 동작 중 발견한 버그를 보고합니다.
-title: "[BUG] "
+title: "[BE][BUG] "
 assignees: []
 ---
 

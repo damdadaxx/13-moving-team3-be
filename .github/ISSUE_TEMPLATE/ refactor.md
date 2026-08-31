@@ -1,7 +1,7 @@
 ---
 name: "♻️ 리팩토링 (Refactor)"
 about: 동작 변경 없이 코드 구조/설계를 개선하는 작업을 등록합니다.
-title: "[REFACTOR] "
+title: "[BE][REFACTOR] "
 assignees: []
 ---
 

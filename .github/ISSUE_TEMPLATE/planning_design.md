@@ -1,7 +1,7 @@
 ---
 name: "💡 기획 / 설계 논의 (Planning & Design Discussion)"
 about: API 설계, DB 스키마, 아키텍처 등 구현 전 논의가 필요한 주제를 등록합니다.
-title: "[DISCUSS] "
+title: "[BE][DISCUSS] "
 assignees: []
 ---
 

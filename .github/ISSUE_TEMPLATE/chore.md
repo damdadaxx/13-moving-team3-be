@@ -1,7 +1,7 @@
 ---
 name: "🔧 기타 (Chore / 문서 / 설정)"
 about: 설정 변경, 문서화, 의존성 업데이트 등 그 외 작업을 등록합니다.
-title: "[CHORE] "
+title: "[BE][CHORE] "
 assignees: []
 ---
 

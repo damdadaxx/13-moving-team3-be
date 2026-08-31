@@ -1,7 +1,7 @@
 ---
 name: "✨ 기능 요청 / 작업 (Feature / Task)"
 about: 새로운 API, 기능 개발 또는 작업 단위 이슈를 등록합니다.
-title: "[FEAT] "
+title: "[BE][FEAT] "
 assignees: []
 ---
 
