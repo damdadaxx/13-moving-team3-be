@@ -28,4 +28,5 @@ npm run dev
 ```bash
 # 예시
 git commit -m "feat: 견적 요청 API 구현"
+git commit -m "refactor: 견적 요청 API 리팩토링"
 ```
