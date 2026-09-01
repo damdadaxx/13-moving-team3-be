@@ -57,6 +57,8 @@ enum EstimateRequestStatus {
 }
 
 enum EstimateStatus {
+  REJECTED // 지정 견적 반려
+  DESIGNATED // 지정견적 요청
   PROPOSED // 견적대기 - 기사가 보냄
   ACCEPTED // 확정견적 - 유저가 확정
   NOT_SELECTED // 다른 견적 확정으로 탈락
@@ -133,13 +135,12 @@ model MoverProfile {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  serviceTypes       MoverServiceType[]
-  serviceRegions     MoverServiceRegion[]
-  designatedRequests DesignatedRequest[]
-  estimates          Estimate[]
-  likedBy            Like[]
-  reviews            Review[]
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceTypes   MoverServiceType[]
+  serviceRegions MoverServiceRegion[]
+  estimates      Estimate[]
+  likedBy        Like[]
+  reviews        Review[]
 
   @@index([careerMonths]) // 기사님 찾기 - 경력 높은순
   @@index([nickname]) // 기사님 찾기 - 이름 검색
@@ -173,56 +174,41 @@ model MoverServiceRegion {
 }
 
 model EstimateRequest {
-  id               String                @id @default(uuid()) @db.Uuid
-  customerId       String                @db.Uuid
-  serviceType      ServiceType
-  moveDate         DateTime
-  departureAddress String
-  departureRegion  Region
-  arrivalAddress   String
-  arrivalRegion    Region
-  status           EstimateRequestStatus @default(PENDING)
-  createdAt        DateTime              @default(now()) // 견적 신청일
-  updatedAt        DateTime              @updatedAt
+  id          String      @id @default(uuid()) @db.Uuid
+  customerId  String      @db.Uuid
+  serviceType ServiceType
+  moveDate    DateTime
 
-  customer           CustomerProfile     @relation("CustomerEstimateRequests", fields: [customerId], references: [userId], onDelete: Cascade)
-  activeFor          CustomerProfile?    @relation("ActiveEstimateRequest")
-  designatedRequests DesignatedRequest[]
-  estimates          Estimate[]
+  departureZipCode Int
+  departureAddress String
+  arrivalZipCode   Int
+  arrivalAddress   String
+
+  status    EstimateRequestStatus @default(PENDING)
+  createdAt DateTime              @default(now()) // 견적 신청일
+  updatedAt DateTime              @updatedAt
+
+  customer  CustomerProfile  @relation("CustomerEstimateRequests", fields: [customerId], references: [userId], onDelete: Cascade)
+  activeFor CustomerProfile? @relation("ActiveEstimateRequest")
+  estimates Estimate[]
 
   @@unique([customerId], where: raw("\"status\" IN ('PENDING', 'CONFIRMED')"), map: "estimateRequest_customerId_active_key")
   @@index([customerId, status])
   @@index([moveDate]) // 받은 요청 - 이사 빠른순
   @@index([createdAt]) // 받은 요청 - 요청일 빠른순
   @@index([serviceType]) // 받은 요청 - 서비스 필터
-  @@index([departureRegion]) // 받은 요청 - 서비스 가능 지역 필터
-  @@index([arrivalRegion])
   @@map("estimateRequest")
-}
-
-model DesignatedRequest {
-  id                String   @id @default(uuid()) @db.Uuid
-  estimateRequestId String   @db.Uuid
-  moverId           String   @db.Uuid
-  createdAt         DateTime @default(now())
-
-  estimateRequest  EstimateRequest   @relation(fields: [estimateRequestId], references: [id], onDelete: Cascade)
-  mover            MoverProfile      @relation(fields: [moverId], references: [userId], onDelete: Cascade)
-  requestRejection RequestRejection?
-
-  @@unique([estimateRequestId, moverId])
-  @@index([moverId])
-  @@map("designatedRequest")
 }
 
 model Estimate {
   id                String         @id @default(uuid()) @db.Uuid
   estimateRequestId String         @db.Uuid
   moverId           String         @db.Uuid
-  price             Int
-  comment           String
+  price             Int?
+  comment           String?
   isDesignated      Boolean        @default(false)
   status            EstimateStatus @default(PROPOSED)
+  rejectreason      String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -234,17 +220,6 @@ model Estimate {
   @@index([estimateRequestId, isDesignated]) // 상한(5개/3개) 카운트용
   @@index([moverId, status])
   @@map("estimate")
-}
-
-model RequestRejection {
-  id                  String   @id @default(uuid()) @db.Uuid
-  designatedRequestId String   @unique @db.Uuid
-  reason              String
-  createdAt           DateTime @default(now())
-
-  designatedRequest DesignatedRequest @relation(fields: [designatedRequestId], references: [id], onDelete: Cascade)
-
-  @@map("requestRejection")
 }
 
 model Like {
