@@ -54,3 +54,8 @@ Desktop.ini
 # documentation
 docs/
 /src/generated/prisma
+
+# claude
+.agents
+.windsurf
+.claude
