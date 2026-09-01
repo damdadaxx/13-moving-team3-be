@@ -3,23 +3,67 @@
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^10.0.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.4.0",
+    "@types/pg": "^8.23.1",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^10.9.1",
     "globals": "^17.11.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.4.1",
     "prettier": "^3.9.6",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.68.0"
   },
   "scripts": {
     "prepare": "husky",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dev": "cross-env NODE_ENV=development tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "cross-env NODE_ENV=production node dist/server.ts",
+    "typecheck:watch": "tsc --noEmit --watch",
+    "db:migrate": "dotenv -e .env.development -- npx prisma migrate dev",
+    "db:deploy": "dotenv -e .env.development -- npx prisma migrate deploy",
+    "db:migrate:deploy": "dotenv -e .env.production -- npx prisma migrate deploy",
+    "db:reset": "dotenv -e .env.development -- npx prisma migrate reset",
+    "db:push": "dotenv -e .env.development -- npx prisma db push",
+    "db:seed": "dotenv -e .env.development -- node prisma/seed.js",
+    "db:studio": "dotenv -e .env.development -- npx prisma studio"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
       "prettier --write",
       "eslint --fix"
     ]
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-jwt": "^8.5.1",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-jwt": "^4.0.1",
+    "passport-kakao": "^1.0.1",
+    "passport-naver": "^1.0.6",
+    "pg": "^8.23.0",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.5.4"
   }
 }

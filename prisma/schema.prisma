@@ -1,0 +1,297 @@
+// 삭제는 hard-delete 형식으로 진행되므로 삭제일자를 기록하는 별도의 컬럼은 두지 않습니다.
+// 수정일자의 경우 "@default(now()) @updatedAt"으로 설정한 이유는 마지막 수정이 생성일자와 같다면 수정이 이루저 지지않은 부분을 나타내기 위해 설정하였습니다.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER // 일반 유저
+  MOVER // 기사님
+}
+
+enum AuthProvider {
+  LOCAL // 이메일 + 비밀번호
+  GOOGLE
+  KAKAO
+  NAVER
+}
+
+enum ServiceType {
+  SMALL_MOVE // 소형이사 - 원룸, 투룸, 20평대 미만
+  HOME_MOVE // 가정이사 - 쓰리룸, 20평대 이상
+  OFFICE_MOVE // 사무실이사 - 사무실, 상업공간
+}
+
+enum Region {
+  SEOUL
+  GYEONGGI
+  INCHEON
+  GANGWON
+  CHUNGBUK
+  CHUNGNAM
+  SEJONG
+  DAEJEON
+  JEONBUK
+  JEONNAM
+  GWANGJU
+  GYEONGBUK
+  GYEONGNAM
+  DAEGU
+  ULSAN
+  BUSAN
+  JEJU
+}
+
+enum EstimateRequestStatus {
+  PENDING // 견적 대기 - 확정 전
+  CONFIRMED // 확정 완료 - 이사일 대기
+  COMPLETED // 이사일 경과
+  EXPIRED // 확정 없이 이사일 경과
+}
+
+enum EstimateStatus {
+  PROPOSED // 견적대기 - 기사가 보냄
+  ACCEPTED // 확정견적 - 유저가 확정
+  NOT_SELECTED // 다른 견적 확정으로 탈락
+  EXPIRED // 확정 없이 이사일 경과
+}
+
+enum NotificationType {
+  NEW_ESTIMATE // 새로운 견적 도착 - 일반 유저 수신
+  NEW_REQUEST // 새로운 견적 요청 도착 - 기사님 수신
+  ESTIMATE_CONFIRMED // 견적 확정 - 양쪽 모두 수신
+  MOVE_DAY // 이사 알림 - 양쪽 모두 수신
+}
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String
+  email        String
+  phoneNumber  String
+  password     String? // 소셜 로그인 계정은 null
+  refreshToken String? // sha-256 설정 논의
+  role         Role
+  provider     AuthProvider @default(LOCAL)
+  providerId   String? // 소셜 제공자가 발급한 고유 ID
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  customerProfile CustomerProfile?
+  moverProfile    MoverProfile?
+  notifications   Notification[]
+
+  @@unique([email, role])
+  @@unique([provider, providerId])
+  @@index([phoneNumber])
+  @@index([name]) // 기사님의 받은 요청 - 고객 이름 검색
+  @@map("user")
+}
+
+model CustomerProfile {
+  userId                  String   @id @db.Uuid
+  imgUrl                  String?
+  region                  Region
+  activeEstimateRequestId String?  @unique @db.Uuid
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeEstimateRequest EstimateRequest?      @relation("ActiveEstimateRequest", fields: [activeEstimateRequestId], references: [id], onDelete: SetNull)
+  estimateRequests      EstimateRequest[]     @relation("CustomerEstimateRequests")
+  serviceTypes          CustomerServiceType[]
+  likes                 Like[]
+  reviews               Review[]
+
+  @@map("customerProfile")
+}
+
+model CustomerServiceType {
+  id          String      @id @default(uuid()) @db.Uuid
+  customerId  String      @db.Uuid
+  serviceType ServiceType
+
+  customer CustomerProfile @relation(fields: [customerId], references: [userId], onDelete: Cascade)
+
+  @@unique([customerId, serviceType])
+  @@map("customerServiceType")
+}
+
+model MoverProfile {
+  userId       String   @id @db.Uuid
+  imgUrl       String?
+  nickname     String
+  careerMonths Int
+  shortIntro   String
+  description  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceTypes       MoverServiceType[]
+  serviceRegions     MoverServiceRegion[]
+  designatedRequests DesignatedRequest[]
+  estimates          Estimate[]
+  likedBy            Like[]
+  reviews            Review[]
+
+  @@index([careerMonths]) // 기사님 찾기 - 경력 높은순
+  @@index([nickname]) // 기사님 찾기 - 이름 검색
+  @@map("moverProfile")
+}
+
+/// 제공 서비스 - 1개 이상
+model MoverServiceType {
+  id          String      @id @default(uuid()) @db.Uuid
+  moverId     String      @db.Uuid
+  serviceType ServiceType
+
+  mover MoverProfile @relation(fields: [moverId], references: [userId], onDelete: Cascade)
+
+  @@unique([moverId, serviceType])
+  @@index([serviceType])
+  @@map("moverServiceType")
+}
+
+/// 서비스 가능 지역 - 1개 이상
+model MoverServiceRegion {
+  id      String @id @default(uuid()) @db.Uuid
+  moverId String @db.Uuid
+  region  Region
+
+  mover MoverProfile @relation(fields: [moverId], references: [userId], onDelete: Cascade)
+
+  @@unique([moverId, region])
+  @@index([region])
+  @@map("moverServiceRegion")
+}
+
+model EstimateRequest {
+  id               String                @id @default(uuid()) @db.Uuid
+  customerId       String                @db.Uuid
+  serviceType      ServiceType
+  moveDate         DateTime
+  departureAddress String
+  departureRegion  Region
+  arrivalAddress   String
+  arrivalRegion    Region
+  status           EstimateRequestStatus @default(PENDING)
+  createdAt        DateTime              @default(now()) // 견적 신청일
+  updatedAt        DateTime              @updatedAt
+
+  customer           CustomerProfile     @relation("CustomerEstimateRequests", fields: [customerId], references: [userId], onDelete: Cascade)
+  activeFor          CustomerProfile?    @relation("ActiveEstimateRequest")
+  designatedRequests DesignatedRequest[]
+  estimates          Estimate[]
+
+  @@unique([customerId], where: raw("\"status\" IN ('PENDING', 'CONFIRMED')"), map: "estimateRequest_customerId_active_key")
+  @@index([customerId, status])
+  @@index([moveDate]) // 받은 요청 - 이사 빠른순
+  @@index([createdAt]) // 받은 요청 - 요청일 빠른순
+  @@index([serviceType]) // 받은 요청 - 서비스 필터
+  @@index([departureRegion]) // 받은 요청 - 서비스 가능 지역 필터
+  @@index([arrivalRegion])
+  @@map("estimateRequest")
+}
+
+model DesignatedRequest {
+  id                String   @id @default(uuid()) @db.Uuid
+  estimateRequestId String   @db.Uuid
+  moverId           String   @db.Uuid
+  createdAt         DateTime @default(now())
+
+  estimateRequest  EstimateRequest   @relation(fields: [estimateRequestId], references: [id], onDelete: Cascade)
+  mover            MoverProfile      @relation(fields: [moverId], references: [userId], onDelete: Cascade)
+  requestRejection RequestRejection?
+
+  @@unique([estimateRequestId, moverId])
+  @@index([moverId])
+  @@map("designatedRequest")
+}
+
+model Estimate {
+  id                String         @id @default(uuid()) @db.Uuid
+  estimateRequestId String         @db.Uuid
+  moverId           String         @db.Uuid
+  price             Int
+  comment           String
+  isDesignated      Boolean        @default(false)
+  status            EstimateStatus @default(PROPOSED)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  estimateRequest EstimateRequest @relation(fields: [estimateRequestId], references: [id], onDelete: Cascade)
+  mover           MoverProfile    @relation(fields: [moverId], references: [userId], onDelete: Cascade)
+  review          Review?
+
+  @@unique([estimateRequestId, moverId])
+  @@index([estimateRequestId, isDesignated]) // 상한(5개/3개) 카운트용
+  @@index([moverId, status])
+  @@map("estimate")
+}
+
+model RequestRejection {
+  id                  String   @id @default(uuid()) @db.Uuid
+  designatedRequestId String   @unique @db.Uuid
+  reason              String
+  createdAt           DateTime @default(now())
+
+  designatedRequest DesignatedRequest @relation(fields: [designatedRequestId], references: [id], onDelete: Cascade)
+
+  @@map("requestRejection")
+}
+
+model Like {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @db.Uuid
+  moverId    String   @db.Uuid
+  createdAt  DateTime @default(now())
+
+  customer CustomerProfile @relation(fields: [customerId], references: [userId], onDelete: Cascade)
+  mover    MoverProfile    @relation(fields: [moverId], references: [userId], onDelete: Cascade)
+
+  @@unique([customerId, moverId])
+  @@index([moverId])
+  @@map("like")
+}
+
+model Review {
+  id         String   @id @default(uuid()) @db.Uuid
+  estimateId String   @unique @db.Uuid
+  customerId String   @db.Uuid
+  moverId    String   @db.Uuid
+  rating     Int
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  estimate Estimate        @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [userId], onDelete: Cascade)
+  mover    MoverProfile    @relation(fields: [moverId], references: [userId], onDelete: Cascade)
+
+  @@index([moverId, rating]) // 기사님 상세의 평점 분포 집계용
+  @@index([customerId])
+  @@map("review")
+}
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  type       NotificationType
+  content    String
+  targetPath String?          @db.Uuid
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notification")
+}
