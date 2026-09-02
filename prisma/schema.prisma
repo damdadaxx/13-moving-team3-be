@@ -76,7 +76,7 @@ model User {
   id           String       @id @default(uuid()) @db.Uuid
   name         String
   email        String
-  phoneNumber  String
+  phoneNumber  String?
   password     String? // 소셜 로그인 계정은 null
   refreshToken String? // sha-256 설정 논의
   role         Role
