@@ -76,7 +76,7 @@ model User {
   id           String       @id @default(uuid()) @db.Uuid
   name         String
   email        String
-  phoneNumber  String
+  phoneNumber  String?
   password     String? // 소셜 로그인 계정은 null
   refreshToken String? // sha-256 설정 논의
   role         Role
@@ -90,7 +90,7 @@ model User {
   notifications   Notification[]
 
   @@unique([email, role])
-  @@unique([provider, providerId])
+  @@unique([provider, providerId, role])
   @@index([phoneNumber])
   @@index([name]) // 기사님의 받은 요청 - 고객 이름 검색
   @@map("user")
@@ -208,7 +208,7 @@ model Estimate {
   comment           String?
   isDesignated      Boolean        @default(false)
   status            EstimateStatus @default(PROPOSED)
-  rejectreason      String?
+  rejectReason      String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
