@@ -90,7 +90,7 @@ model User {
   notifications   Notification[]
 
   @@unique([email, role])
-  @@unique([provider, providerId])
+  @@unique([provider, providerId, role])
   @@index([phoneNumber])
   @@index([name]) // 기사님의 받은 요청 - 고객 이름 검색
   @@map("user")
