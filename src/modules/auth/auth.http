@@ -1,0 +1,190 @@
+### Auth API 수동 테스트
+# VS Code REST Client / JetBrains HTTP Client 용.
+# 쿠키는 클라이언트가 쿠키 jar로 자동 관리한다(로그인 후 이어지는 요청에 자동 첨부).
+# VS Code REST Client는 setting `rest-client.rememberCookiesForSubsequentRequests: true`(기본값) 필요.
+
+@host = http://localhost:3000
+@email = tester@example.com
+@password = password123
+@role = CUSTOMER
+
+
+### ────────────────────────────────────────────────
+### 회원가입 (201) — accessToken/refreshToken 쿠키 설정
+POST {{host}}/auth/signUp
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "테스터",
+  "phoneNumber": "01012345678",
+  "role": "{{role}}"
+}
+
+
+### 회원가입 - 이메일 중복 (409)
+POST {{host}}/auth/signUp
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "테스터",
+  "phoneNumber": "01012345678",
+  "role": "{{role}}"
+}
+
+
+### 회원가입 - 검증 실패 (400) — 이메일 형식/짧은 비번
+POST {{host}}/auth/signUp
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "short",
+  "name": "A",
+  "phoneNumber": "123",
+  "role": "{{role}}"
+}
+
+
+### ────────────────────────────────────────────────
+### 로그인 (200) — 쿠키 설정
+# @name login
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "{{role}}"
+}
+
+
+### 로그인 - 검증 실패 (400) — 빈 본문
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{}
+
+
+### 로그인 - 비밀번호 불일치 (401)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "wrong-password",
+  "role": "{{role}}"
+}
+
+
+### 로그인 - 존재하지 않는 이메일 (401, 위와 동일 메시지)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@example.com",
+  "password": "{{password}}",
+  "role": "{{role}}"
+}
+
+
+### 로그인 - rate limit (429) — 10분 내 11회째부터
+# 아래 요청을 연속 11번 실행하면 429
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "wrong-password",
+  "role": "{{role}}"
+}
+
+
+### ────────────────────────────────────────────────
+### 내 정보 조회 (200) — 로그인 쿠키 필요
+GET {{host}}/auth/me
+
+
+### 내 정보 조회 - 미인증 (401)
+GET {{host}}/auth/me
+Cookie: accessToken=
+
+
+### 내 정보 수정 (200)
+PATCH {{host}}/auth/me
+Content-Type: application/json
+
+{
+  "name": "새이름",
+  "phoneNumber": "01087654321"
+}
+
+
+### 내 정보 수정 - 검증 실패 (400) — 수정할 값 없음
+PATCH {{host}}/auth/me
+Content-Type: application/json
+
+{}
+
+
+### ────────────────────────────────────────────────
+### 비밀번호 변경 (200)
+PATCH {{host}}/auth/password
+Content-Type: application/json
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "newpassword123"
+}
+
+
+### 비밀번호 변경 - 현재 비번 불일치 (400)
+PATCH {{host}}/auth/password
+Content-Type: application/json
+
+{
+  "currentPassword": "wrong-current",
+  "newPassword": "newpassword123"
+}
+
+
+### ────────────────────────────────────────────────
+### accessToken 재발급 (200) — refreshToken 쿠키 필요
+POST {{host}}/auth/refresh
+
+
+### 재발급 - refresh 토큰 없음 (401)
+POST {{host}}/auth/refresh
+Cookie: refreshToken=
+
+
+### ────────────────────────────────────────────────
+### 로그아웃 (200) — 쿠키 삭제 + 서버 refreshToken 정리
+POST {{host}}/auth/logout
+
+
+### 로그아웃 - 쿠키 전혀 없이도 200 (멱등)
+POST {{host}}/auth/logout
+Cookie:
+
+
+### 로그아웃 - access 만료 상황 시뮬레이션 (refresh 쿠키만 전송해도 정리됨)
+# {{login}} 응답의 Set-Cookie 에서 refreshToken 값을 복사해 넣고 실행
+POST {{host}}/auth/logout
+Cookie: refreshToken=PASTE_REFRESH_TOKEN_HERE
+
+
+### ────────────────────────────────────────────────
+### 소셜 로그인 시작 — 브라우저에서 열어야 함 (302 리다이렉트)
+GET {{host}}/auth/google?role=CUSTOMER
+
+
+### 소셜 로그인 - 잘못된 provider (400)
+GET {{host}}/auth/kakaoo?role=CUSTOMER
+
+
+### 소셜 로그인 - role 누락 (400)
+GET {{host}}/auth/google

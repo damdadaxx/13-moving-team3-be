@@ -14,6 +14,7 @@ import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
+  verifyRefreshTokenAllowExpired,
 } from './authJwt';
 import { authRepository, PublicUser } from './authRepository';
 import { SocialProfile } from './authTypes';
@@ -50,6 +51,7 @@ const toPublicUser = (user: {
   updatedAt: user.updatedAt,
 });
 
+// 매 refresh 마다 refreshToken을 회전시킨다
 const issueTokens = async (user: PublicUser): Promise<AuthResult> => {
   const accessToken = signAccessToken(user.id, user.role);
   const refreshToken = signRefreshToken(user.id, user.role);
@@ -100,12 +102,9 @@ export const authService = {
       input.role
     );
 
+    // 이메일 없음 / 비밀번호 불일치 / 소셜 가입 계정을 모두 같은 응답으로 통일한다.
+    // (구분하면 "이 이메일은 가입돼 있다"는 계정 존재 여부가 노출됨)
     if (!user || user.provider !== 'LOCAL' || !user.password) {
-      if (user && user.provider !== 'LOCAL') {
-        throw new BadRequestError(
-          '소셜 로그인으로 가입된 계정입니다. 소셜 로그인을 이용해 주세요.'
-        );
-      }
       throw new UnauthorizedError('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
 
@@ -117,8 +116,20 @@ export const authService = {
     return issueTokens(toPublicUser(user));
   },
 
-  async logout(userId: string) {
-    await authRepository.updateRefreshToken(userId, null);
+  async logout(refreshToken: string) {
+    // 서명은 검증하되 만료는 허용 — access 만료 상태에서도 정리 가능하게
+    const payload = verifyRefreshTokenAllowExpired(refreshToken);
+    if (!payload) {
+      return;
+    }
+    const user = await authRepository.findById(payload.sub);
+    // 저장된 해시와 일치할 때만 정리 = 이 refresh 토큰의 실제 보유자임을 증명
+    if (
+      user?.refreshToken &&
+      user.refreshToken === hashRefreshToken(refreshToken)
+    ) {
+      await authRepository.updateRefreshToken(user.id, null);
+    }
   },
 
   async refresh(refreshToken: string | undefined): Promise<AuthResult> {
@@ -132,7 +143,8 @@ export const authService = {
     if (!user || !user.refreshToken) {
       throw new UnauthorizedError('리프레시 토큰이 유효하지 않습니다.');
     }
-
+    // 같지 않으면 세션을 통째로 wipe
+    // TODO: 탭 두개이상이 열려서 같이 만료됐다가 같이 재발급될시 문제점 발생
     if (user.refreshToken !== hashRefreshToken(refreshToken)) {
       await authRepository.updateRefreshToken(user.id, null);
       throw new UnauthorizedError('리프레시 토큰이 유효하지 않습니다.');

@@ -60,6 +60,25 @@ export const verifyRefreshToken = (token: string): TokenPayload => {
   }
 };
 
+// 로그아웃 전용: 서명은 검증하되 만료는 허용한다.
+// access 토큰이 만료된 상태에서도 refresh 쿠키만으로 사용자를 식별하기 위함.
+export const verifyRefreshTokenAllowExpired = (
+  token: string
+): TokenPayload | null => {
+  try {
+    const decoded = jwt.verify(token, ENV.JWT_REFRESH_SECRET, {
+      ignoreExpiration: true,
+    });
+    const payload = decoded as jwt.JwtPayload & { role?: unknown };
+    if (!payload.sub || !isRole(payload.role)) {
+      return null;
+    }
+    return { sub: payload.sub, role: payload.role };
+  } catch {
+    return null;
+  }
+};
+
 export const signOAuthState = (role: Role, provider: string) =>
   jwt.sign({ role, provider }, ENV.JWT_ACCESS_SECRET, {
     expiresIn: OAUTH_STATE_EXPIRES_IN,

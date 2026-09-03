@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { validate } from '../../middlewares/validation';
 import * as authController from './authController';
 import { authenticate } from './authMiddleware';
+import { loginRateLimit, signupRateLimit } from './authRateLimit';
+import { validate } from './authValidate';
 import {
   loginSchema,
   providerParamSchema,
@@ -38,7 +39,12 @@ const router = Router();
  *       409:
  *         description: 이미 사용 중인 이메일
  */
-router.post('/signUp', validate(signupSchema), authController.signUp);
+router.post(
+  '/signUp',
+  signupRateLimit,
+  validate(signupSchema),
+  authController.signUp
+);
 
 /**
  * @swagger
@@ -63,7 +69,12 @@ router.post('/signUp', validate(signupSchema), authController.signUp);
  *       401:
  *         description: 이메일 또는 비밀번호 불일치
  */
-router.post('/login', validate(loginSchema), authController.login);
+router.post(
+  '/login',
+  loginRateLimit,
+  validate(loginSchema),
+  authController.login
+);
 
 /**
  * @swagger
@@ -71,15 +82,14 @@ router.post('/login', validate(loginSchema), authController.login);
  *   post:
  *     tags: [Auth]
  *     summary: 로그아웃
- *     security:
- *       - cookieAuth: []
+ *     description: 인증 불필요. refresh 쿠키가 있으면 서버 refreshToken도 정리하고, 없어도 쿠키를 삭제하고 200을 반환한다.
  *     responses:
  *       200:
- *         description: 로그아웃 성공. 쿠키 삭제
- *       401:
- *         description: 인증 필요
+ *         description: 로그아웃 성공. accessToken/refreshToken 쿠키 삭제
  */
-router.post('/logout', authenticate, authController.logout);
+// authenticate를 걸지 않는다: access 토큰이 만료돼도 로그아웃은 항상 성공해야 하며,
+// 서버 refreshToken 정리는 refresh 쿠키(+해시 일치)로 인가한다.
+router.post('/logout', authController.logout);
 
 /**
  * @swagger
@@ -164,6 +174,7 @@ router.patch(
 router.patch(
   '/password',
   authenticate,
+  loginRateLimit,
   validate(updatePasswordSchema),
   authController.updatePassword
 );

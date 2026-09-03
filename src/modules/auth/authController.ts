@@ -52,7 +52,12 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = async (req: Request, res: Response) => {
-  await authService.logout(req.user!.id);
+  // access 토큰 만료 여부와 무관하게 항상 성공시킨다.
+  // 서버 refreshToken 정리는 refresh 쿠키로 사용자를 식별해 best-effort로 수행.
+  const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
+  if (refreshToken) {
+    await authService.logout(refreshToken);
+  }
   clearAuthCookies(res);
   res.status(200).json({ message: '로그아웃되었습니다.' });
 };
