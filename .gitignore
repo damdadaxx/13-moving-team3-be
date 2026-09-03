@@ -59,3 +59,5 @@ docs/
 .agents
 .windsurf
 .claude
+
+skills-lock.json
