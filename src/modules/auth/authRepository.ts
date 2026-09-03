@@ -16,7 +16,7 @@ export type PublicUser = {
   id: string;
   name: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   role: Role;
   provider: AuthProvider;
   createdAt: Date;
@@ -35,8 +35,8 @@ export const authRepository = {
     providerId: string,
     role: Role
   ) {
-    return prisma.user.findFirst({
-      where: { provider, providerId, role },
+    return prisma.user.findUnique({
+      where: { provider_providerId_role: { provider, providerId, role } },
     });
   },
 
@@ -56,7 +56,7 @@ export const authRepository = {
   create(data: {
     name: string;
     email: string;
-    phoneNumber: string;
+    phoneNumber?: string | null;
     password?: string | null;
     role: Role;
     provider: AuthProvider;
@@ -76,7 +76,10 @@ export const authRepository = {
     });
   },
 
-  updateProfile(id: string, data: { name?: string; phoneNumber?: string }) {
+  updateProfile(
+    id: string,
+    data: { name?: string; phoneNumber?: string | null }
+  ) {
     return prisma.user.update({
       where: { id },
       data,

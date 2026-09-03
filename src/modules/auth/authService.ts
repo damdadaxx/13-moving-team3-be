@@ -34,7 +34,7 @@ const toPublicUser = (user: {
   id: string;
   name: string;
   email: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   role: PublicUser['role'];
   provider: AuthProvider;
   createdAt: Date;
@@ -214,7 +214,7 @@ export const authService = {
       const user = await authRepository.create({
         name: profile.name,
         email: profile.email,
-        phoneNumber: profile.phoneNumber || '',
+        phoneNumber: profile.phoneNumber,
         role,
         provider: profile.provider,
         providerId: profile.providerId,
