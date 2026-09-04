@@ -37,7 +37,7 @@
     "db:migrate:deploy": "dotenv -e .env.production -- npx prisma migrate deploy",
     "db:reset": "dotenv -e .env.development -- npx prisma migrate reset",
     "db:push": "dotenv -e .env.development -- npx prisma db push",
-    "db:seed": "dotenv -e .env.development -- node prisma/seed.ts",
+    "db:seed": "dotenv -e .env.development -- tsx prisma/seed.ts",
     "db:studio": "dotenv -e .env.development -- npx prisma studio"
   },
   "lint-staged": {
