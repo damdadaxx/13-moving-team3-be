@@ -178,13 +178,39 @@ Cookie: refreshToken=PASTE_REFRESH_TOKEN_HERE
 
 
 ### ────────────────────────────────────────────────
-### 소셜 로그인 시작 — 브라우저에서 열어야 함 (302 리다이렉트)
-GET {{host}}/auth/google?role=CUSTOMER
+### 소셜 로그인 (프론트 릴레이) — 프론트가 프로바이더 authorize 후 받은 code 를 전달
+# 실제 code 는 프론트 콜백에서만 얻을 수 있어 아래는 형식 예시(가짜 code → 400)
+POST {{host}}/auth/social/google
+Content-Type: application/json
+
+{
+  "code": "PASTE_AUTH_CODE_HERE",
+  "redirectUri": "http://localhost:3000/auth/callback/google",
+  "role": "CUSTOMER"
+}
+
+
+### 소셜 로그인 - 네이버 (state 필수)
+POST {{host}}/auth/social/naver
+Content-Type: application/json
+
+{
+  "code": "PASTE_AUTH_CODE_HERE",
+  "redirectUri": "http://localhost:3000/auth/callback/naver",
+  "state": "PASTE_STATE_HERE",
+  "role": "MOVER"
+}
 
 
 ### 소셜 로그인 - 잘못된 provider (400)
-GET {{host}}/auth/kakaoo?role=CUSTOMER
+POST {{host}}/auth/social/kakaoo
+Content-Type: application/json
+
+{ "code": "x", "redirectUri": "http://localhost:3000/cb", "role": "CUSTOMER" }
 
 
-### 소셜 로그인 - role 누락 (400)
-GET {{host}}/auth/google
+### 소셜 로그인 - redirectUri origin 불일치 (400)
+POST {{host}}/auth/social/google
+Content-Type: application/json
+
+{ "code": "x", "redirectUri": "https://evil.com/cb", "role": "CUSTOMER" }

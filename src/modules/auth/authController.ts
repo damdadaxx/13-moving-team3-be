@@ -1,42 +1,62 @@
-import { NextFunction, Request, Response } from 'express';
-import passport from 'passport';
+import { CookieOptions, Request, Response } from 'express';
 import { ENV } from '../../config/env';
-import { AppError, BadRequestError } from '../../utils/error';
-import { setAuthCookies, clearAuthCookies } from './authCookies';
-import { signOAuthState, verifyOAuthState } from './authJwt';
-import { isOAuthConfigured } from './passport';
+import { BadRequestError } from '../../utils/error';
 import { authService } from './authService';
-import { REFRESH_TOKEN_COOKIE } from './authConstants';
-import { SocialProfile } from './authTypes';
+import {
+  ACCESS_TOKEN_COOKIE,
+  ACCESS_TOKEN_MAX_AGE_MS,
+  REFRESH_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE_PATH,
+  REFRESH_TOKEN_MAX_AGE_MS,
+} from './authConstants';
 import {
   LoginInput,
   ProviderParam,
   SignupInput,
-  SocialQuery,
+  SocialAuthInput,
   UpdateMeInput,
   UpdatePasswordInput,
 } from './authValidation';
 
 const getValidated = <T>(req: Request) => req.validatedData as T;
 
-const oauthRedirect = (res: Response, error?: string) => {
-  const url = new URL('/auth/callback', ENV.FRONTEND_URL);
-  if (error) {
-    url.searchParams.set('error', error);
-  } else {
-    url.searchParams.set('success', 'true');
-  }
-  return res.redirect(url.toString());
+// 쿠키 (인증서 전달 = 응답 관심사라 컨트롤러에 둔다)
+// TODO: 프론트 BFF 도입 후 sameSite 를 'lax' 로 유지, secure 는 배포에서만
+const baseCookieOptions = (): CookieOptions => ({
+  httpOnly: true,
+  secure: true,
+  sameSite: 'lax',
+  ...(ENV.COOKIE_DOMAIN ? { domain: ENV.COOKIE_DOMAIN } : {}),
+});
+
+const setAuthCookies = (
+  res: Response,
+  accessToken: string,
+  refreshToken: string
+) => {
+  res.cookie(ACCESS_TOKEN_COOKIE, accessToken, {
+    ...baseCookieOptions(),
+    path: '/',
+    maxAge: ACCESS_TOKEN_MAX_AGE_MS,
+  });
+  res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
+    ...baseCookieOptions(),
+    path: REFRESH_TOKEN_COOKIE_PATH,
+    maxAge: REFRESH_TOKEN_MAX_AGE_MS,
+  });
 };
 
-const socialProfileFromUser = (user: Express.User): SocialProfile => {
-  const profile = user as unknown as SocialProfile;
-  if (!profile.provider || !profile.providerId || !profile.name) {
-    throw new BadRequestError('소셜 프로필을 확인할 수 없습니다.');
-  }
-  return profile;
+const clearAuthCookies = (res: Response) => {
+  const base = baseCookieOptions();
+  // 심을 때와 동일한 path여야 삭제된다.
+  res.clearCookie(ACCESS_TOKEN_COOKIE, { ...base, path: '/' });
+  res.clearCookie(REFRESH_TOKEN_COOKIE, {
+    ...base,
+    path: REFRESH_TOKEN_COOKIE_PATH,
+  });
 };
 
+// 핸들러
 export const signUp = async (req: Request, res: Response) => {
   const input = getValidated<SignupInput>(req);
   const { user, accessToken, refreshToken } = await authService.signUp(input);
@@ -87,63 +107,17 @@ export const updatePassword = async (req: Request, res: Response) => {
   res.status(200).json({ message: '비밀번호가 변경되었습니다.' });
 };
 
-export const startOAuth = (req: Request, res: Response, next: NextFunction) => {
-  const { provider, role } = getValidated<ProviderParam & SocialQuery>(req);
+// 프론트 릴레이 소셜 로그인:
+// 프론트가 프로바이더에서 받은 code 를 넘기면, 백엔드가 code→token→프로필 교환 후 일반 로그인과 동일하게 쿠키를 발급한다.
+export const socialLogin = async (req: Request, res: Response) => {
+  const input = getValidated<ProviderParam & SocialAuthInput>(req);
 
-  if (!isOAuthConfigured(provider)) {
-    return next(new AppError('해당 소셜 로그인이 설정되지 않았습니다.', 503));
+  if (new URL(input.redirectUri).origin !== new URL(ENV.FRONTEND_URL).origin) {
+    throw new BadRequestError('허용되지 않은 redirectUri입니다.');
   }
 
-  const state = signOAuthState(role, provider);
-  const options: passport.AuthenticateOptions = {
-    session: false,
-    state,
-  };
-
-  if (provider === 'google') {
-    options.scope = ['profile', 'email'];
-  }
-
-  if (provider === 'kakao') {
-    options.scope = ['profile_nickname', 'account_email'];
-  }
-
-  passport.authenticate(provider, options)(req, res, next);
-};
-
-export const oauthCallback = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const { provider } = req.params as ProviderParam;
-
-  if (!isOAuthConfigured(provider)) {
-    return oauthRedirect(res, 'not_configured');
-  }
-
-  passport.authenticate(
-    provider,
-    { session: false },
-    async (err: unknown, user: Express.User | false) => {
-      try {
-        if (err || !user) {
-          return oauthRedirect(res, 'social_failed');
-        }
-
-        const state =
-          typeof req.query.state === 'string' ? req.query.state : '';
-        const role = verifyOAuthState(state, provider);
-        const profile = socialProfileFromUser(user);
-        const result = await authService.socialLogin(profile, role);
-        setAuthCookies(res, result.accessToken, result.refreshToken);
-        return oauthRedirect(res);
-      } catch (error) {
-        if (error instanceof AppError) {
-          return oauthRedirect(res, error.message);
-        }
-        return oauthRedirect(res, 'social_failed');
-      }
-    }
-  )(req, res, next);
+  const { user, accessToken, refreshToken } =
+    await authService.socialLogin(input);
+  setAuthCookies(res, accessToken, refreshToken);
+  res.status(200).json(user);
 };

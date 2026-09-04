@@ -19,6 +19,13 @@ npm install
 npm run dev
 ```
 
+## 인증
+
+- **쿠키**: `accessToken`(`Path=/`, 15분) / `refreshToken`(`Path=/auth`, 7일). 둘 다 `HttpOnly`, 운영 `Secure; SameSite=None`.
+- 모든 `401` → `POST /auth/refresh` 1회 시도 후 재시도, 실패 시 로그인. `/auth/refresh` 는 프론트에서 single-flight 로 호출.
+- **소셜 로그인 (프론트 릴레이)**: 프론트가 프로바이더 authorize → `redirect_uri`(프론트 소유)로 code 수신 → `POST /auth/social/:provider` body `{ code, redirectUri, state?(네이버 필수), role }` 로 전달. 백엔드가 code→token→프로필 교환 후 쿠키 발급.
+- 로그인/회원가입/비번변경/소셜에 rate limit(`429`). 저장소가 인메모리라 다중 인스턴스 배포 시 공유 store 필요.
+
 ## 코드 컨벤션
 
 - **ESLint** + **Prettier** 적용

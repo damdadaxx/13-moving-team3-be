@@ -1,18 +1,40 @@
 import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
 import * as authController from './authController';
-import { authenticate } from './authMiddleware';
-import { loginRateLimit, signupRateLimit } from './authRateLimit';
-import { validate } from './authValidate';
+import { authenticate, validate } from './authMiddleware';
 import {
   loginSchema,
   providerParamSchema,
   signupSchema,
-  socialQuerySchema,
+  socialAuthSchema,
   updateMeSchema,
   updatePasswordSchema,
 } from './authValidation';
 
 const router = Router();
+
+// express-rate-limit 은 errorHandler를 거치지 않고 자체 429 응답한다.
+const rateLimitMessage = {
+  message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+};
+
+// 로그인 / 비밀번호 변경 / 소셜 — 자격 증명 브루트포스 방어
+const loginRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 10, // IP당 10분에 10회
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: rateLimitMessage,
+});
+
+// 회원가입 — 대량 계정 생성 방어
+const signupRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5, // IP당 1시간에 5회
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: rateLimitMessage,
+});
 
 /**
  * @swagger
@@ -181,55 +203,46 @@ router.patch(
 
 /**
  * @swagger
- * /auth/{provider}/callback:
- *   get:
+ * /auth/social/{provider}:
+ *   post:
  *     tags: [Auth]
- *     summary: 소셜 로그인 콜백
+ *     summary: 소셜 로그인 (프론트 릴레이)
+ *     description: >
+ *       프론트가 프로바이더 authorize 후 받은 code 를 전달하면, 백엔드가 code→token→프로필
+ *       교환 후 accessToken/refreshToken 쿠키를 설정한다. redirect_uri 는 프론트 소유.
  *     parameters:
  *       - in: path
  *         name: provider
  *         required: true
- *         schema:
- *           type: string
- *           enum: [google, kakao, naver]
+ *         schema: { type: string, enum: [google, kakao, naver] }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code, redirectUri, role]
+ *             properties:
+ *               code: { type: string }
+ *               redirectUri: { type: string, description: 프론트가 authorize 에 쓴 redirect_uri }
+ *               state: { type: string, description: 네이버 필수 }
+ *               role: { type: string, enum: [CUSTOMER, MOVER] }
  *     responses:
- *       302:
- *         description: 프론트 /auth/callback 으로 리다이렉트
+ *       200:
+ *         description: 로그인 성공. 쿠키 설정
+ *       400:
+ *         description: code 교환 실패 / redirectUri 불일치 / 검증 실패
+ *       409:
+ *         description: 이미 사용 중인 이메일
+ *       503:
+ *         description: 해당 소셜 로그인 미설정
  */
-router.get(
-  '/:provider/callback',
+router.post(
+  '/social/:provider',
+  loginRateLimit,
   validate(providerParamSchema, 'params'),
-  authController.oauthCallback
-);
-
-/**
- * @swagger
- * /auth/{provider}:
- *   get:
- *     tags: [Auth]
- *     summary: 소셜 로그인 시작
- *     parameters:
- *       - in: path
- *         name: provider
- *         required: true
- *         schema:
- *           type: string
- *           enum: [google, kakao, naver]
- *       - in: query
- *         name: role
- *         required: true
- *         schema:
- *           type: string
- *           enum: [CUSTOMER, MOVER]
- *     responses:
- *       302:
- *         description: 소셜 제공자 로그인 페이지로 리다이렉트
- */
-router.get(
-  '/:provider',
-  validate(providerParamSchema, 'params'),
-  validate(socialQuerySchema, 'query'),
-  authController.startOAuth
+  validate(socialAuthSchema),
+  authController.socialLogin
 );
 
 export default router;

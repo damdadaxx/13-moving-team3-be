@@ -74,13 +74,20 @@ export const providerParamSchema = z.object({
   }),
 });
 
-export const socialQuerySchema = z.object({
-  role: roleSchema,
-});
+// 프론트 릴레이 방식: 프론트가 프로바이더에서 받은 code 를 백엔드로 전달
+export const socialAuthSchema = z.object(
+  {
+    code: z.string('code는 필수 값입니다.').min(1, 'code는 필수 값입니다.'),
+    redirectUri: z.url('redirectUri 형식이 올바르지 않습니다.'),
+    state: z.string().optional(),
+    role: roleSchema,
+  },
+  { error: '요청 본문이 올바르지 않습니다.' }
+);
 
 export type SignupInput = z.infer<typeof signupSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 export type ProviderParam = z.infer<typeof providerParamSchema>;
-export type SocialQuery = z.infer<typeof socialQuerySchema>;
+export type SocialAuthInput = z.infer<typeof socialAuthSchema>;

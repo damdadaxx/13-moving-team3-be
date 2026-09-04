@@ -1,5 +1,8 @@
-import { AuthProvider, Prisma } from '../../generated/prisma/client';
+import jwt from 'jsonwebtoken';
+import { AuthProvider, Prisma, Role } from '../../generated/prisma/client';
+import { ENV } from '../../config/env';
 import {
+  AppError,
   BadRequestError,
   ConflictError,
   ForbiddenError,
@@ -11,25 +14,277 @@ import {
   hashRefreshToken,
 } from '../../utils/hash';
 import {
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-  verifyRefreshTokenAllowExpired,
-} from './authJwt';
+  ACCESS_TOKEN_EXPIRES_IN,
+  REFRESH_TOKEN_EXPIRES_IN,
+} from './authConstants';
 import { authRepository, PublicUser } from './authRepository';
-import { SocialProfile } from './authTypes';
 import {
   LoginInput,
+  ProviderParam,
   SignupInput,
+  SocialAuthInput,
   UpdateMeInput,
   UpdatePasswordInput,
 } from './authValidation';
+
+// 타입
+export type TokenPayload = {
+  sub: string;
+  role: Role;
+};
+
+type SocialProvider = 'google' | 'kakao' | 'naver';
+
+type SocialProfile = {
+  provider: AuthProvider;
+  providerId: string;
+  email?: string;
+  name: string;
+  phoneNumber?: string;
+};
 
 type AuthResult = {
   user: PublicUser;
   accessToken: string;
   refreshToken: string;
 };
+
+// JWT
+const isRole = (value: unknown): value is Role =>
+  value === 'CUSTOMER' || value === 'MOVER';
+
+const signAccessToken = (userId: string, role: Role) =>
+  jwt.sign({ role }, ENV.JWT_ACCESS_SECRET, {
+    subject: userId,
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
+  });
+
+const signRefreshToken = (userId: string, role: Role) =>
+  jwt.sign({ role }, ENV.JWT_REFRESH_SECRET, {
+    subject: userId,
+    expiresIn: REFRESH_TOKEN_EXPIRES_IN,
+  });
+
+// 미들웨어(authenticate)에서 사용
+export const verifyAccessToken = (token: string): TokenPayload => {
+  try {
+    const decoded = jwt.verify(token, ENV.JWT_ACCESS_SECRET);
+    const payload = decoded as jwt.JwtPayload & { role?: unknown };
+    if (!payload.sub || !isRole(payload.role)) {
+      throw new UnauthorizedError('액세스 토큰이 유효하지 않습니다.');
+    }
+    return { sub: payload.sub, role: payload.role };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) throw error;
+    throw new UnauthorizedError(
+      '액세스 토큰이 만료되었거나 유효하지 않습니다.'
+    );
+  }
+};
+
+const verifyRefreshToken = (token: string): TokenPayload => {
+  try {
+    const decoded = jwt.verify(token, ENV.JWT_REFRESH_SECRET);
+    const payload = decoded as jwt.JwtPayload & { role?: unknown };
+    if (!payload.sub || !isRole(payload.role)) {
+      throw new UnauthorizedError('리프레시 토큰이 유효하지 않습니다.');
+    }
+    return { sub: payload.sub, role: payload.role };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) throw error;
+    throw new UnauthorizedError(
+      '리프레시 토큰이 만료되었거나 유효하지 않습니다.'
+    );
+  }
+};
+
+// 로그아웃 전용: 서명은 검증하되 만료는 허용한다.
+// access 토큰이 만료된 상태에서도 refresh 쿠키만으로 사용자를 식별하기 위함.
+const verifyRefreshTokenAllowExpired = (token: string): TokenPayload | null => {
+  try {
+    const decoded = jwt.verify(token, ENV.JWT_REFRESH_SECRET, {
+      ignoreExpiration: true,
+    });
+    const payload = decoded as jwt.JwtPayload & { role?: unknown };
+    if (!payload.sub || !isRole(payload.role)) {
+      return null;
+    }
+    return { sub: payload.sub, role: payload.role };
+  } catch {
+    return null;
+  }
+};
+
+// 소셜 프로바이더 연동 (프론트 릴레이: 프론트가 받은 code 를 백엔드가 교환)
+type ProviderConfig = {
+  authProvider: AuthProvider;
+  tokenUrl: string;
+  userInfoUrl: string;
+  clientId?: string;
+  clientSecret?: string;
+};
+
+const socialConfigs: Record<SocialProvider, ProviderConfig> = {
+  google: {
+    authProvider: 'GOOGLE',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    userInfoUrl: 'https://openidconnect.googleapis.com/v1/userinfo',
+    clientId: ENV.GOOGLE_CLIENT_ID,
+    clientSecret: ENV.GOOGLE_CLIENT_SECRET,
+  },
+  kakao: {
+    authProvider: 'KAKAO',
+    tokenUrl: 'https://kauth.kakao.com/oauth/token',
+    userInfoUrl: 'https://kapi.kakao.com/v2/user/me',
+    clientId: ENV.KAKAO_CLIENT_ID,
+    clientSecret: ENV.KAKAO_CLIENT_SECRET,
+  },
+  naver: {
+    authProvider: 'NAVER',
+    tokenUrl: 'https://nid.naver.com/oauth2.0/token',
+    userInfoUrl: 'https://openapi.naver.com/v1/nid/me',
+    clientId: ENV.NAVER_CLIENT_ID,
+    clientSecret: ENV.NAVER_CLIENT_SECRET,
+  },
+};
+
+type GoogleUserInfo = { sub?: string; email?: string; name?: string };
+type KakaoUserInfo = {
+  id?: number | string;
+  kakao_account?: {
+    email?: string;
+    phone_number?: string;
+    profile?: { nickname?: string };
+  };
+};
+type NaverUserInfo = {
+  response?: {
+    id?: string;
+    email?: string;
+    name?: string;
+    nickname?: string;
+    mobile?: string;
+  };
+};
+
+const normalizeEmail = (email: unknown) =>
+  typeof email === 'string' && email.trim()
+    ? email.trim().toLowerCase()
+    : undefined;
+
+const isSocialConfigured = (provider: SocialProvider) =>
+  Boolean(
+    socialConfigs[provider].clientId && socialConfigs[provider].clientSecret
+  );
+
+/** code → access_token 교환 */
+const exchangeSocialCode = async (
+  provider: SocialProvider,
+  code: string,
+  redirectUri: string,
+  state?: string
+): Promise<string> => {
+  const config = socialConfigs[provider];
+  const params = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: config.clientId!,
+    client_secret: config.clientSecret!,
+    code,
+  });
+  // 네이버는 redirect_uri 대신 state 를 요구하고, 나머지는 redirect_uri 를 요구한다.
+  if (provider === 'naver') {
+    params.set('state', state ?? '');
+  } else {
+    params.set('redirect_uri', redirectUri);
+  }
+
+  const res = await fetch(config.tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params,
+  });
+  const data = (await res.json().catch(() => null)) as {
+    access_token?: string;
+  } | null;
+
+  if (!res.ok || !data?.access_token) {
+    if (ENV.NODE_ENV !== 'production') {
+      console.error(`[social] ${provider} token exchange failed`, data);
+    }
+    throw new BadRequestError('소셜 인증에 실패했습니다.');
+  }
+  return data.access_token;
+};
+
+/** access_token → 프로필 조회 및 정규화 */
+const fetchSocialProfile = async (
+  provider: SocialProvider,
+  accessToken: string
+): Promise<SocialProfile> => {
+  const res = await fetch(socialConfigs[provider].userInfoUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new BadRequestError('소셜 프로필 조회에 실패했습니다.');
+  }
+  const data: unknown = await res.json();
+
+  switch (provider) {
+    case 'google': {
+      const d = (data ?? {}) as GoogleUserInfo;
+      return {
+        provider: 'GOOGLE',
+        providerId: String(d.sub),
+        email: normalizeEmail(d.email),
+        name: d.name || '사용자',
+      };
+    }
+    case 'kakao': {
+      const d = (data ?? {}) as KakaoUserInfo;
+      const account = d.kakao_account ?? {};
+      return {
+        provider: 'KAKAO',
+        providerId: String(d.id),
+        email: normalizeEmail(account.email),
+        name: account.profile?.nickname || '사용자',
+        phoneNumber: account.phone_number,
+      };
+    }
+    case 'naver': {
+      const d = (data ?? {}) as NaverUserInfo;
+      const response = d.response ?? {};
+      return {
+        provider: 'NAVER',
+        providerId: String(response.id),
+        email: normalizeEmail(response.email),
+        name: response.nickname || response.name || '사용자',
+        phoneNumber: response.mobile,
+      };
+    }
+  }
+};
+
+const getSocialProfile = async (
+  provider: SocialProvider,
+  code: string,
+  redirectUri: string,
+  state?: string
+): Promise<SocialProfile> => {
+  if (!isSocialConfigured(provider)) {
+    throw new AppError('해당 소셜 로그인이 설정되지 않았습니다.', 503);
+  }
+  const accessToken = await exchangeSocialCode(
+    provider,
+    code,
+    redirectUri,
+    state
+  );
+  return fetchSocialProfile(provider, accessToken);
+};
+
+// ────────────────────────────────────────────────
+// 내부 헬퍼
+// ────────────────────────────────────────────────
 
 const toPublicUser = (user: {
   id: string;
@@ -65,6 +320,10 @@ const issueTokens = async (user: PublicUser): Promise<AuthResult> => {
 const isUniqueConflict = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2002';
+
+// ────────────────────────────────────────────────
+// authService (public API)
+// ────────────────────────────────────────────────
 
 export const authService = {
   async signUp(input: SignupInput): Promise<AuthResult> {
@@ -194,10 +453,18 @@ export const authService = {
     await authRepository.updatePassword(user.id, password);
   },
 
+  // 프론트가 넘긴 code 를 교환해 프로필을 얻고, provider+role 로 유저를 찾거나 만든다.
   async socialLogin(
-    profile: SocialProfile,
-    role: PublicUser['role']
+    input: ProviderParam & SocialAuthInput
   ): Promise<AuthResult> {
+    const profile = await getSocialProfile(
+      input.provider,
+      input.code,
+      input.redirectUri,
+      input.state
+    );
+    const { role } = input;
+
     if (!profile.email) {
       throw new BadRequestError(
         '소셜 계정에서 이메일을 가져올 수 없습니다. 이메일 제공에 동의해 주세요.'
@@ -209,7 +476,6 @@ export const authService = {
       profile.providerId,
       role
     );
-
     if (existingByProvider) {
       return issueTokens(toPublicUser(existingByProvider));
     }

@@ -9,6 +9,8 @@ declare global {
     }
 
     interface Request {
+      // 이전엔 @types/passport 가 제공하던 타입. passport 제거로 여기서 선언한다.
+      user?: User;
       validatedData?: unknown;
     }
   }
