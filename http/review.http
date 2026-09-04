@@ -1,0 +1,17 @@
+@baseUrl = http://localhost:3001
+
+###
+GET {{baseUrl}}/reviews/me?page=1&pageSize=10&hasReview=false
+
+###
+GET {{baseUrl}}/reviews/mover/10000000-0000-4000-8000-000000000001
+###
+POST {{baseUrl}}/reviews
+content-type: application/json
+
+{
+  "estimateId": "97941866-214d-492e-bb06-c6dcc72bbd03",
+  "content": "기사님이 너무너무너무 친절 했어요.",
+  "rating": 5
+}
+
