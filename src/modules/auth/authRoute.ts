@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { authenticate } from '../../middlewares/authenticate';
+import { validate } from '../../middlewares/validation';
 import * as authController from './authController';
-import authErrorHandler from './authErrorHandler';
-import { authenticate, validate } from './authMiddleware';
 import {
   loginSchema,
-  providerParamSchema,
   signupSchema,
   socialAuthSchema,
   updateMeSchema,
@@ -78,16 +77,17 @@ router.patch(
   authController.updatePassword
 );
 
+// 공용 validate 는 req.validatedData 를 덮어써서 params + body 를 같이 담지 못한다.
+// :provider 는 컨트롤러에서 providerParamSchema 로 직접 검증한다.
 router.post(
   '/social/:provider',
   loginRateLimit,
-  validate(providerParamSchema, 'params'),
   validate(socialAuthSchema),
   authController.socialLogin
 );
 
 // auth 응답만 { success, data } / { success, message, code } 로 통일한다.
 // 공용 errorHandler(app.ts)까지 가기 전에 여기서 끝낸다.
-router.use(authErrorHandler);
+router.use(authController.errorHandler);
 
 export default router;

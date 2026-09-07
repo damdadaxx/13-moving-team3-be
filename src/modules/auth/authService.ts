@@ -65,23 +65,7 @@ const signRefreshToken = (userId: string, role: Role) =>
     expiresIn: REFRESH_TOKEN_EXPIRES_IN,
   });
 
-// 미들웨어(authenticate)에서 사용
-export const verifyAccessToken = (token: string): TokenPayload => {
-  try {
-    const decoded = jwt.verify(token, ENV.JWT_ACCESS_SECRET);
-    const payload = decoded as jwt.JwtPayload & { role?: unknown };
-    if (!payload.sub || !isRole(payload.role)) {
-      throw new UnauthorizedError('액세스 토큰이 유효하지 않습니다.');
-    }
-    return { sub: payload.sub, role: payload.role };
-  } catch (error) {
-    if (error instanceof UnauthorizedError) throw error;
-    throw new UnauthorizedError(
-      '액세스 토큰이 만료되었거나 유효하지 않습니다.'
-    );
-  }
-};
-
+// access 토큰 검증은 middlewares/authenticate 의 express-jwt 가 담당한다(req.auth).
 const verifyRefreshToken = (token: string): TokenPayload => {
   try {
     const decoded = jwt.verify(token, ENV.JWT_REFRESH_SECRET);
