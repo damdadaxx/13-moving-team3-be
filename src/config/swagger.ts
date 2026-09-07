@@ -14,10 +14,10 @@ const options: swaggerJSDoc.Options = {
     servers: [{ url: `http://localhost:${ENV.PORT}` }],
     components: {
       securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
+        cookieAuth: {
+          type: 'apiKey',
+          in: 'cookie',
+          name: 'accessToken',
         },
       },
     },
