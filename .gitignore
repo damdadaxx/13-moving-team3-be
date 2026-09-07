@@ -52,10 +52,11 @@ Desktop.ini
 .cursor/
 
 # documentation
-docs/
-/src/generated/prisma
+/src/generated
 
 # claude
 .agents
 .windsurf
 .claude
+
+skills-lock.json
