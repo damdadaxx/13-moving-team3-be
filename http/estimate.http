@@ -7,6 +7,12 @@
 # 한지민 - PENDING 요청(PROPOSED 2건 + DESIGNATED 1건 + REJECTED 1건) 보유, DESIGNATED/REJECTED는 응답에서 빠져야 함
 @moverId = 10000000-0000-4000-8000-000000000001
 # 김민재 - 여러 견적요청에 PROPOSED/ACCEPTED/NOT_SELECTED 견적 보유
+@otherCustomerId = 20000000-0000-4000-8000-000000000002
+# 오세훈 - 다른 고객 (403 확인용)
+@proposedEstimateId = 40000000-0000-4000-8000-000000000001
+# 한지민 요청 / 김민재 PROPOSED 견적 (PENDING 요청) -> canConfirm true 기대
+@designatedEstimateId = 40000000-0000-4000-8000-000000000014
+# 배진우 요청 / 김민재 DESIGNATED 견적 (PENDING 요청) -> canRespond true 기대
 
 ### 내 견적 목록 - 고객 기본 조회 (기본값: size=10, cursor 없음 = 첫 페이지)
 GET {{baseUrl}}/estimates
@@ -61,3 +67,31 @@ x-user-role: CUSTOMER
 
 ### 유저 정보 없이 요청 -> 401 UnauthorizedError
 GET {{baseUrl}}/estimates
+
+### 견적 상세 - 고객 본인 견적 (PENDING+PROPOSED -> canConfirm: true)
+GET {{baseUrl}}/estimates/{{proposedEstimateId}}
+x-user-id: {{customerId}}
+x-user-role: CUSTOMER
+
+### 견적 상세 - 기사 본인 견적 (PENDING+DESIGNATED -> canRespond: true)
+GET {{baseUrl}}/estimates/{{designatedEstimateId}}
+x-user-id: {{moverId}}
+x-user-role: MOVER
+
+### 견적 상세 - 403 FORBIDDEN (본인 견적/요청 아님)
+GET {{baseUrl}}/estimates/{{proposedEstimateId}}
+x-user-id: {{otherCustomerId}}
+x-user-role: CUSTOMER
+
+### 견적 상세 - 404 ESTIMATE_NOT_FOUND
+GET {{baseUrl}}/estimates/00000000-0000-4000-8000-000000000000
+x-user-id: {{customerId}}
+x-user-role: CUSTOMER
+
+### 견적 상세 - 400 (estimateId가 uuid 아님)
+GET {{baseUrl}}/estimates/not-a-uuid
+x-user-id: {{customerId}}
+x-user-role: CUSTOMER
+
+### 견적 상세 - 유저 정보 없이 요청 -> 401 UnauthorizedError
+GET {{baseUrl}}/estimates/{{proposedEstimateId}}

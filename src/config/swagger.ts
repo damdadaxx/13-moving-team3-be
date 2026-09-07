@@ -14,6 +14,7 @@ const options: swaggerJSDoc.Options = {
     servers: [{ url: `http://localhost:${ENV.PORT}` }],
     components: {
       securitySchemes: {
+        // accessToken은 accessToken 쿠키로 내려주고 검증합니다.
         cookieAuth: {
           type: 'apiKey',
           in: 'cookie',
@@ -23,9 +24,8 @@ const options: swaggerJSDoc.Options = {
     },
   },
   // 개발은 src의 .ts, 프로덕션은 빌드된 dist의 .js를 읽음
-  apis: isProd
-    ? ['./dist/routes/*.js', './dist/swaggertest/*.js']
-    : ['./src/routes/*.ts', './src/swaggertest/*.ts'],
+  // swagger용 @openapi JSDoc은 src/docs/ 아래에 모아서 작성한다.
+  apis: isProd ? ['./dist/docs/*.js'] : ['./src/docs/*.ts'],
 };
 
 export const swaggerSpec = swaggerJSDoc(options);
