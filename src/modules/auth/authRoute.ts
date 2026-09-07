@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as authController from './authController';
+import authErrorHandler from './authErrorHandler';
 import { authenticate, validate } from './authMiddleware';
 import {
   loginSchema,
@@ -16,8 +17,8 @@ const router = Router();
 // express-rate-limit 은 errorHandler를 거치지 않고 자체 429 응답한다.
 const rateLimitMessage = {
   success: false,
-  data: null,
   message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
+  code: 'TOO_MANY_REQUESTS',
 };
 
 // TODO: 기본 keyGenerator 가 IP 만 사용. 공유 IP(회사/학교 NAT)에서 무고한 사용자가 함께 잠길 수 있음. 여유되면 email+IP 조합 키로 변경.
@@ -84,5 +85,9 @@ router.post(
   validate(socialAuthSchema),
   authController.socialLogin
 );
+
+// auth 응답만 { success, data } / { success, message, code } 로 통일한다.
+// 공용 errorHandler(app.ts)까지 가기 전에 여기서 끝낸다.
+router.use(authErrorHandler);
 
 export default router;
