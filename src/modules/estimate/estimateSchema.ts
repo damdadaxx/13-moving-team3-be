@@ -27,3 +27,11 @@ export const getEstimatesQuerySchema = z.object({
 });
 
 export type GetEstimatesQueryDto = z.infer<typeof getEstimatesQuerySchema>;
+
+export const getEstimateDetailParamsSchema = z.object({
+  estimateId: z.string().uuid(),
+});
+
+export type GetEstimateDetailParamsDto = z.infer<
+  typeof getEstimateDetailParamsSchema
+>;

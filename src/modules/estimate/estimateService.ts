@@ -1,8 +1,13 @@
-import { Role } from '../../generated/prisma/client';
+import { EstimateStatus, Role } from '../../generated/prisma/client';
+import { ForbiddenError, NotFoundError } from '../../utils/error';
 import * as estimateRequestRepository from './estimateRequestRepository';
+import * as estimateRepository from './estimateRepository';
 import { buildEstimateWhere } from './estimateFilter';
-import { toEstimateListItem } from './estimateMapper';
-import { GetEstimatesQueryDto } from './estimateDto';
+import { toEstimateDetail, toEstimateListItem } from './estimateMapper';
+import {
+  GetEstimateDetailParamsDto,
+  GetEstimatesQueryDto,
+} from './estimateSchema';
 
 export const getEstimates = async (
   userId: string,
@@ -39,4 +44,38 @@ export const getEstimates = async (
     nextCursor,
     totalCount,
   };
+};
+
+export const getEstimateDetail = async (
+  userId: string,
+  role: Role,
+  estimateId: GetEstimateDetailParamsDto['estimateId']
+) => {
+  const estimate = await estimateRepository.findByIdWithDetail(estimateId);
+
+  if (!estimate) {
+    throw new NotFoundError('견적을 찾을 수 없습니다.', 'ESTIMATE_NOT_FOUND');
+  }
+
+  const isOwner =
+    role === Role.CUSTOMER
+      ? estimate.estimateRequest.customerId === userId
+      : estimate.moverId === userId;
+
+  if (!isOwner) {
+    throw new ForbiddenError('본인의 견적/요청이 아닙니다.');
+  }
+
+  const isRequestPending = estimate.estimateRequest.status === 'PENDING';
+
+  return toEstimateDetail(estimate, {
+    canConfirm:
+      role === Role.CUSTOMER &&
+      isRequestPending &&
+      estimate.status === EstimateStatus.PROPOSED,
+    canRespond:
+      role === Role.MOVER &&
+      isRequestPending &&
+      estimate.status === EstimateStatus.DESIGNATED,
+  });
 };
