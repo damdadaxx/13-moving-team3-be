@@ -22,24 +22,16 @@ export default function errorHandler(
     });
   }
 
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        path: req.path,
-        method: req.method,
-        message: '데이터를 찾을 수 없습니다.',
-        date: new Date(),
-      });
-    }
-
-    if (error.code === 'P2002') {
-      return res.status(409).json({
-        path: req.path,
-        method: req.method,
-        message: '이미 존재하는 데이터입니다.',
-        date: new Date(),
-      });
-    }
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2025'
+  ) {
+    return res.status(404).json({
+      path: req.path,
+      method: req.method,
+      message: '데이터를 찾을 수 없습니다.',
+      date: new Date(),
+    });
   }
 
   if (error instanceof AppError) {
