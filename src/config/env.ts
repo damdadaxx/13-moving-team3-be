@@ -20,11 +20,9 @@ for (const key of required) {
   }
 }
 
-const port = Number(process.env.PORT) || 3000;
-
 export const ENV = {
   NODE_ENV: env,
-  PORT: port,
+  PORT: Number(process.env.PORT) || 3000,
   DATABASE_URL: process.env.DATABASE_URL!,
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET!,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET!,
