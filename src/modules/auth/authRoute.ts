@@ -18,6 +18,9 @@ const rateLimitMessage = {
   message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
 };
 
+// TODO: 기본 keyGenerator 가 IP 만 사용. 공유 IP(회사/학교 NAT)에서 무고한 사용자가 함께 잠길 수 있음. 여유되면 email+IP 조합 키로 변경.
+// TODO: 배포 시 app.set('trust proxy', ...) 없으면 모든 요청이 프록시 IP 로 잡혀
+//   전원 같은 버킷 → 즉시 429 + ValidationError. (app.ts 참고)
 // 로그인 / 비밀번호 변경 / 소셜 — 자격 증명 브루트포스 방어
 const loginRateLimit = rateLimit({
   windowMs: 10 * 60 * 1000,

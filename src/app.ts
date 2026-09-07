@@ -11,6 +11,8 @@ import authRouter from './modules/auth/authRoute';
 
 const app = express();
 
+// app.set('trust proxy', 1);
+
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());

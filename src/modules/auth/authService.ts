@@ -191,6 +191,8 @@ const exchangeSocialCode = async (
     client_secret: config.clientSecret!,
     code,
   });
+  // TODO: OAuth state(CSRF 방어) 검증이 백엔드에 없음. 프론트 릴레이 구조라 state 생성·검증은
+  //   전적으로 프론트 책임 상태. 네이버 state 도 여기선 그대로 전달만 하고 우리가 발급한 값인지 확인하지 않음. 프론트팀과 "state 는 프론트가 생성/검증한다" 문서로 합의 필요.
   // 네이버는 redirect_uri 대신 state 를 요구하고, 나머지는 redirect_uri 를 요구한다.
   if (provider === 'naver') {
     params.set('state', state ?? '');
@@ -230,6 +232,10 @@ const fetchSocialProfile = async (
   const data: unknown = await res.json();
 
   switch (provider) {
+    // TODO: providerId 가 없을 때 String(undefined) → "undefined" 문자열로 저장/조회됨.
+    //   각 case 에서 id 누락 시 BadRequestError 로 가드 필요.
+    // TODO: 소셜 phoneNumber(카카오 "+82 10-...", 네이버 "010-...")를 정규화 없이 저장.
+    //   회원가입 폼의 전화번호 형식과 불일치 → 저장 전 정규화 필요.
     case 'google': {
       const d = (data ?? {}) as GoogleUserInfo;
       return {
@@ -418,6 +424,8 @@ export const authService = {
 
   async getMe(userId: string): Promise<PublicUser> {
     const user = await authRepository.findPublicById(userId);
+    // TODO: 쿠키는 유효한데 유저만 없는 상황(탈퇴 등). 401 이면 프론트가 refresh 재시도 →
+    //   무한 루프 가능. 프론트가 이 케이스에선 쿠키 정리 후 로그인 화면으로 보내도록 협의 필요.
     if (!user) {
       throw new UnauthorizedError('유저를 찾을 수 없습니다.');
     }
@@ -451,6 +459,8 @@ export const authService = {
 
     const password = await hashPassword(input.newPassword);
     await authRepository.updatePassword(user.id, password);
+    // TODO: 비밀번호 변경 시 기존 refreshToken 무효화(updateRefreshToken(user.id, null))로
+    //   다른 기기/세션 재로그인 유도. 현재는 변경 후에도 기존 세션이 그대로 유효함.
   },
 
   // 프론트가 넘긴 code 를 교환해 프로필을 얻고, provider+role 로 유저를 찾거나 만든다.
@@ -487,6 +497,7 @@ export const authService = {
     if (existingByEmail) {
       throw new ConflictError('이미 사용 중인 이메일입니다.');
     }
+    // TODO: 간편로그인 구현 이후 에러 메세지 분기 or 비번 확인후 소셜 계정을 기존 계정에 연동하는 로직 필요
 
     try {
       const user = await authRepository.create({

@@ -21,10 +21,11 @@ import {
 const getValidated = <T>(req: Request) => req.validatedData as T;
 
 // 쿠키 (인증서 전달 = 응답 관심사라 컨트롤러에 둔다)
-// TODO: 프론트 BFF 도입 후 sameSite 를 'lax' 로 유지, secure 는 배포에서만
+// - secure: 개발은 http 라 false, 배포(https)만 true. true 고정 시 로컬에서 쿠키가 안 실림
+// - sameSite: 'lax' — 프론트 BFF(같은 오리진) 전제. 직접 크로스 오리진 배포라면 'none' 필요
 const baseCookieOptions = (): CookieOptions => ({
   httpOnly: true,
-  secure: true,
+  secure: ENV.NODE_ENV === 'production',
   sameSite: 'lax',
   ...(ENV.COOKIE_DOMAIN ? { domain: ENV.COOKIE_DOMAIN } : {}),
 });
