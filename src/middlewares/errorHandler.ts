@@ -6,19 +6,21 @@ import { ENV } from '../config/env';
 
 export default function errorHandler(
   error: unknown,
-  req: Request,
+  _req: Request,
   res: Response,
   _next: NextFunction
 ) {
   if (error instanceof z.ZodError) {
     return res.status(400).json({
-      path: req.path,
-      method: req.method,
-      errors: error.issues.map((e) => ({
-        field: e.path.join('.'),
-        message: e.message,
-      })),
-      date: new Date(),
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: '요청 값이 올바르지 않습니다.',
+        fields: error.issues.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+      },
     });
   }
 
@@ -27,10 +29,11 @@ export default function errorHandler(
     error.code === 'P2025'
   ) {
     return res.status(404).json({
-      path: req.path,
-      method: req.method,
-      message: '데이터를 찾을 수 없습니다.',
-      date: new Date(),
+      success: false,
+      error: {
+        code: 'NOT_FOUND',
+        message: '데이터를 찾을 수 없습니다.',
+      },
     });
   }
 
@@ -39,23 +42,25 @@ export default function errorHandler(
       console.error(error);
     }
     return res.status(error.status).json({
-      path: req.path,
-      method: req.method,
-      message: error.message,
-      date: new Date(),
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+      },
     });
   }
 
   console.error(error);
   return res.status(500).json({
-    path: req.path,
-    method: req.method,
-    message:
-      ENV.NODE_ENV === 'production'
-        ? 'Internal Server Error'
-        : error instanceof Error
-          ? error.message
-          : 'Internal Server Error',
-    date: new Date(),
+    success: false,
+    error: {
+      code: 'INTERNAL_SERVER_ERROR',
+      message:
+        ENV.NODE_ENV === 'production'
+          ? 'Internal Server Error'
+          : error instanceof Error
+            ? error.message
+            : 'Internal Server Error',
+    },
   });
 }

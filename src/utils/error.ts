@@ -2,11 +2,12 @@
  * 커스텀 에러 클래스 모음
  *
  * 사용법:
- * throw new NotFoundError();                        // 기본 메시지
- * throw new NotFoundError("유저를 찾을 수 없습니다."); // 커스텀 메시지
+ * throw new NotFoundError();                                   // 기본 메시지 + 기본 code
+ * throw new NotFoundError("유저를 찾을 수 없습니다.");            // 커스텀 메시지
+ * throw new NotFoundError("유저를 찾을 수 없습니다.", "USER_NOT_FOUND"); // 커스텀 메시지 + code
  *
  * 이 클래스들로 throw한 에러는 errorHandler가 instanceof AppError 분기에서
- * status와 message를 그대로 사용해 응답합니다.
+ * status/code/message를 그대로 사용해 응답합니다.
  * 그 외 예상치 못한 에러(TypeError 등)는 마지막 분기에서 500으로 처리됩니다.
  *
  * isOperational은 "의도적으로 던진 예측 가능한 에러"라는 표시로 항상 true이며,
@@ -19,11 +20,13 @@
  */
 export class AppError extends Error {
   status: number;
+  code: string;
   isOperational: boolean;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code: string) {
     super(message);
     this.status = status;
+    this.code = code;
     this.isOperational = true;
     this.name = 'AppError';
   }
@@ -34,8 +37,11 @@ export class AppError extends Error {
  *  throw new NotFoundError("유저를 찾을 수 없습니다.");
  */
 export class NotFoundError extends AppError {
-  constructor(message = '요청한 데이터를 찾을 수 없습니다.') {
-    super(message, 404);
+  constructor(
+    message = '요청한 데이터를 찾을 수 없습니다.',
+    code = 'NOT_FOUND'
+  ) {
+    super(message, 404, code);
     this.name = 'NotFoundError';
   }
 }
@@ -45,8 +51,11 @@ export class NotFoundError extends AppError {
  *  throw new UnauthorizedError("이메일 또는 비밀번호가 올바르지 않습니다.");
  */
 export class UnauthorizedError extends AppError {
-  constructor(message = '인증 권한이 없습니다. 로그인 후 이용해 주세요.') {
-    super(message, 401);
+  constructor(
+    message = '인증 권한이 없습니다. 로그인 후 이용해 주세요.',
+    code = 'UNAUTHORIZED'
+  ) {
+    super(message, 401, code);
     this.name = 'UnauthorizedError';
   }
 }
@@ -56,8 +65,8 @@ export class UnauthorizedError extends AppError {
  *  throw new ForbiddenError("관리자만 접근할 수 있습니다.");
  */
 export class ForbiddenError extends AppError {
-  constructor(message = '접근 권한이 없습니다.') {
-    super(message, 403);
+  constructor(message = '접근 권한이 없습니다.', code = 'FORBIDDEN') {
+    super(message, 403, code);
     this.name = 'ForbiddenError';
   }
 }
@@ -67,8 +76,8 @@ export class ForbiddenError extends AppError {
  *  throw new ConflictError("이미 사용 중인 이메일입니다.");
  */
 export class ConflictError extends AppError {
-  constructor(message = '이미 존재하는 데이터입니다.') {
-    super(message, 409);
+  constructor(message = '이미 존재하는 데이터입니다.', code = 'CONFLICT') {
+    super(message, 409, code);
     this.name = 'ConflictError';
   }
 }
@@ -76,10 +85,11 @@ export class ConflictError extends AppError {
 /**
  * 400 - 요청 데이터가 잘못됐을 때
  *  throw new BadRequestError("비밀번호가 일치하지 않습니다.");
+ *  throw new BadRequestError("잘못된 status 값입니다.", "INVALID_QUERY");
  */
 export class BadRequestError extends AppError {
-  constructor(message = '잘못된 요청입니다.') {
-    super(message, 400);
+  constructor(message = '잘못된 요청입니다.', code = 'BAD_REQUEST') {
+    super(message, 400, code);
     this.name = 'BadRequestError';
   }
 }
