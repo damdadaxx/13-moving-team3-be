@@ -20,6 +20,9 @@ import {
 
 const getValidated = <T>(req: Request) => req.validatedData as T;
 
+const success = <T>(res: Response, data: T, status = 200) =>
+  res.status(status).json({ success: true, data });
+
 // 쿠키 (인증서 전달 = 응답 관심사라 컨트롤러에 둔다)
 // - secure: 개발은 http 라 false, 배포(https)만 true. true 고정 시 로컬에서 쿠키가 안 실림
 // - sameSite: 'lax' — 프론트 BFF(같은 오리진) 전제. 직접 크로스 오리진 배포라면 'none' 필요
@@ -62,14 +65,14 @@ export const signUp = async (req: Request, res: Response) => {
   const input = getValidated<SignupInput>(req);
   const { user, accessToken, refreshToken } = await authService.signUp(input);
   setAuthCookies(res, accessToken, refreshToken);
-  res.status(201).json(user);
+  success(res, user, 201);
 };
 
 export const login = async (req: Request, res: Response) => {
   const input = getValidated<LoginInput>(req);
   const { user, accessToken, refreshToken } = await authService.login(input);
   setAuthCookies(res, accessToken, refreshToken);
-  res.status(200).json(user);
+  success(res, user);
 };
 
 export const logout = async (req: Request, res: Response) => {
@@ -80,7 +83,7 @@ export const logout = async (req: Request, res: Response) => {
     await authService.logout(refreshToken);
   }
   clearAuthCookies(res);
-  res.status(200).json({ message: '로그아웃되었습니다.' });
+  success(res, { message: '로그아웃되었습니다.' });
 };
 
 export const refresh = async (req: Request, res: Response) => {
@@ -88,24 +91,24 @@ export const refresh = async (req: Request, res: Response) => {
     req.cookies?.[REFRESH_TOKEN_COOKIE]
   );
   setAuthCookies(res, accessToken, refreshToken);
-  res.status(200).json(user);
+  success(res, user);
 };
 
 export const getMe = async (req: Request, res: Response) => {
   const user = await authService.getMe(req.user!.id);
-  res.status(200).json(user);
+  success(res, user);
 };
 
 export const updateMe = async (req: Request, res: Response) => {
   const input = getValidated<UpdateMeInput>(req);
   const user = await authService.updateMe(req.user!.id, input);
-  res.status(200).json(user);
+  success(res, user);
 };
 
 export const updatePassword = async (req: Request, res: Response) => {
   const input = getValidated<UpdatePasswordInput>(req);
   await authService.changePassword(req.user!.id, input);
-  res.status(200).json({ message: '비밀번호가 변경되었습니다.' });
+  success(res, { message: '비밀번호가 변경되었습니다.' });
 };
 
 // 프론트 릴레이 소셜 로그인:
@@ -120,5 +123,5 @@ export const socialLogin = async (req: Request, res: Response) => {
   const { user, accessToken, refreshToken } =
     await authService.socialLogin(input);
   setAuthCookies(res, accessToken, refreshToken);
-  res.status(200).json(user);
+  success(res, user);
 };

@@ -15,6 +15,8 @@ const router = Router();
 
 // express-rate-limit 은 errorHandler를 거치지 않고 자체 429 응답한다.
 const rateLimitMessage = {
+  success: false,
+  data: null,
   message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
 };
 
