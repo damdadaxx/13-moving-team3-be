@@ -23,7 +23,7 @@ const reviewController = {
       hasReview,
     });
 
-    res.status(200).json(reviews);
+    res.status(200).json({ success: true, data: reviews });
   },
   getMoverReviews: async (req: Request, res: Response) => {
     const { moverId } = req.params as { moverId: string };
@@ -35,7 +35,7 @@ const reviewController = {
       pageSize,
     });
 
-    res.status(200).json(reviews);
+    res.status(200).json({ success: true, data: reviews });
   },
 
   createReview: async (req: Request, res: Response) => {
@@ -54,7 +54,7 @@ const reviewController = {
       rating,
     });
 
-    return res.status(201).json(review);
+    return res.status(201).json({ success: true, data: review });
   },
 };
 export default reviewController;

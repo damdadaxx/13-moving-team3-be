@@ -21,6 +21,7 @@ const options: swaggerJSDoc.Options = {
       },
     },
   },
+
   // @swagger 주석은 src/docs/{domain}Swagger.ts 에 모아둔다.
   //
   // dist가 아니라 src의 .ts를 읽는다.
