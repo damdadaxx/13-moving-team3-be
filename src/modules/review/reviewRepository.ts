@@ -52,9 +52,14 @@ const reviewRepository = {
 
     return reviews;
   },
-  getReviewCount: async (moverId: string) => {
-    const reviewCount = await prisma.review.count({ where: { moverId } });
-    return reviewCount;
+  getRatingInfo: async (moverId: string, where: Prisma.ReviewWhereInput) => {
+    const ratingInfo = await prisma.review.groupBy({
+      by: ['moverId'],
+      where,
+      _count: { rating: true },
+      _avg: { rating: true },
+    });
+    return ratingInfo;
   },
   getRatingDistribution: async (moverId: string) => {
     const ratingDistribution = await prisma.review.groupBy({
@@ -63,13 +68,6 @@ const reviewRepository = {
       _count: { rating: true },
     });
     return ratingDistribution;
-  },
-  getAverageRating: async (moverId: string) => {
-    const averageRating = await prisma.review.aggregate({
-      where: { moverId },
-      _avg: { rating: true },
-    });
-    return averageRating;
   },
   createReview: async (
     userId: string,

@@ -35,26 +35,30 @@ const reviewService = {
     return { list: estimates, totalPages };
   },
   getMoverReviews: async ({ moverId, page, pageSize }: GetMoverReviewsData) => {
-    const [reviews, distribution, ratingAvg, reviewCount] = await Promise.all([
+    const where: Prisma.ReviewWhereInput = { moverId };
+
+    const [reviews, distribution, ratingInfo] = await Promise.all([
       reviewRepository.getMoverReviews({
         moverId,
         page,
         pageSize,
       }),
       reviewRepository.getRatingDistribution(moverId),
-      reviewRepository.getAverageRating(moverId),
-      reviewRepository.getReviewCount(moverId),
+      reviewRepository.getRatingInfo(moverId, where),
     ]);
 
     const ratingDistribution = distribution.map((data) => {
       return { rating: data.rating, count: data._count.rating };
     });
 
+    const reviewCount = ratingInfo[0]?._count.rating ?? 0;
+    const ratingAvg = ratingInfo[0]?._avg.rating ?? 0;
+
     const totalPages = Math.ceil(reviewCount / pageSize);
     return {
       list: reviews,
       ratingDistribution,
-      ratingAvg: ratingAvg._avg.rating,
+      ratingAvg,
       reviewCount,
       totalPages,
     };
