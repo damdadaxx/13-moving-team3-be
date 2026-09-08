@@ -271,3 +271,133 @@
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     UpdateEstimateStatusResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             estimateId:
+ *               type: string
+ *               format: uuid
+ *             estimateRequestId:
+ *               type: string
+ *               format: uuid
+ *             status:
+ *               type: string
+ *               enum: [PROPOSED, REJECTED, ACCEPTED]
+ *
+ * /estimates/{estimateId}:
+ *   patch:
+ *     tags: [Estimate]
+ *     summary: 견적 상태 전환 (발송 / 반려 / 확정)
+ *     description: |
+ *       body.status 값에 따라 세 가지 동작을 처리한다.
+ *       - PROPOSED (MOVER): DESIGNATED → PROPOSED, price/comment 필요
+ *       - REJECTED (MOVER): DESIGNATED → REJECTED, rejectReason 필요
+ *       - ACCEPTED (CUSTOMER): PROPOSED → ACCEPTED, 추가 필드 없음
+ *
+ *       ACCEPTED 처리 시 같은 요청의 나머지 PROPOSED 견적은 NOT_SELECTED로,
+ *       견적 요청은 CONFIRMED로 함께 전환된다. DESIGNATED로 남은 행은 건드리지 않는다.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: estimateId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - type: object
+ *                 required: [status, price, comment]
+ *                 properties:
+ *                   status:
+ *                     type: string
+ *                     enum: [PROPOSED]
+ *                   price:
+ *                     type: integer
+ *                     example: 180000
+ *                   comment:
+ *                     type: string
+ *                     minLength: 10
+ *               - type: object
+ *                 required: [status, rejectReason]
+ *                 properties:
+ *                   status:
+ *                     type: string
+ *                     enum: [REJECTED]
+ *                   rejectReason:
+ *                     type: string
+ *                     minLength: 10
+ *               - type: object
+ *                 required: [status]
+ *                 properties:
+ *                   status:
+ *                     type: string
+ *                     enum: [ACCEPTED]
+ *           examples:
+ *             propose:
+ *               summary: 견적 발송
+ *               value: { status: 'PROPOSED', price: 180000, comment: '안전하게 모시겠습니다. 감사합니다.' }
+ *             reject:
+ *               summary: 반려
+ *               value: { status: 'REJECTED', rejectReason: '해당 날짜에 일정이 있어 어렵습니다.' }
+ *             accept:
+ *               summary: 확정
+ *               value: { status: 'ACCEPTED' }
+ *     responses:
+ *       200:
+ *         description: 전환 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UpdateEstimateStatusResponse'
+ *       400:
+ *         description: >
+ *           code: BAD_REQUEST — 허용되지 않는 status 값이거나(전환 대상이 아님),
+ *           price/comment/rejectReason 등 필드 검증 실패(이 경우 code는 VALIDATION_ERROR).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 정보 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: 본인의 견적/요청이 아님
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: 존재하지 않는 견적 (NOT_FOUND)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: >
+ *           code: CONFLICT — 현재 상태에서 불가능한 전환 / 이미 확정된 요청 / 이사일이 지난 요청.
+ *           구체적인 사유는 message로 구분한다.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */

@@ -84,7 +84,7 @@
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: `{ success, data }` 이름/이메일/전화번호 등 기본정보
+ *         description: 조회 성공. `{ success, data }` 이름/이메일/전화번호 등 기본정보
  *       401:
  *         description: 인증 필요
  *   patch:
@@ -103,7 +103,7 @@
  *               phoneNumber: { type: string }
  *     responses:
  *       200:
- *         description: `{ success, data }` 수정된 기본정보
+ *         description: 수정 성공. `{ success, data }` 수정된 기본정보
  *       401:
  *         description: 인증 필요
  */

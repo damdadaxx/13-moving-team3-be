@@ -1,5 +1,5 @@
-import * as estimateRequestRepository from './estimateRequestRepository';
-import * as estimateRepository from './estimateRepository';
+import { estimateRequestRepository } from './estimateRequestRepository';
+import { estimateRepository } from './estimateRepository';
 
 type EstimateRequestWithEstimates = Awaited<
   ReturnType<typeof estimateRequestRepository.findManyWithEstimates>
@@ -36,11 +36,31 @@ const toEstimateRequestSummary = (
   status: estimateRequest.status,
 });
 
-export const toEstimateListItem = (
-  estimateRequest: EstimateRequestWithEstimates
-) => ({
-  estimateRequest: toEstimateRequestSummary(estimateRequest),
-  estimates: estimateRequest.estimates.map((estimate) => ({
+export const estimateMapper = {
+  toEstimateListItem: (estimateRequest: EstimateRequestWithEstimates) => ({
+    estimateRequest: toEstimateRequestSummary(estimateRequest),
+    estimates: estimateRequest.estimates.map((estimate) => ({
+      estimateId: estimate.id,
+      price: estimate.price,
+      comment: estimate.comment,
+      rejectReason: estimate.rejectReason,
+      isDesignated: estimate.isDesignated,
+      status: estimate.status,
+      createdAt: estimate.createdAt,
+      mover: {
+        moverId: estimate.mover.userId,
+        nickname: estimate.mover.nickname,
+        imgUrl: estimate.mover.imgUrl,
+        careerMonths: estimate.mover.careerMonths,
+      },
+    })),
+    totalCount: estimateRequest.estimates.length,
+  }),
+
+  toEstimateDetail: (
+    estimate: EstimateWithDetail,
+    flags: { canConfirm: boolean; canRespond: boolean }
+  ) => ({
     estimateId: estimate.id,
     price: estimate.price,
     comment: estimate.comment,
@@ -54,31 +74,11 @@ export const toEstimateListItem = (
       imgUrl: estimate.mover.imgUrl,
       careerMonths: estimate.mover.careerMonths,
     },
-  })),
-  totalCount: estimateRequest.estimates.length,
-});
-
-export const toEstimateDetail = (
-  estimate: EstimateWithDetail,
-  flags: { canConfirm: boolean; canRespond: boolean }
-) => ({
-  estimateId: estimate.id,
-  price: estimate.price,
-  comment: estimate.comment,
-  rejectReason: estimate.rejectReason,
-  isDesignated: estimate.isDesignated,
-  status: estimate.status,
-  createdAt: estimate.createdAt,
-  mover: {
-    moverId: estimate.mover.userId,
-    nickname: estimate.mover.nickname,
-    imgUrl: estimate.mover.imgUrl,
-    careerMonths: estimate.mover.careerMonths,
-  },
-  customer: {
-    name: estimate.estimateRequest.customer.user.name,
-  },
-  estimateRequest: toEstimateRequestSummary(estimate.estimateRequest),
-  canConfirm: flags.canConfirm,
-  canRespond: flags.canRespond,
-});
+    customer: {
+      name: estimate.estimateRequest.customer.user.name,
+    },
+    estimateRequest: toEstimateRequestSummary(estimate.estimateRequest),
+    canConfirm: flags.canConfirm,
+    canRespond: flags.canRespond,
+  }),
+};

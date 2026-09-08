@@ -24,7 +24,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use('/auth', authRouter);
 app.use('/swaggertest', swaggerTestRouter);
-app.use(estimateRouter);
+app.use('/estimates', estimateRouter);
 
 app.use(errorHandler);
 
