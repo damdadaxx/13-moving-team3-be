@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import authRouter from './modules/auth/authRoute';
+import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRouter);
+app.use('/estimate-requests', estimateRequestRouter);
 
 app.use(errorHandler);
 

@@ -342,9 +342,9 @@ const estimateRequests = [
     moveDate: days(12),
     createdAt: days(-3),
     status: 'PENDING',
-    departureZipCode: 4524,
+    departureZipCode: '04524',
     departureAddress: '서울특별시 중구 세종대로 110 3층',
-    arrivalZipCode: 6035,
+    arrivalZipCode: '06035',
     arrivalAddress: '서울특별시 강남구 가로수길 5 201호',
     estimates: [
       {
@@ -401,9 +401,9 @@ const estimateRequests = [
     moveDate: days(25),
     createdAt: days(-10),
     status: 'CONFIRMED',
-    departureZipCode: 13529,
+    departureZipCode: '13529',
     departureAddress: '경기도 성남시 분당구 판교역로 235 102동 1503호',
-    arrivalZipCode: 16489,
+    arrivalZipCode: '16489',
     arrivalAddress: '경기도 수원시 영통구 광교중앙로 145 305동 802호',
     estimates: [
       {
@@ -446,9 +446,9 @@ const estimateRequests = [
     moveDate: days(-20),
     createdAt: days(-45),
     status: 'COMPLETED',
-    departureZipCode: 21556,
+    departureZipCode: '21556',
     departureAddress: '인천광역시 남동구 예술로 149 201동 1102호',
-    arrivalZipCode: 22382,
+    arrivalZipCode: '22382',
     arrivalAddress: '인천광역시 중구 영종대로 106 508호',
     estimates: [
       {
@@ -480,9 +480,9 @@ const estimateRequests = [
     moveDate: days(-35),
     createdAt: days(-52),
     status: 'COMPLETED',
-    departureZipCode: 48058,
+    departureZipCode: '48058',
     departureAddress: '부산광역시 해운대구 해운대해변로 264 1203호',
-    arrivalZipCode: 46241,
+    arrivalZipCode: '46241',
     arrivalAddress: '부산광역시 금정구 부산대학로 63 302호',
     estimates: [
       {
@@ -505,9 +505,9 @@ const estimateRequests = [
     moveDate: days(-10),
     createdAt: days(-30),
     status: 'EXPIRED',
-    departureZipCode: 35233,
+    departureZipCode: '35233',
     departureAddress: '대전광역시 서구 둔산중로 100 5층',
-    arrivalZipCode: 34126,
+    arrivalZipCode: '34126',
     arrivalAddress: '대전광역시 유성구 대학로 291 산학협력관 8층',
     estimates: [
       {
@@ -540,9 +540,9 @@ const estimateRequests = [
     moveDate: days(-120),
     createdAt: days(-140),
     status: 'COMPLETED',
-    departureZipCode: 3722,
+    departureZipCode: '03722',
     departureAddress: '서울특별시 서대문구 연희로 25 401호',
-    arrivalZipCode: 4524,
+    arrivalZipCode: '04524',
     arrivalAddress: '서울특별시 중구 세종대로 110 3층',
     estimates: [
       {
@@ -565,9 +565,9 @@ const estimateRequests = [
     moveDate: days(5),
     createdAt: days(-1),
     status: 'PENDING',
-    departureZipCode: 7229,
+    departureZipCode: '07229',
     departureAddress: '서울특별시 영등포구 은행로 30 지하 1층',
-    arrivalZipCode: 8390,
+    arrivalZipCode: '08390',
     arrivalAddress: '서울특별시 구로구 디지털로 300 1108호',
     estimates: [
       {
@@ -599,9 +599,9 @@ const estimateRequests = [
     moveDate: days(-60),
     createdAt: days(-80),
     status: 'COMPLETED',
-    departureZipCode: 30121,
+    departureZipCode: '30121',
     departureAddress: '세종특별자치시 한누리대로 2130 105동 704호',
-    arrivalZipCode: 35233,
+    arrivalZipCode: '35233',
     arrivalAddress: '대전광역시 서구 둔산중로 100 5층',
     estimates: [
       {
@@ -623,9 +623,9 @@ const estimateRequests = [
     moveDate: days(-90),
     createdAt: days(-110),
     status: 'COMPLETED',
-    departureZipCode: 13487,
+    departureZipCode: '13487',
     departureAddress: '경기도 성남시 분당구 대왕판교로 660 803호',
-    arrivalZipCode: 13529,
+    arrivalZipCode: '13529',
     arrivalAddress: '경기도 성남시 분당구 판교역로 235 102동 1503호',
     estimates: [
       {
@@ -657,9 +657,9 @@ const estimateRequests = [
     moveDate: days(-200),
     createdAt: days(-220),
     status: 'COMPLETED',
-    departureZipCode: 6236,
+    departureZipCode: '06236',
     departureAddress: '서울특별시 강남구 테헤란로 152 1704호',
-    arrivalZipCode: 3722,
+    arrivalZipCode: '03722',
     arrivalAddress: '서울특별시 서대문구 연희로 25 401호',
     estimates: [
       {
