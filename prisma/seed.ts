@@ -1,7 +1,7 @@
 /* eslint-disable no-console -- 시드 실행 로그는 콘솔로 출력합니다. */
-import { randomBytes, scryptSync } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { hashPassword } from '../src/utils/hash';
 
 /**
  * 개발용 시드 스크립트
@@ -24,17 +24,15 @@ const prisma = new PrismaClient({ adapter });
 /** 오늘 기준 n일 뒤(음수면 n일 전) 날짜 */
 const days = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 
-/**
- * 시드 계정용 비밀번호 해시.
- * 인증 모듈이 구현되면 프로젝트에서 실제로 사용하는 해시 방식으로 교체해야 합니다.
- */
-const hashPassword = (plain: string) => {
-  const salt = randomBytes(16).toString('hex');
-  return `scrypt$${salt}$${scryptSync(plain, salt, 64).toString('hex')}`;
-};
-
 /** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 */
 const SEED_PASSWORD = 'test1234!';
+
+/**
+ * 공통 비밀번호의 bcrypt 해시.
+ * 인증 모듈(src/utils/hash.ts)과 같은 함수를 써야 시드 계정으로 로그인할 수 있습니다.
+ * 모든 계정이 같은 비밀번호라 main()에서 한 번만 계산해 재사용합니다.
+ */
+let seedPasswordHash = '';
 
 // ---------------------------------------------------------------------------
 // 고정 ID — 데이터 간 참조를 위해 UUID를 하드코딩합니다.
@@ -199,7 +197,7 @@ async function seedMovers() {
         name: mover.name,
         email: mover.email,
         phoneNumber: mover.phoneNumber,
-        password: hashPassword(SEED_PASSWORD),
+        password: seedPasswordHash,
         role: 'MOVER',
         provider: 'LOCAL',
         moverProfile: {
@@ -306,8 +304,7 @@ async function seedCustomers() {
         email: customer.email,
         phoneNumber: customer.phoneNumber,
         // 소셜 로그인 계정은 비밀번호를 두지 않습니다.
-        password:
-          customer.provider === 'LOCAL' ? hashPassword(SEED_PASSWORD) : null,
+        password: customer.provider === 'LOCAL' ? seedPasswordHash : null,
         role: 'CUSTOMER',
         provider: customer.provider,
         providerId: customer.providerId,
@@ -901,6 +898,9 @@ async function seedNotifications() {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  // bcrypt 해시는 비용이 큰 연산이라 한 번만 계산합니다.
+  seedPasswordHash = await hashPassword(SEED_PASSWORD);
+
   console.log('기존 데이터 삭제 중...');
   await clear();
 

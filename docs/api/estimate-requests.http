@@ -1,0 +1,322 @@
+### 견적 요청 API 테스트
+#
+# VS Code REST Client / IntelliJ HTTP Client 용 파일입니다.
+# 각 요청 위의 "Send Request"를 눌러 실행합니다.
+#
+# 사전 준비
+#   1. npm run dev          개발 서버 실행 (기본 포트 3001)
+#   2. npm run db:seed      시드 데이터 주입 (기존 데이터는 전부 삭제됩니다)
+#
+# 인증은 HttpOnly 쿠키로 이뤄집니다. 아래 [1] 로그인을 먼저 실행하면
+# 클라이언트가 accessToken 쿠키를 저장해 이후 요청에 자동으로 실어 보냅니다.
+#
+# 명세는 estimate-requests.md 참고.
+
+@baseUrl = http://localhost:3001
+
+# 시드 계정 (공통 비밀번호 test1234!)
+#
+# 주의: 시드에는 소셜 계정도 있는데 비밀번호가 없어 로컬 로그인이 안 됩니다.
+#   LOCAL  : 한지민, 오세훈, 서동혁 + 기사님 전원
+#   소셜    : 유나영(GOOGLE), 문가영(NAVER), 배진우(KAKAO)
+@customerEmail = seo.donghyuk@example.com
+@jiminEmail = han.jimin@example.com
+
+# 시드 기사님 userId (고정 UUID)
+@moverHaneul = 10000000-0000-4000-8000-000000000005
+@moverJihoon = 10000000-0000-4000-8000-000000000003
+@moverMinjae = 10000000-0000-4000-8000-000000000001
+
+# 시드 견적 요청 id
+@jiminActiveRequest = 30000000-0000-4000-8000-000000000001
+
+
+###############################################################################
+# 1. 로그인
+###############################################################################
+
+### [1] 서동혁 로그인 (활성 견적 요청이 없는 고객)
+# 이후 요청은 이 계정으로 나갑니다.
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{customerEmail}}",
+  "password": "test1234!",
+  "role": "CUSTOMER"
+}
+
+### [1-b] 한지민 로그인 (이미 진행 중인 요청이 있는 고객)
+# 409 / 지정 견적 상한 테스트를 할 때 이쪽으로 로그인합니다.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{jiminEmail}}",
+  "password": "test1234!",
+  "role": "CUSTOMER"
+}
+
+### [1-c] 기사님 로그인 (403 확인용)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "kim.minjae@moving.kr",
+  "password": "test1234!",
+  "role": "MOVER"
+}
+
+### [1-d] 로그아웃
+POST {{baseUrl}}/auth/logout
+
+
+###############################################################################
+# 2. 정상 흐름  (서동혁으로 로그인한 상태에서 순서대로 실행)
+###############################################################################
+
+### [2-1] 견적 요청 생성 → 201
+# 우편번호는 5자리 "문자열"입니다. 숫자로 보내면 400.
+# @name createRequest
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "HOME_MOVE",
+  "moveDate": "2026-12-20T00:00:00.000Z",
+  "departureZipCode": "48058",
+  "departureAddress": "부산광역시 해운대구 해운대해변로 264 1203호",
+  "arrivalZipCode": "06035",
+  "arrivalAddress": "서울특별시 강남구 가로수길 5 201호"
+}
+
+### [2-2] 진행 중인 견적 요청 조회 → 200
+# 방금 만든 요청이 estimates: [] 인 상태로 조회됩니다.
+GET {{baseUrl}}/estimate-requests/active
+
+### [2-3] 지정 견적 요청 → 201
+# [2-1] 응답의 id를 그대로 사용합니다.
+POST {{baseUrl}}/estimate-requests/{{createRequest.response.body.data.id}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverHaneul}}"
+}
+
+### [2-4] 지정 견적 반영 확인 → 200
+# estimates 에 status: DESIGNATED, price: null 항목이 추가됩니다.
+GET {{baseUrl}}/estimate-requests/active
+
+### [2-5] 두 번째 지정 견적 → 201
+POST {{baseUrl}}/estimate-requests/{{createRequest.response.body.data.id}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverJihoon}}"
+}
+
+### [2-6] 세 번째 지정 견적 → 201 (상한 3건 중 마지막)
+POST {{baseUrl}}/estimate-requests/{{createRequest.response.body.data.id}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverMinjae}}"
+}
+
+### [2-7] 네 번째 지정 견적 → 409 (상한 초과)
+POST {{baseUrl}}/estimate-requests/{{createRequest.response.body.data.id}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "10000000-0000-4000-8000-000000000002"
+}
+
+
+###############################################################################
+# 3. 이사 이력 (커서 무한 스크롤)
+#    한지민 계정([1-b])으로 로그인하면 이력 2건을 볼 수 있습니다.
+###############################################################################
+
+### [3-1] 첫 페이지 → 200
+# @name history
+GET {{baseUrl}}/estimate-requests/history?limit=1
+
+### [3-2] 다음 페이지 → 200
+# 앞 응답의 nextCursor 를 그대로 전달합니다.
+GET {{baseUrl}}/estimate-requests/history?limit=1&cursor={{history.response.body.data.nextCursor}}
+
+### [3-3] 기본값(limit 4) → 200
+GET {{baseUrl}}/estimate-requests/history
+
+
+###############################################################################
+# 4. 검증 실패 (400)
+###############################################################################
+
+### [4-1] 빈 body → 400 (필드별 errors 배열)
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{}
+
+### [4-2] 과거 이사일 → 400
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "SMALL_MOVE",
+  "moveDate": "2020-01-01T00:00:00.000Z",
+  "departureZipCode": "04524",
+  "departureAddress": "서울특별시 중구 세종대로 110 3층",
+  "arrivalZipCode": "06035",
+  "arrivalAddress": "서울특별시 강남구 가로수길 5 201호"
+}
+
+### [4-3] 우편번호를 숫자로 → 400
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "SMALL_MOVE",
+  "moveDate": "2026-12-20T00:00:00.000Z",
+  "departureZipCode": 4524,
+  "departureAddress": "서울특별시 중구 세종대로 110 3층",
+  "arrivalZipCode": "06035",
+  "arrivalAddress": "서울특별시 강남구 가로수길 5 201호"
+}
+
+### [4-4] 우편번호 4자리 → 400
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "SMALL_MOVE",
+  "moveDate": "2026-12-20T00:00:00.000Z",
+  "departureZipCode": "4524",
+  "departureAddress": "서울특별시 중구 세종대로 110 3층",
+  "arrivalZipCode": "06035",
+  "arrivalAddress": "서울특별시 강남구 가로수길 5 201호"
+}
+
+### [4-5] 잘못된 serviceType → 400
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "BIG_MOVE",
+  "moveDate": "2026-12-20T00:00:00.000Z",
+  "departureZipCode": "04524",
+  "departureAddress": "서울특별시 중구 세종대로 110 3층",
+  "arrivalZipCode": "06035",
+  "arrivalAddress": "서울특별시 강남구 가로수길 5 201호"
+}
+
+### [4-6] limit 초과 → 400
+GET {{baseUrl}}/estimate-requests/history?limit=100
+
+### [4-7] limit 숫자 아님 → 400
+GET {{baseUrl}}/estimate-requests/history?limit=abc
+
+### [4-8] cursor 형식 오류 → 400
+GET {{baseUrl}}/estimate-requests/history?cursor=not-a-uuid
+
+### [4-9] 빈 문자열 파라미터 → 400
+# 값이 없으면 키 자체를 빼야 합니다. `?cursor=` 는 통과하지 않습니다.
+GET {{baseUrl}}/estimate-requests/history?cursor=&limit=
+
+### [4-10] estimateRequestId 형식 오류 → 400
+POST {{baseUrl}}/estimate-requests/not-a-uuid/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverHaneul}}"
+}
+
+### [4-11] moverId 누락 → 400
+POST {{baseUrl}}/estimate-requests/{{jiminActiveRequest}}/estimates
+Content-Type: application/json
+
+{}
+
+
+###############################################################################
+# 5. 권한 / 상태 에러
+###############################################################################
+
+### [5-1] 남의 견적 요청에 지정 견적 → 403
+# 서동혁으로 로그인한 상태에서 한지민의 요청 id를 넣습니다.
+POST {{baseUrl}}/estimate-requests/{{jiminActiveRequest}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverHaneul}}"
+}
+
+### [5-2] 진행 중인 요청이 없는데 지정 견적 → 404
+# 순서 주의: [2-1] "이전"에 실행해야 404가 납니다.
+# [2-1] 이후에는 활성 요청이 생겨 403(남의 요청)이 먼저 납니다.
+# 요청 삭제 API가 없어 되돌리려면 npm run db:seed 로 초기화해야 합니다.
+POST {{baseUrl}}/estimate-requests/{{jiminActiveRequest}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverHaneul}}"
+}
+
+### [5-3] 존재하지 않는 기사님 → 404
+# 순서 주의: 지정 견적이 3건 차기 "전"에 실행해야 합니다.
+# [2-5]/[2-6]까지 실행한 뒤라면 상한 검사가 먼저 걸려 409가 납니다.
+POST {{baseUrl}}/estimate-requests/{{createRequest.response.body.data.id}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "99999999-9999-4999-8999-999999999999"
+}
+
+### [5-4] 이미 지정한 기사님에게 재요청 → 409
+POST {{baseUrl}}/estimate-requests/{{createRequest.response.body.data.id}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverHaneul}}"
+}
+
+### [5-5] 이미 진행 중인 요청이 있는데 새로 생성 → 409
+POST {{baseUrl}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "SMALL_MOVE",
+  "moveDate": "2026-12-25T00:00:00.000Z",
+  "departureZipCode": "04524",
+  "departureAddress": "서울특별시 중구 세종대로 110 3층",
+  "arrivalZipCode": "06035",
+  "arrivalAddress": "서울특별시 강남구 가로수길 5 201호"
+}
+
+### [5-6] MOVER 토큰으로 호출 → 403
+# [1-c]로 기사님 로그인한 뒤 실행합니다.
+GET {{baseUrl}}/estimate-requests/active
+
+
+###############################################################################
+# 6. 참고
+###############################################################################
+
+### [6-1] 진행 중인 요청 확인
+# 테스트로 만든 요청을 지우려면 npm run db:seed 로 초기화하거나
+# Prisma Studio(npm run db:studio)에서 직접 삭제합니다.
+# 요청 삭제 API는 아직 없습니다.
+GET {{baseUrl}}/estimate-requests/active
+
+### [6-2] 없는 경로 → HTML 404
+# 알려진 이슈: JSON이 아니라 Express 기본 HTML이 반환됩니다.
+# 로그인 상태에서 실행해야 합니다. 라우터 전체에 authenticate가 걸려 있어
+# 로그아웃 상태면 경로 매칭 전에 인증 검사가 먼저 걸려 500이 납니다.
+GET {{baseUrl}}/estimate-requests/nope
+
+### [6-3] 인증 없이 호출 → 500
+# 알려진 이슈: 401이어야 하지만 errorHandler에 express-jwt 분기가 없어 500입니다.
+# [1-d] 로그아웃 후 실행하면 재현됩니다.
+GET {{baseUrl}}/estimate-requests/active
