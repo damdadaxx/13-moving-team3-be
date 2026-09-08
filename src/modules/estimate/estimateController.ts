@@ -1,49 +1,49 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { UnauthorizedError } from '../../utils/error';
-import * as estimateService from './estimateService';
+import { estimateService } from './estimateService';
 import type {
   GetEstimateDetailParamsDto,
   GetEstimatesQueryDto,
 } from './estimateSchema';
 
-export const getEstimates = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    if (!req.user) throw new UnauthorizedError();
+export const estimateController = {
+  getEstimates: async (req: Request, res: Response) => {
+    if (!req.auth?.sub) throw new UnauthorizedError();
 
     const query = req.validatedData as GetEstimatesQueryDto;
     const result = await estimateService.getEstimates(
-      req.user.id,
-      req.user.role,
+      req.auth.sub,
+      req.auth.role,
       query
     );
 
     res.status(200).json({ success: true, data: result });
-  } catch (error: unknown) {
-    next(error);
-  }
-};
+  },
 
-export const getEstimateDetail = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    if (!req.user) throw new UnauthorizedError();
+  updateEstimateStatus: async (req: Request, res: Response) => {
+    if (!req.auth?.sub) throw new UnauthorizedError();
+
+    const { estimateId } = req.validatedData as GetEstimateDetailParamsDto;
+    const result = await estimateService.updateEstimateStatus(
+      req.auth.sub,
+      req.auth.role,
+      estimateId,
+      req.body
+    );
+
+    res.status(200).json({ success: true, data: result });
+  },
+
+  getEstimateDetail: async (req: Request, res: Response) => {
+    if (!req.auth?.sub) throw new UnauthorizedError();
 
     const { estimateId } = req.validatedData as GetEstimateDetailParamsDto;
     const result = await estimateService.getEstimateDetail(
-      req.user.id,
-      req.user.role,
+      req.auth.sub,
+      req.auth.role,
       estimateId
     );
 
     res.status(200).json({ success: true, data: result });
-  } catch (error: unknown) {
-    next(error);
-  }
+  },
 };

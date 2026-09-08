@@ -19,27 +19,29 @@ const parseStatuses = (status?: string): EstimateStatus[] | undefined => {
   return status.split(',') as EstimateStatus[];
 };
 
-export const buildEstimateWhere = (
-  role: Role,
-  userId: string,
-  status?: string
-): Prisma.EstimateWhereInput => {
-  const statuses = parseStatuses(status);
+export const estimateFilter = {
+  buildEstimateWhere: (
+    role: Role,
+    userId: string,
+    status?: string
+  ): Prisma.EstimateWhereInput => {
+    const statuses = parseStatuses(status);
 
-  if (role === Role.CUSTOMER) {
-    return {
-      status: statuses
-        ? { in: statuses, notIn: HIDDEN_FROM_CUSTOMER }
-        : { notIn: HIDDEN_FROM_CUSTOMER },
-    };
-  }
+    if (role === Role.CUSTOMER) {
+      return {
+        status: statuses
+          ? { in: statuses, notIn: HIDDEN_FROM_CUSTOMER }
+          : { notIn: HIDDEN_FROM_CUSTOMER },
+      };
+    }
 
-  if (role === Role.MOVER) {
-    return {
-      moverId: userId,
-      ...(statuses ? { status: { in: statuses } } : {}),
-    };
-  }
+    if (role === Role.MOVER) {
+      return {
+        moverId: userId,
+        ...(statuses ? { status: { in: statuses } } : {}),
+      };
+    }
 
-  throw new BadRequestError('알 수 없는 역할입니다.');
+    throw new BadRequestError('알 수 없는 역할입니다.');
+  },
 };

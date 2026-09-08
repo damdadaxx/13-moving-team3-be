@@ -1,8 +1,19 @@
 import { z } from 'zod';
+import { UnauthorizedError as JwtUnauthorizedError } from 'express-jwt';
 import { AppError } from '../utils/error';
 import { NextFunction, Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { ENV } from '../config/env';
+
+// AppError는 공용 파일이라 code 필드가 없어서 status로 역산한다 (auth 모듈과 동일한 방식).
+// 같은 status를 쓰는 에러는 사유가 달라도 같은 code로 응답한다 — 세분화가 필요하면 message로 구분한다.
+const CODE_BY_STATUS: Record<number, string> = {
+  400: 'BAD_REQUEST',
+  401: 'UNAUTHORIZED',
+  403: 'FORBIDDEN',
+  404: 'NOT_FOUND',
+  409: 'CONFLICT',
+};
 
 export default function errorHandler(
   error: unknown,
@@ -20,6 +31,22 @@ export default function errorHandler(
           field: e.path.join('.'),
           message: e.message,
         })),
+      },
+    });
+  }
+
+  // authenticate(express-jwt) 실패. 만료만 따로 구분해 프론트가 refresh를 시도하게 한다.
+  if (error instanceof JwtUnauthorizedError) {
+    const isExpired =
+      (error.inner as Error | undefined)?.name === 'TokenExpiredError';
+
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: isExpired ? 'TOKEN_EXPIRED' : 'UNAUTHORIZED',
+        message: isExpired
+          ? '액세스 토큰이 만료되었습니다.'
+          : '인증 권한이 없습니다. 로그인 후 이용해 주세요.',
       },
     });
   }
@@ -44,7 +71,7 @@ export default function errorHandler(
     return res.status(error.status).json({
       success: false,
       error: {
-        code: error.code,
+        code: CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
         message: error.message,
       },
     });

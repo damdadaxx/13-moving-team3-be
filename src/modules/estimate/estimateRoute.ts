@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { validate } from '../../middlewares/validation';
-import { mockAuth } from '../../middlewares/mockAuth';
-import * as estimateController from './estimateController';
+import { authenticate } from '../../middlewares/authenticate';
+import { estimateController } from './estimateController';
 import {
   getEstimateDetailParamsSchema,
   getEstimatesQuerySchema,
@@ -9,20 +9,27 @@ import {
 
 const router = Router();
 
-// TODO: 인증 미들웨어(authenticate)가 준비되면 mockAuth를 authenticate로 교체해야 합니다.
-// TODO: POST /estimate-request, PATCH /estimates/:estimateId 는 스펙 확정 후 추가합니다.
+// app.ts에서 '/estimates' 프리픽스로 마운트한다.
 router.get(
-  '/estimates',
-  mockAuth,
+  '/',
+  authenticate,
   validate(getEstimatesQuerySchema, 'query'),
   estimateController.getEstimates
 );
 
 router.get(
-  '/estimates/:estimateId',
-  mockAuth,
+  '/:estimateId',
+  authenticate,
   validate(getEstimateDetailParamsSchema, 'params'),
   estimateController.getEstimateDetail
+);
+
+// body는 status별로 필요한 필드가 달라서 validate() 대신 서비스에서 직접 검증한다.
+router.patch(
+  '/:estimateId',
+  authenticate,
+  validate(getEstimateDetailParamsSchema, 'params'),
+  estimateController.updateEstimateStatus
 );
 
 export default router;

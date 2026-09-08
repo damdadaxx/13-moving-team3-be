@@ -35,3 +35,24 @@ export const getEstimateDetailParamsSchema = z.object({
 export type GetEstimateDetailParamsDto = z.infer<
   typeof getEstimateDetailParamsSchema
 >;
+
+// PATCH /estimates/:estimateId — status별로 요구되는 나머지 필드가 달라서 개별 스키마로 둔다.
+// status 자체가 셋 중 하나인지는 서비스에서 먼저 확인해 INVALID_STATUS로 분리 응답한다.
+export const proposeEstimateSchema = z.object({
+  status: z.literal('PROPOSED'),
+  price: z.number().int().positive('price는 양의 정수여야 합니다.'),
+  comment: z.string().min(10, 'comment은 10자 이상이어야 합니다.'),
+});
+
+export const rejectEstimateSchema = z.object({
+  status: z.literal('REJECTED'),
+  rejectReason: z.string().min(10, 'rejectReason은 10자 이상이어야 합니다.'),
+});
+
+export const acceptEstimateSchema = z.object({
+  status: z.literal('ACCEPTED'),
+});
+
+export type ProposeEstimateInput = z.infer<typeof proposeEstimateSchema>;
+export type RejectEstimateInput = z.infer<typeof rejectEstimateSchema>;
+export type AcceptEstimateInput = z.infer<typeof acceptEstimateSchema>;
