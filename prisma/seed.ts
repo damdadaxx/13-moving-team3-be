@@ -1,7 +1,7 @@
 /* eslint-disable no-console -- 시드 실행 로그는 콘솔로 출력합니다. */
-import { randomBytes, scryptSync } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { hashPassword } from '../src/utils/hash';
 
 /**
  * 개발용 시드 스크립트
@@ -24,16 +24,7 @@ const prisma = new PrismaClient({ adapter });
 /** 오늘 기준 n일 뒤(음수면 n일 전) 날짜 */
 const days = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 
-/**
- * 시드 계정용 비밀번호 해시.
- * 인증 모듈이 구현되면 프로젝트에서 실제로 사용하는 해시 방식으로 교체해야 합니다.
- */
-const hashPassword = (plain: string) => {
-  const salt = randomBytes(16).toString('hex');
-  return `scrypt$${salt}$${scryptSync(plain, salt, 64).toString('hex')}`;
-};
-
-/** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 */
+/** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 — 실제 /auth/login으로 로그인 가능합니다. */
 const SEED_PASSWORD = 'test1234!';
 
 // ---------------------------------------------------------------------------
@@ -199,7 +190,7 @@ async function seedMovers() {
         name: mover.name,
         email: mover.email,
         phoneNumber: mover.phoneNumber,
-        password: hashPassword(SEED_PASSWORD),
+        password: await hashPassword(SEED_PASSWORD),
         role: 'MOVER',
         provider: 'LOCAL',
         moverProfile: {
@@ -307,7 +298,9 @@ async function seedCustomers() {
         phoneNumber: customer.phoneNumber,
         // 소셜 로그인 계정은 비밀번호를 두지 않습니다.
         password:
-          customer.provider === 'LOCAL' ? hashPassword(SEED_PASSWORD) : null,
+          customer.provider === 'LOCAL'
+            ? await hashPassword(SEED_PASSWORD)
+            : null,
         role: 'CUSTOMER',
         provider: customer.provider,
         providerId: customer.providerId,
