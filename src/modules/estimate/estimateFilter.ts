@@ -20,6 +20,9 @@ const parseStatuses = (status?: string): EstimateStatus[] | undefined => {
 };
 
 export const estimateFilter = {
+  isHiddenFromCustomer: (status: EstimateStatus) =>
+    HIDDEN_FROM_CUSTOMER.includes(status),
+
   buildEstimateWhere: (
     role: Role,
     userId: string,

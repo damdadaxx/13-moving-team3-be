@@ -228,6 +228,8 @@
  *     summary: 견적 상세 조회
  *     description: |
  *       status가 NOT_SELECTED/EXPIRED면 프론트에서 "확정하지 않은 견적이에요!" 배너를 표시합니다.
+ *       CUSTOMER가 DESIGNATED/REJECTED 견적을 estimateId로 직접 조회하면(목록에서 숨겨진 상태를
+ *       URL로 유추해 접근하는 경우 포함) 404로 응답합니다 — 있는지 없는지도 알려주지 않습니다.
  *     security:
  *       - cookieAuth: []
  *       - bearerAuth: []

@@ -49,7 +49,7 @@ export const estimateService = {
     );
     const customerId = role === Role.CUSTOMER ? userId : undefined;
 
-    // size + 1건을 조회해서, 초과분이 있으면 다음 페이지가 있다는 뜻이다.
+    // size + 1건을 조회해서, 초과분이 있으면 다음 페이지가 있다는 뜻
     const [estimateRequests, totalCount] = await Promise.all([
       estimateRequestRepository.findManyWithEstimates({
         customerId,
@@ -96,6 +96,13 @@ export const estimateService = {
       throw new ForbiddenError('본인의 견적/요청이 아닙니다.');
     }
 
+    if (
+      role === Role.CUSTOMER &&
+      estimateFilter.isHiddenFromCustomer(estimate.status)
+    ) {
+      throw new NotFoundError('견적을 찾을 수 없습니다.');
+    }
+
     const isRequestPending = estimate.estimateRequest.status === 'PENDING';
 
     return estimateMapper.toEstimateDetail(estimate, {
@@ -140,15 +147,25 @@ export const estimateService = {
     const rule = TRANSITION_RULES[status];
 
     if (role !== rule.role) {
-      throw new ForbiddenError('본인의 견적/요청이 아닙니다.');
+      throw new ForbiddenError(
+        rule.role === Role.MOVER
+          ? '이 전환은 기사만 할 수 있습니다.'
+          : '이 전환은 일반 유저만 할 수 있습니다.'
+      );
     }
 
     if (estimate.estimateRequest.status === 'CONFIRMED') {
       throw new ConflictError('이미 확정된 요청입니다.');
     }
 
-    if (estimate.estimateRequest.moveDate.getTime() < Date.now()) {
-      throw new ConflictError('이사일이 지난 요청입니다.');
+    // PENDING이 아니거나(COMPLETED/EXPIRED) 이사일이 지났으면 더 이상 전환할 수 없다.
+    // moveDate를 status와 별도로 체크하는 이유: 이사일이 지나도 status를 EXPIRED로
+    // 자동 전환해주는 배치가 아직 없어서, status만 보면 지난 요청이 계속 PENDING으로 남는다.
+    if (
+      estimate.estimateRequest.status !== 'PENDING' ||
+      estimate.estimateRequest.moveDate.getTime() < Date.now()
+    ) {
+      throw new ConflictError('현재 상태에서는 이 전환이 불가능합니다.');
     }
 
     if (estimate.status !== rule.from) {

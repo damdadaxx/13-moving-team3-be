@@ -27,9 +27,6 @@ GET {{baseUrl}}/estimates
 ### 내 견적 목록 - 무한 스크롤 1페이지 (size=2로 nextCursor 발생시키기)
 GET {{baseUrl}}/estimates?size=2
 
-### 내 견적 목록 - 무한 스크롤 2페이지 (위 응답의 data.nextCursor 값을 아래에 붙여넣기)
-GET {{baseUrl}}/estimates?size=2&cursor=REPLACE_WITH_NEXT_CURSOR
-
 ### 내 견적 목록 - 대기 중인 견적
 GET {{baseUrl}}/estimates?status=PROPOSED
 
@@ -47,6 +44,9 @@ GET {{baseUrl}}/estimates?cursor=not-a-uuid
 
 ### 견적 상세 - 본인 견적, PENDING+PROPOSED -> canConfirm: true
 GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000001
+
+### 견적 상세 - 본인 요청의 DESIGNATED 견적을 estimateId로 직접 조회 -> 404 (고객에겐 숨김)
+GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000003
 
 ### 견적 상세 - 404 NOT_FOUND
 GET {{baseUrl}}/estimates/00000000-0000-4000-8000-000000000000
@@ -82,7 +82,7 @@ GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000002
 # 배진우 고객의 PENDING 요청(30000000-...-0007)에 DESIGNATED 견적 보유 -> canRespond: true
 # ─────────────────────────────────────────────────────────────
 
-### 로그인 (김민재 / MOVER)
+### 로그인 (MOVER)
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 

@@ -22,14 +22,14 @@ export const getEstimatesQuerySchema = z.object({
   status: statusQuerySchema,
   serviceType: z.enum(ServiceType).optional(),
   // 무한 스크롤 커서 — 직전 응답의 nextCursor(마지막 estimateRequestId)를 그대로 넘긴다.
-  cursor: z.string().uuid().optional(),
+  cursor: z.uuid().optional(),
   size: z.coerce.number().int().positive().optional().default(10),
 });
 
 export type GetEstimatesQueryDto = z.infer<typeof getEstimatesQuerySchema>;
 
 export const getEstimateDetailParamsSchema = z.object({
-  estimateId: z.string().uuid(),
+  estimateId: z.uuid(),
 });
 
 export type GetEstimateDetailParamsDto = z.infer<
