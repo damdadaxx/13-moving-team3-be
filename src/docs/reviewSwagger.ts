@@ -34,7 +34,7 @@
  *         schema:
  *           type: string
  *           enum: [true, false]
- *         description: 리뷰 작성 여부 필터 (생략 or true=작성 완료, false=미작성, )
+ *         description: 리뷰 작성 여부 필터 (true=작성 완료, 생략하거나 false=미작성, )
  *     responses:
  *       200:
  *         description: 조회 성공

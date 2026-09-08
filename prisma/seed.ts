@@ -1,5 +1,5 @@
 /* eslint-disable no-console -- 시드 실행 로그는 콘솔로 출력합니다. */
-import { randomBytes, scryptSync } from 'node:crypto';
+import bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 
@@ -28,10 +28,7 @@ const days = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
  * 시드 계정용 비밀번호 해시.
  * 인증 모듈이 구현되면 프로젝트에서 실제로 사용하는 해시 방식으로 교체해야 합니다.
  */
-const hashPassword = (plain: string) => {
-  const salt = randomBytes(16).toString('hex');
-  return `scrypt$${salt}$${scryptSync(plain, salt, 64).toString('hex')}`;
-};
+const hashPassword = (plain: string) => bcrypt.hashSync(plain, 10);
 
 /** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 */
 const SEED_PASSWORD = 'test1234!';
@@ -68,6 +65,10 @@ const REQUEST = {
   gayoungDone: '30000000-0000-4000-8000-000000000008',
   sehunDone: '30000000-0000-4000-8000-000000000009',
   jiminDoneOld: '30000000-0000-4000-8000-000000000010',
+  jiminDoneNoReview1: '30000000-0000-4000-8000-000000000011',
+  jiminDoneNoReview2: '30000000-0000-4000-8000-000000000012',
+  jiminExpired1: '30000000-0000-4000-8000-000000000013',
+  jiminExpired2: '30000000-0000-4000-8000-000000000014',
 } as const;
 
 const ESTIMATE = {
@@ -90,6 +91,10 @@ const ESTIMATE = {
   sehunDoneHaneul: '40000000-0000-4000-8000-000000000017',
   sehunDoneMinjae: '40000000-0000-4000-8000-000000000018',
   jiminOldHaneul: '40000000-0000-4000-8000-000000000019',
+  jiminNoReview1Minjae: '40000000-0000-4000-8000-000000000020',
+  jiminNoReview2Haneul: '40000000-0000-4000-8000-000000000021',
+  jiminExpired1Seojun: '40000000-0000-4000-8000-000000000022',
+  jiminExpired2Yuri: '40000000-0000-4000-8000-000000000023',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -671,6 +676,106 @@ const estimateRequests = [
         status: 'ACCEPTED',
         rejectReason: null,
         createdAt: days(-219),
+      },
+    ],
+  },
+  {
+    // 이사 완료 — 리뷰 미작성 (한지민)
+    id: REQUEST.jiminDoneNoReview1,
+    customerId: CUSTOMER.jimin,
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(-7),
+    createdAt: days(-25),
+    status: 'COMPLETED',
+    departureZipCode: 4524,
+    departureAddress: '서울특별시 중구 세종대로 110 3층',
+    arrivalZipCode: 6236,
+    arrivalAddress: '서울특별시 강남구 테헤란로 50 801호',
+    estimates: [
+      {
+        id: ESTIMATE.jiminNoReview1Minjae,
+        moverId: MOVER.minjae,
+        price: 270000,
+        comment: '원룸 기준 1톤 차량으로 충분합니다.',
+        isDesignated: false,
+        status: 'ACCEPTED',
+        rejectReason: null,
+        createdAt: days(-24),
+      },
+    ],
+  },
+  {
+    // 이사 완료 — 리뷰 미작성 (한지민)
+    id: REQUEST.jiminDoneNoReview2,
+    customerId: CUSTOMER.jimin,
+    serviceType: 'HOME_MOVE',
+    moveDate: days(-14),
+    createdAt: days(-35),
+    status: 'COMPLETED',
+    departureZipCode: 3722,
+    departureAddress: '서울특별시 서대문구 연희로 25 401호',
+    arrivalZipCode: 4524,
+    arrivalAddress: '서울특별시 중구 을지로 100 202호',
+    estimates: [
+      {
+        id: ESTIMATE.jiminNoReview2Haneul,
+        moverId: MOVER.haneul,
+        price: 550000,
+        comment: '가전제품 포장 포함 기준입니다.',
+        isDesignated: false,
+        status: 'ACCEPTED',
+        rejectReason: null,
+        createdAt: days(-34),
+      },
+    ],
+  },
+  {
+    // 확정하지 않아 만료 — 리뷰 불가 (한지민)
+    id: REQUEST.jiminExpired1,
+    customerId: CUSTOMER.jimin,
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(-2),
+    createdAt: days(-10),
+    status: 'EXPIRED',
+    departureZipCode: 4524,
+    departureAddress: '서울특별시 중구 명동길 14 301호',
+    arrivalZipCode: 3722,
+    arrivalAddress: '서울특별시 서대문구 홍제천로 88 102호',
+    estimates: [
+      {
+        id: ESTIMATE.jiminExpired1Seojun,
+        moverId: MOVER.seojun,
+        price: 320000,
+        comment: '당일 오후 출발 기준입니다.',
+        isDesignated: false,
+        status: 'EXPIRED',
+        rejectReason: null,
+        createdAt: days(-9),
+      },
+    ],
+  },
+  {
+    // 확정하지 않아 만료 — 리뷰 불가 (한지민)
+    id: REQUEST.jiminExpired2,
+    customerId: CUSTOMER.jimin,
+    serviceType: 'HOME_MOVE',
+    moveDate: days(-18),
+    createdAt: days(-40),
+    status: 'EXPIRED',
+    departureZipCode: 6236,
+    departureAddress: '서울특별시 강남구 역삼로 168 1003호',
+    arrivalZipCode: 3722,
+    arrivalAddress: '서울특별시 서대문구 신촌로 83 501호',
+    estimates: [
+      {
+        id: ESTIMATE.jiminExpired2Yuri,
+        moverId: MOVER.yuri,
+        price: 610000,
+        comment: '고층 엘리베이터 이용 가능하여 사다리차 불필요합니다.',
+        isDesignated: false,
+        status: 'EXPIRED',
+        rejectReason: null,
+        createdAt: days(-39),
       },
     ],
   },
