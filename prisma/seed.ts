@@ -24,7 +24,7 @@ const prisma = new PrismaClient({ adapter });
 /** 오늘 기준 n일 뒤(음수면 n일 전) 날짜 */
 const days = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 
-/** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 */
+/** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 — 실제 /auth/login으로 로그인 가능합니다. */
 const SEED_PASSWORD = 'test1234!';
 
 /**
@@ -32,7 +32,7 @@ const SEED_PASSWORD = 'test1234!';
  * 인증 모듈(src/utils/hash.ts)과 같은 함수를 써야 시드 계정으로 로그인할 수 있습니다.
  * 모든 계정이 같은 비밀번호라 main()에서 한 번만 계산해 재사용합니다.
  */
-let seedPasswordHash = '';
+// let seedPasswordHash = '';
 
 // ---------------------------------------------------------------------------
 // 고정 ID — 데이터 간 참조를 위해 UUID를 하드코딩합니다.
@@ -197,7 +197,7 @@ async function seedMovers() {
         name: mover.name,
         email: mover.email,
         phoneNumber: mover.phoneNumber,
-        password: seedPasswordHash,
+        password: await hashPassword(SEED_PASSWORD),
         role: 'MOVER',
         provider: 'LOCAL',
         moverProfile: {
@@ -304,7 +304,10 @@ async function seedCustomers() {
         email: customer.email,
         phoneNumber: customer.phoneNumber,
         // 소셜 로그인 계정은 비밀번호를 두지 않습니다.
-        password: customer.provider === 'LOCAL' ? seedPasswordHash : null,
+        password:
+          customer.provider === 'LOCAL'
+            ? await hashPassword(SEED_PASSWORD)
+            : null,
         role: 'CUSTOMER',
         provider: customer.provider,
         providerId: customer.providerId,

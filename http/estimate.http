@@ -1,0 +1,149 @@
+# 쿠키는 REST Client가 쿠키 jar로 자동 관리한다 (rest-client.rememberCookiesForSubsequentRequests, 기본값 true).
+# 시드 계정(prisma/seed.ts) 비밀번호는 전부 test1234! 이고 bcrypt로 해시돼 있어 실제 /auth/login으로 로그인된다.
+# 아래에서 로그인한 계정의 쿠키가 그 아래 요청들에 계속 쓰이니, 위에서부터 순서대로 실행한다.
+
+@baseUrl = http://localhost:3001
+@password = test1234!
+
+# ─────────────────────────────────────────────────────────────
+# 고객: 한지민 (han.jimin@example.com)
+# PENDING 요청(30000000-...-0001)에 PROPOSED 2건 + DESIGNATED 1건 + REJECTED 1건 보유.
+# DESIGNATED/REJECTED는 고객 조회 응답에서 반드시 빠져야 한다.
+# ─────────────────────────────────────────────────────────────
+
+### 로그인 (한지민 / CUSTOMER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "han.jimin@example.com",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### 내 견적 목록 - 기본 조회
+GET {{baseUrl}}/estimates
+
+### 내 견적 목록 - 무한 스크롤 1페이지 (size=2로 nextCursor 발생시키기)
+GET {{baseUrl}}/estimates?size=2
+
+### 내 견적 목록 - 대기 중인 견적
+GET {{baseUrl}}/estimates?status=PROPOSED
+
+### 내 견적 목록 - 받았던 견적 (closed = ACCEPTED,NOT_SELECTED,EXPIRED)
+GET {{baseUrl}}/estimates?status=closed
+
+### 내 견적 목록 - 서비스 타입 필터
+GET {{baseUrl}}/estimates?serviceType=SMALL_MOVE&size=5
+
+### 잘못된 status 값 -> 400 VALIDATION_ERROR
+GET {{baseUrl}}/estimates?status=INVALID_STATUS
+
+### 잘못된 cursor 값(uuid 아님) -> 400 VALIDATION_ERROR
+GET {{baseUrl}}/estimates?cursor=not-a-uuid
+
+### 견적 상세 - 본인 견적, PENDING+PROPOSED -> canConfirm: true
+GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000001
+
+### 견적 상세 - 본인 요청의 DESIGNATED 견적을 estimateId로 직접 조회 -> 404 (고객에겐 숨김)
+GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000003
+
+### 견적 상세 - 404 NOT_FOUND
+GET {{baseUrl}}/estimates/00000000-0000-4000-8000-000000000000
+
+### 견적 상세 - 400 (estimateId가 uuid 아님)
+GET {{baseUrl}}/estimates/not-a-uuid
+
+### 견적 상태 전환 - 400 BAD_REQUEST (허용되지 않는 status 값)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000001
+Content-Type: application/json
+
+{ "status": "FOO" }
+
+### 견적 상태 전환 - 403 FORBIDDEN (기사 전용 DESIGNATED 견적을 고객이 확정 시도)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000014
+Content-Type: application/json
+
+{ "status": "ACCEPTED" }
+
+### 견적 상태 전환 - 확정 (ACCEPTED, PROPOSED -> ACCEPTED)
+# 성공 시 같은 요청의 나머지 PROPOSED 견적은 NOT_SELECTED, 요청은 CONFIRMED로 같이 전환된다.
+# (재실행하면 이미 ACCEPTED라 409 CONFLICT)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000001
+Content-Type: application/json
+
+{ "status": "ACCEPTED" }
+
+### 위 확정으로 NOT_SELECTED 전환됐는지 확인 (형제 견적)
+GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000002
+
+# ─────────────────────────────────────────────────────────────
+# 기사: 김민재 (kim.minjae@moving.kr)
+# 배진우 고객의 PENDING 요청(30000000-...-0007)에 DESIGNATED 견적 보유 -> canRespond: true
+# ─────────────────────────────────────────────────────────────
+
+### 로그인 (MOVER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "kim.minjae@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### 내 견적 목록 - 보낸 견적 조회 (기사 화면)
+GET {{baseUrl}}/estimates?status=PROPOSED,ACCEPTED,NOT_SELECTED
+
+### 견적 상세 - 본인 견적, PENDING+DESIGNATED -> canRespond: true
+GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000014
+
+### 견적 상태 전환 - 견적 발송 (PROPOSED, DESIGNATED -> PROPOSED)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000014
+Content-Type: application/json
+
+{
+  "status": "PROPOSED",
+  "price": 180000,
+  "comment": "안전하게 모시겠습니다. 감사합니다."
+}
+
+### 견적 상태 전환 - 위와 동일 견적 재시도 -> 409 CONFLICT (이미 PROPOSED)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000014
+Content-Type: application/json
+
+{ "status": "PROPOSED", "price": 190000, "comment": "가격을 조금 조정했습니다." }
+
+### 견적 상세 - 403 FORBIDDEN (본인 견적이 아님, 한지민 소유)
+GET {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000001
+
+# ─────────────────────────────────────────────────────────────
+# 기사: 이서준 (lee.seojun@moving.kr)
+# 한지민 고객의 PENDING 요청(30000000-...-0001)에 DESIGNATED 견적 보유 (아직 응답 안 함)
+# ─────────────────────────────────────────────────────────────
+
+### 로그인 (이서준 / MOVER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "lee.seojun@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### 견적 상태 전환 - 400 VALIDATION_ERROR (rejectReason 10자 미만)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000003
+Content-Type: application/json
+
+{ "status": "REJECTED", "rejectReason": "짧음" }
+
+### 견적 상태 전환 - 반려 (REJECTED, DESIGNATED -> REJECTED)
+PATCH {{baseUrl}}/estimates/40000000-0000-4000-8000-000000000003
+Content-Type: application/json
+
+{ "status": "REJECTED", "rejectReason": "해당 날짜에 일정이 있어 어렵습니다." }
+
+### 쿠키 없이 요청 -> 401 UNAUTHORIZED
+# (쿠키 jar를 비운 새 세션에서 실행하거나, rest-client.cookies 캐시를 지우고 실행)
+GET {{baseUrl}}/estimates

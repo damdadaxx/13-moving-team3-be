@@ -68,10 +68,22 @@ Prisma Client는 `src/generated/prisma`에 생성되며 git에 올리지 않는�
 
 미사용 인자는 `_` 접두사 (`_next`). 약어는 피한다.
 
-레이어 간 호출은 네임스페이스 import, 유틸은 named import.
+레이어는 default export 객체 하나로 내보낸다. 유틸은 named import.
 
 ```ts
-import * as authService from './authService';
+// authService.ts
+const authService = {
+  signUp: async (data: CreateUserInput) => {
+    // ...
+  },
+};
+
+export default authService;
+```
+
+```ts
+// authController.ts
+import authService from './authService';
 import { NotFoundError } from '../../utils/error';
 
 authService.signUp(data);
@@ -100,9 +112,13 @@ const createUserSchema = z.object({
 });
 type CreateUserInput = z.infer<typeof createUserSchema>;
 
-export const signUp = async (data: CreateUserInput) => {
-  // ...
+const authService = {
+  signUp: async (data: CreateUserInput) => {
+    // ...
+  },
 };
+
+export default authService;
 ```
 
 ```ts

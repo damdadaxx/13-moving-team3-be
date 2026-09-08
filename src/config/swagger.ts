@@ -12,6 +12,7 @@ const options: swaggerJSDoc.Options = {
     servers: [{ url: `http://localhost:${ENV.PORT}` }],
     components: {
       securitySchemes: {
+        // accessToken은 accessToken 쿠키로 내려주고 검증합니다.
         cookieAuth: {
           type: 'apiKey',
           in: 'cookie',
