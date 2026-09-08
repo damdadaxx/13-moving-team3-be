@@ -10,6 +10,7 @@ import authRouter from './modules/auth/authRoute';
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
 import swaggerTestRouter from './docs/swaggertest.route';
 import estimateRouter from './modules/estimate/estimateRoute';
+import customerRouter from './modules/customer/customerRoute';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
 app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
+app.use('/customer', customerRouter);
 
 app.use(errorHandler);
 
