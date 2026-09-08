@@ -98,9 +98,12 @@ Content-Type: application/json
 }
 
 
-### 미인증 (401)
+### 로그아웃 (200) — 쿠키 삭제. 미인증 테스트 전에 실행
+POST {{host}}/auth/logout
+
+
+### 미인증 (401) — 로그아웃 후에 실행. 쿠키 jar에 accessToken이 없어야 함
 GET {{host}}/customer/profile
-Cookie: accessToken=
 
 
 ### ────────────────────────────────────────────────
