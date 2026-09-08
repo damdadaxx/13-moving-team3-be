@@ -35,12 +35,16 @@ const reviewService = {
     return { list: estimates, totalPages };
   },
   getMoverReviews: async ({ moverId, page, pageSize }: GetMoverReviewsData) => {
-    const { reviews, distribution, ratingAvg, reviewCount } =
-      await reviewRepository.getMoverReviews({
+    const [reviews, distribution, ratingAvg, reviewCount] = await Promise.all([
+      reviewRepository.getMoverReviews({
         moverId,
         page,
         pageSize,
-      });
+      }),
+      reviewRepository.getRatingDistribution(moverId),
+      reviewRepository.getAverageRating(moverId),
+      reviewRepository.getReviewCount(moverId),
+    ]);
 
     const ratingDistribution = distribution.map((data) => {
       return { rating: data.rating, count: data._count.rating };
