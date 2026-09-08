@@ -2,7 +2,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { BadRequestError, ForbiddenError } from '../../utils/error';
 import reviewRepository from './reviewRepository';
 import {
-  CreateReviewRequest,
+  CreateReviewInput,
   GetMoverReviewsData,
   GetMyReviewsData,
 } from './reviewTypes';
@@ -55,12 +55,10 @@ const reviewService = {
       totalPages,
     };
   },
-  createReview: async ({
-    userId,
-    estimateId,
-    content,
-    rating,
-  }: CreateReviewRequest) => {
+  createReview: async (
+    userId: string,
+    { estimateId, content, rating }: CreateReviewInput
+  ) => {
     const estimateInfo = await reviewRepository.getMyEstimate(estimateId);
 
     //견적서의 주인 인지 확인한다.
@@ -77,8 +75,7 @@ const reviewService = {
     if (estimateInfo.review != null)
       throw new BadRequestError('이미 작성된 리뷰가 있는 견적서 입니다.');
 
-    const review = await reviewRepository.createReview({
-      userId,
+    const review = await reviewRepository.createReview(userId, {
       moverId: estimateInfo.moverId,
       estimateId,
       content,

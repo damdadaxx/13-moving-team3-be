@@ -25,8 +25,8 @@ POST {{baseUrl}}/reviews
 content-type: application/json
 
 {
-  "estimateId": "40000000-0000-4000-8000-000000000019",
-  "content": "기사님이 너무너무너무 친절 했어요.",
+  "estimateId": "40000000-0000-4000-8000-000000000013",
+  "content": "기사님이 너무 친절하셨어요. 짐도 안전하게 잘 옮겨주셨습니다.",
   "rating": 5
 }
 

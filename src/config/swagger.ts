@@ -21,6 +21,10 @@ const options: swaggerJSDoc.Options = {
         },
       },
     },
+    tags: [
+      { name: 'Auth', description: '인증' },
+      { name: 'Reviews', description: '리뷰 관련 API' },
+    ],
   },
   // 개발은 src의 .ts, 프로덕션은 빌드된 dist의 .js를 읽음
   apis: isProd ? ['./dist/docs/*.js'] : ['./src/docs/*.ts'],

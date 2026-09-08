@@ -1,20 +1,17 @@
-export interface GetMyReviewsRequest {
-  page: number;
-  pageSize: number;
-  hasReview?: boolean;
-}
+import { z } from 'zod';
+import {
+  createReviewSchema,
+  getMoverIdSchema,
+  getMoverReviewsSchema,
+  getMyReviewsSchema,
+} from './reviewSchema';
+
+export type GetMyReviewsRequest = z.infer<typeof getMyReviewsSchema>;
 export type GetMyReviewsData = GetMyReviewsRequest & { userId: string };
 
-export interface GetMoverReviewsRequest {
-  page: number;
-  pageSize: number;
-}
-export type GetMoverReviewsData = GetMoverReviewsRequest & { moverId: string };
+export type GetMoverReviewsRequest = z.infer<typeof getMoverReviewsSchema>;
+export type GetMoverIdRequest = z.infer<typeof getMoverIdSchema>;
+export type GetMoverReviewsData = GetMoverReviewsRequest & GetMoverIdRequest;
 
-export interface CreateReviewRequest {
-  userId: string;
-  estimateId: string;
-  content: string;
-  rating: number;
-}
-export type CreateReviewData = CreateReviewRequest & { moverId: string };
+export type CreateReviewInput = z.infer<typeof createReviewSchema>;
+export type CreateReviewData = CreateReviewInput & { moverId: string };

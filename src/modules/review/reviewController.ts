@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import {
-  CreateReviewRequest,
+  CreateReviewInput,
   GetMoverReviewsRequest,
   GetMyReviewsRequest,
 } from './reviewTypes';
@@ -45,10 +45,9 @@ const reviewController = {
     }
 
     const { estimateId, content, rating } =
-      req.validatedData as CreateReviewRequest;
+      req.validatedData as CreateReviewInput;
 
-    const review = await reviewService.createReview({
-      userId,
+    const review = await reviewService.createReview(userId, {
       estimateId,
       content,
       rating,

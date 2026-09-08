@@ -20,9 +20,9 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.use('/reviews', reviewRouter);
 
 app.use('/auth', authRouter);
+app.use('/reviews', reviewRouter);
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 //app.use('/swaggertest', swaggerTestRouter);
 
