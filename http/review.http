@@ -1,4 +1,19 @@
 @baseUrl = http://localhost:3001
+@email = han.jimin@example.com
+@password = test1234!
+@role = CUSTOMER
+
+// 테스틀 위해 준비한 계정으로 우선 로그인을 합니다.
+###
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "{{role}}"
+}
+
 
 ###
 GET {{baseUrl}}/reviews/me?page=1&pageSize=10&hasReview=false
@@ -10,7 +25,7 @@ POST {{baseUrl}}/reviews
 content-type: application/json
 
 {
-  "estimateId": "97941866-214d-492e-bb06-c6dcc72bbd03",
+  "estimateId": "40000000-0000-4000-8000-000000000019",
   "content": "기사님이 너무너무너무 친절 했어요.",
   "rating": 5
 }
