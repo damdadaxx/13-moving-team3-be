@@ -64,13 +64,10 @@ const reviewRepository = {
 
     return { reviews, distribution, ratingAvg, reviewCount };
   },
-  createReview: async ({
-    userId,
-    moverId,
-    estimateId,
-    content,
-    rating,
-  }: CreateReviewData) => {
+  createReview: async (
+    userId: string,
+    { moverId, estimateId, content, rating }: CreateReviewData
+  ) => {
     const review = await prisma.review.create({
       data: {
         customerId: userId,

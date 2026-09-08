@@ -20,6 +20,10 @@ const options: swaggerJSDoc.Options = {
         },
       },
     },
+    tags: [
+      { name: 'Auth', description: '인증' },
+      { name: 'Reviews', description: '리뷰 관련 API' },
+    ],
   },
 
   // @swagger 주석은 src/docs/{domain}Swagger.ts 에 모아둔다.

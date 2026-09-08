@@ -13,7 +13,7 @@
  *     description: 이사 완료된 견적 목록을 조회합니다. hasReview 파라미터로 리뷰 작성 여부를 필터링할 수 있습니다.
  *     tags: [Reviews]
  *     security:
- *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -213,7 +213,7 @@
  *     description: 이사 완료된 견적에 리뷰를 작성합니다. 견적의 소유자만 작성 가능하며, 견적당 리뷰는 1개만 작성할 수 있습니다.
  *     tags: [Reviews]
  *     security:
- *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
