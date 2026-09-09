@@ -46,8 +46,12 @@ const likeController = {
       .json({ success: true, data: { isLiked, likeCount, likeId } });
   },
   createLike: async (req: Request, res: Response) => {
-    const userId: string = req.auth?.sub as string;
-    const role: string = req.auth?.role as string;
+    if (!req.auth) {
+      throw new UnauthorizedError('로그인이 필요합니다.');
+    }
+
+    const userId: string = req.auth.sub as string;
+    const role: string = req.auth.role as string;
     const { moverId } = req.validatedData as LikeMoverIdInput;
 
     const { like, likeCount } = await likeService.createLike({
