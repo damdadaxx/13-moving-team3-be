@@ -22,18 +22,13 @@ const options: swaggerJSDoc.Options = {
     },
     tags: [
       { name: 'Auth', description: '인증' },
-      { name: 'Reviews', description: '리뷰 관련 API' },
+      { name: 'Estimate', description: '견적 API' },
+      { name: 'Review', description: '리뷰 관련 API' },
     ],
   },
-
-  // @swagger 주석은 src/docs/{domain}Swagger.ts 에 모아둔다.
-  //
-  // dist가 아니라 src의 .ts를 읽는다.
-  // 문서 파일은 주석만 있고 실행 코드가 없어서, tsc가 어떤 구문에도 붙지 않은
-  // 주석을 버린다(빌드하면 블록 1개만 남는다). swagger-jsdoc은 파일을 텍스트로
-  // 파싱하므로 컴파일 결과가 필요 없고, 원본을 직접 읽으면 유실이 없다.
-  // 단, 배포 시 src/docs 가 함께 올라가야 한다.
-  apis: ['./src/docs/*.ts'],
+  // 개발은 src의 .ts, 프로덕션은 빌드된 dist의 .js를 읽음
+  // swagger용 @openapi JSDoc은 src/docs/ 아래에 모아서 작성한다.
+  apis: isProd ? ['./dist/docs/*.js'] : ['./src/docs/*.ts'],
 };
 
 export const swaggerSpec = swaggerJSDoc(options);
