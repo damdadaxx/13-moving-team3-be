@@ -5,14 +5,16 @@ import { NextFunction, Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { ENV } from '../config/env';
 
-// AppError는 공용 파일이라 code 필드가 없어서 status로 역산한다 (auth 모듈과 동일한 방식).
-// 같은 status를 쓰는 에러는 사유가 달라도 같은 code로 응답한다 — 세분화가 필요하면 message로 구분한다.
+// AppError.code가 없으면 status로 역산한다.
+// 같은 status를 쓰는 에러는 사유가 달라도 같은 code로 응답한다 — 세분화가 필요하면 code 또는 message로 구분한다.
 const CODE_BY_STATUS: Record<number, string> = {
   400: 'BAD_REQUEST',
   401: 'UNAUTHORIZED',
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
   409: 'CONFLICT',
+  429: 'TOO_MANY_REQUESTS',
+  503: 'SERVICE_UNAVAILABLE',
 };
 
 export default function errorHandler(
@@ -51,17 +53,25 @@ export default function errorHandler(
     });
   }
 
-  if (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2025'
-  ) {
-    return res.status(404).json({
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: '데이터를 찾을 수 없습니다.',
-      },
-    });
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: '데이터를 찾을 수 없습니다.',
+        },
+      });
+    }
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        error: {
+          code: 'CONFLICT',
+          message: '이미 존재하는 데이터입니다.',
+        },
+      });
+    }
   }
 
   if (error instanceof AppError) {
@@ -71,7 +81,7 @@ export default function errorHandler(
     return res.status(error.status).json({
       success: false,
       error: {
-        code: CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
+        code: error.code ?? CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
         message: error.message,
       },
     });
@@ -81,7 +91,7 @@ export default function errorHandler(
   return res.status(500).json({
     success: false,
     error: {
-      code: 'INTERNAL_SERVER_ERROR',
+      code: 'INTERNAL_ERROR',
       message:
         ENV.NODE_ENV === 'production'
           ? 'Internal Server Error'
