@@ -1,0 +1,51 @@
+@baseUrl = http://localhost:3001
+@email = han.jimin@example.com
+@password = test1234!
+@role = CUSTOMER
+
+@moverId = 10000000-0000-4000-8000-000000000002
+@likeId = 227277ee-b7b0-4548-9121-48d6e068e1ef
+@likeId2 = ade5f6c9-03b5-4166-84f3-a14677b63108
+
+### 로그인 — 먼저 실행
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "{{role}}"
+}
+
+### 내 찜 목록
+GET {{baseUrl}}/likes/me?&limit=1
+
+### 내 찜 목록 - 다음 페이지
+### 위 응답 data.nextId 를 likeId 에 넣는다. 만약 nextId값이 없다면 줄 데이터가 없다는 뜻.
+GET {{baseUrl}}/likes/me?nextCursorId={{likeId}}&limit=1
+
+### 기사님 받은 찜 수 - 비로그인
+GET {{baseUrl}}/likes/10000000-0000-4000-8000-000000000002
+
+### 찜 생성
+POST {{baseUrl}}/likes
+Content-Type: application/json
+
+{
+  "moverId": "{{moverId}}"
+}
+
+### 내가 이 기사님을 찜했는지 확인
+GET {{baseUrl}}/likes/me/{{moverId}}
+
+### 찜 단건 삭제
+# 목록/생성 응답의 like.id 를 @likeId 에 넣고 실행
+DELETE {{baseUrl}}/likes/{{likeId}}
+
+### 찜 여러 개 삭제
+POST {{baseUrl}}/likes/bulk-delete
+Content-Type: application/json
+
+{
+  "likeIds": ["{{likeId}}", "{{likeId2}}"]
+}
