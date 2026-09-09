@@ -1,0 +1,482 @@
+# =================================================
+# Mover API 테스트 설정
+# =================================================
+
+# 백엔드 서버 주소
+@baseUrl = http://localhost:3001
+
+# 최초 프로필 등록 테스트용 MOVER 계정 (seed 에 없는 계정)
+# 이미 사용한 이메일이면 회원가입이 409로 실패하므로 변경해야 합니다.
+@testMoverEmail = testmover@example.com
+
+# 로컬 테스트용 비밀번호를 직접 입력하세요.
+# 실제 비밀번호가 입력된 상태로 이 파일을 커밋하지 마세요.
+@testMoverPassword = test1234
+
+# seed 데이터 확인용 이메일 주소 
+@seedMoverEmail = kim.minjae@moving.kr
+
+#seed 데이터 확인용 비밀번호 
+@seedMoverPassword = test1234!
+
+###
+# =================================================
+# 1. 테스트용 MOVER 회원가입
+# =================================================
+
+# @name signUpMover
+POST {{baseUrl}}/auth/signUp
+Content-Type: application/json
+
+{
+  "email": "{{testMoverEmail}}",
+  "password": "{{testMoverPassword}}",
+  "name": "HTTP기사",
+  "phoneNumber": "01012345678",
+  "role": "MOVER"
+}
+
+###
+# =================================================
+# 2. 테스트용 MOVER 로그인
+# =================================================
+
+# @name signInMover
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "kim.minjae@moving.kr",
+  "password": "{{seedMoverPassword}}",
+  "role": "MOVER"
+}
+
+
+###
+# =================================================
+# 3. accessToken 쿠키 인증 확인
+# =================================================
+
+# @name getMe
+GET {{baseUrl}}/auth/me
+
+
+###
+# =================================================
+# 4. 기사님 프로필 최초 등록
+# =================================================
+
+# @name createMoverProfile
+POST {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="nickname"
+
+무빙이사
+--WebAppBoundary
+Content-Disposition: form-data; name="careerMonths"
+
+36
+--WebAppBoundary
+Content-Disposition: form-data; name="shortIntro"
+
+안전하고 꼼꼼한 이사를 진행합니다.
+--WebAppBoundary
+Content-Disposition: form-data; name="description"
+
+고객님의 소중한 물건을 안전하고 신속하게 운반해 드립니다.
+--WebAppBoundary
+Content-Disposition: form-data; name="serviceTypes"
+
+["SMALL_MOVE","HOME_MOVE"]
+--WebAppBoundary
+Content-Disposition: form-data; name="serviceRegions"
+
+["SEOUL","GYEONGGI"]
+--WebAppBoundary
+Content-Disposition: form-data; name="profileImage"; filename="test-profile.png"
+Content-Type: image/png
+
+< ../tmp/mover/test-profile.png
+--WebAppBoundary--
+
+
+###
+# =================================================
+# 5. 등록된 프로필 이미지 조회
+# =================================================
+
+# createMoverProfile 응답의 imgUrl을 자동으로 가져옵니다.
+# 반드시 4번 프로필 등록 요청을 먼저 실행해야 합니다.
+
+GET {{baseUrl}}{{createMoverProfile.response.body.data.imgUrl}}
+
+
+###
+# =================================================
+# 6. 중복 프로필 등록 테스트
+# =================================================
+
+# 같은 계정으로 두 번째 프로필을 등록하므로 409가 예상됩니다.
+
+POST {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=DuplicateBoundary
+
+--DuplicateBoundary
+Content-Disposition: form-data; name="nickname"
+
+중복무빙
+--DuplicateBoundary
+Content-Disposition: form-data; name="careerMonths"
+
+48
+--DuplicateBoundary
+Content-Disposition: form-data; name="shortIntro"
+
+중복 등록을 확인하기 위한 테스트입니다.
+--DuplicateBoundary
+Content-Disposition: form-data; name="description"
+
+이미 프로필이 등록된 사용자의 중복 등록을 확인합니다.
+--DuplicateBoundary
+Content-Disposition: form-data; name="serviceTypes"
+
+["SMALL_MOVE"]
+--DuplicateBoundary
+Content-Disposition: form-data; name="serviceRegions"
+
+["SEOUL"]
+--DuplicateBoundary--
+
+
+###
+# =================================================
+# 7. nickname 누락 검증 테스트
+# =================================================
+
+# nickname이 없으므로 Zod 검증 400이 예상됩니다.
+
+POST {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=ValidationBoundary
+
+--ValidationBoundary
+Content-Disposition: form-data; name="careerMonths"
+
+36
+--ValidationBoundary
+Content-Disposition: form-data; name="shortIntro"
+
+별명을 입력하지 않은 검증 테스트입니다.
+--ValidationBoundary
+Content-Disposition: form-data; name="description"
+
+별명 필드가 없을 때 Zod 에러가 발생하는지 확인합니다.
+--ValidationBoundary
+Content-Disposition: form-data; name="serviceTypes"
+
+["SMALL_MOVE"]
+--ValidationBoundary
+Content-Disposition: form-data; name="serviceRegions"
+
+["SEOUL"]
+--ValidationBoundary--
+
+
+###
+# =================================================
+# 8. 잘못된 서비스 종류 테스트
+# =================================================
+
+# WRONG_SERVICE는 ServiceType enum에 없으므로 400이 예상됩니다.
+
+POST {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=InvalidServiceBoundary
+
+--InvalidServiceBoundary
+Content-Disposition: form-data; name="nickname"
+
+검증무빙
+--InvalidServiceBoundary
+Content-Disposition: form-data; name="careerMonths"
+
+36
+--InvalidServiceBoundary
+Content-Disposition: form-data; name="shortIntro"
+
+잘못된 서비스 종류를 확인합니다.
+--InvalidServiceBoundary
+Content-Disposition: form-data; name="description"
+
+ServiceType enum에 존재하지 않는 값을 전달하는 테스트입니다.
+--InvalidServiceBoundary
+Content-Disposition: form-data; name="serviceTypes"
+
+["WRONG_SERVICE"]
+--InvalidServiceBoundary
+Content-Disposition: form-data; name="serviceRegions"
+
+["SEOUL"]
+--InvalidServiceBoundary--
+
+
+###
+# =================================================
+# 9. 중복 서비스 선택 테스트
+# =================================================
+
+# SMALL_MOVE가 중복됐으므로 Zod 검증 400이 예상됩니다.
+
+POST {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=DuplicateServiceBoundary
+
+--DuplicateServiceBoundary
+Content-Disposition: form-data; name="nickname"
+
+서비스검증
+--DuplicateServiceBoundary
+Content-Disposition: form-data; name="careerMonths"
+
+36
+--DuplicateServiceBoundary
+Content-Disposition: form-data; name="shortIntro"
+
+중복 서비스 선택을 확인합니다.
+--DuplicateServiceBoundary
+Content-Disposition: form-data; name="description"
+
+동일한 서비스를 두 번 선택했을 때 발생하는 오류를 확인합니다.
+--DuplicateServiceBoundary
+Content-Disposition: form-data; name="serviceTypes"
+
+["SMALL_MOVE","SMALL_MOVE"]
+--DuplicateServiceBoundary
+Content-Disposition: form-data; name="serviceRegions"
+
+["SEOUL"]
+--DuplicateServiceBoundary--
+
+
+###
+# =================================================
+# 10. 이미지 없는 프로필 등록 예시
+# =================================================
+
+# 이 요청은 새 MOVER 계정으로 회원가입한 직후 실행해야 합니다.
+# 이미 프로필을 등록한 계정으로 실행하면 409가 반환됩니다.
+
+POST {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=NoImageBoundary
+
+--NoImageBoundary
+Content-Disposition: form-data; name="nickname"
+
+이미지없는기사
+--NoImageBoundary
+Content-Disposition: form-data; name="careerMonths"
+
+12
+--NoImageBoundary
+Content-Disposition: form-data; name="shortIntro"
+
+이미지 없이 등록하는 기사님입니다.
+--NoImageBoundary
+Content-Disposition: form-data; name="description"
+
+프로필 이미지를 첨부하지 않아도 등록되는지 확인합니다.
+--NoImageBoundary
+Content-Disposition: form-data; name="serviceTypes"
+
+["SMALL_MOVE"]
+--NoImageBoundary
+Content-Disposition: form-data; name="serviceRegions"
+
+["SEOUL"]
+--NoImageBoundary--
+
+
+###
+# =================================================
+# 11. 기사님 프로필 일부 텍스트 수정
+# =================================================
+
+# PATCH는 변경할 필드만 보낼 수 있습니다.
+# 이 요청에서는 별명과 경력만 수정하고 나머지 값은 유지합니다.
+
+# @name updateMoverProfileText
+PATCH {{baseUrl}}/mover/profile
+Content-Type: application/json
+
+{
+  "nickname": "수정무빙",
+  "careerMonths": 48
+}
+
+
+###
+# =================================================
+# 12. 제공 서비스와 서비스 가능 지역 수정
+# =================================================
+
+# 배열 필드를 보내면 기존 목록을 아래 목록으로 전체 교체합니다.
+# JSON 요청에서는 배열을 문자열이 아닌 실제 JSON 배열로 보냅니다.
+
+# @name updateMoverProfileOptions
+PATCH {{baseUrl}}/mover/profile
+Content-Type: application/json
+
+{
+  "serviceTypes": ["SMALL_MOVE", "OFFICE_MOVE"],
+  "serviceRegions": ["SEOUL", "INCHEON"]
+}
+
+
+###
+# =================================================
+# 13. 프로필 이미지 교체
+# =================================================
+
+# 이미지가 포함되므로 multipart/form-data를 사용합니다.
+# 같은 테스트 이미지를 사용해도 서버가 새로운 파일명으로 저장합니다.
+
+# @name updateMoverProfileImage
+PATCH {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=UpdateImageBoundary
+
+--UpdateImageBoundary
+Content-Disposition: form-data; name="profileImage"; filename="test-profile.png"
+Content-Type: image/png
+
+< ../tmp/mover/test-profile.png
+--UpdateImageBoundary--
+
+
+###
+# =================================================
+# 14. 교체된 프로필 이미지 조회
+# =================================================
+
+# 13번 응답의 imgUrl을 이용해 새 이미지가 실제로 열리는지 확인합니다.
+
+GET {{baseUrl}}{{updateMoverProfileImage.response.body.data.imgUrl}}
+
+
+###
+# =================================================
+# 15. 프로필 이미지 삭제
+# =================================================
+
+# removeImage를 true로 보내면 DB의 imgUrl이 null로 변경되고
+# uploads/movers에 있던 기존 로컬 이미지도 삭제됩니다.
+
+# @name removeMoverProfileImage
+PATCH {{baseUrl}}/mover/profile
+Content-Type: application/json
+
+{
+  "removeImage": true
+}
+
+
+###
+# =================================================
+# 16. 수정 값이 없는 빈 요청 검증
+# =================================================
+
+# 실제 수정할 값이 없으므로 400 응답이 예상됩니다.
+
+PATCH {{baseUrl}}/mover/profile
+Content-Type: application/json
+
+{}
+
+
+###
+# =================================================
+# 17. 이미지 교체와 삭제 동시 요청 검증
+# =================================================
+
+# 새 이미지와 removeImage=true를 함께 보내면 요청 의미가 충돌하므로
+# 400 응답이 예상됩니다.
+
+PATCH {{baseUrl}}/mover/profile
+Content-Type: multipart/form-data; boundary=ImageConflictBoundary
+
+--ImageConflictBoundary
+Content-Disposition: form-data; name="removeImage"
+
+true
+--ImageConflictBoundary
+Content-Disposition: form-data; name="profileImage"; filename="test-profile.png"
+Content-Type: image/png
+
+< ../tmp/mover/test-profile.png
+--ImageConflictBoundary--
+
+
+### 18. 로그인한 기사님의 본인 프로필 조회
+# 먼저 위의 MOVER 로그인 요청을 실행해야 합니다.
+# 성공 시 { success: true, data: profile } 형식으로 반환됩니다.
+# @name getMyMoverProfile
+GET {{baseUrl}}/mover/profile
+
+
+### 19. 공개 기사님 목록 기본 조회
+# 인증 없이 호출할 수 있습니다.
+# 기본값은 reviewCount 정렬, page=1, pageSize=10입니다.
+# @name getMovers
+GET {{baseUrl}}/mover
+
+
+### 20. 기사님 별명 검색
+# nickname에 '민재'가 포함된 기사님을 조회합니다.
+GET {{baseUrl}}/mover?keyword=민재
+
+
+### 21. 지역과 서비스 종류 필터
+# 서울에서 소형이사를 제공하는 기사님만 조회합니다.
+GET {{baseUrl}}/mover?region=SEOUL&serviceType=SMALL_MOVE
+
+
+###22. 평균 평점 높은 순
+GET {{baseUrl}}/mover?sortBy=rating&page=1&pageSize=3
+
+
+### 23. 리뷰 많은 순
+GET {{baseUrl}}/mover?sortBy=reviewCount&page=1&pageSize=3
+
+
+### 24. 경력 높은 순
+GET {{baseUrl}}/mover?sortBy=career&page=1&pageSize=3
+
+
+### 25. 확정 횟수 높은 순
+# confirmedCount는 ACCEPTED 상태 견적의 개수입니다.
+GET {{baseUrl}}/mover?sortBy=confirmedCount&page=1&pageSize=3
+
+
+### 26. 목록 다음 페이지
+# pageSize=2로 나누어 두 번째 페이지와 hasNext를 확인합니다.
+GET {{baseUrl}}/mover?page=2&pageSize=2
+
+
+### 27. 잘못된 목록 쿼리 검증
+# page=0과 존재하지 않는 sortBy이므로
+# 공용 에러 계약의 VALIDATION_ERROR와 fields가 예상됩니다.
+GET {{baseUrl}}/mover?page=0&sortBy=wrong
+
+
+### 28. 기사님 공개 상세 조회
+# seed의 김민재 기사님 ID입니다.
+# @name getMoverDetail
+GET {{baseUrl}}/mover/10000000-0000-4000-8000-000000000001
+
+
+### 29. 존재하지 않는 기사님 상세 조회
+# UUID 형식은 맞지만 데이터가 없으므로 404 NOT_FOUND가 예상됩니다.
+GET {{baseUrl}}/mover/00000000-0000-4000-8000-000000000000
+
+
+### 30. 잘못된 기사님 ID 검증
+# UUID 형식이 아니므로 400 VALIDATION_ERROR가 예상됩니다.
+GET {{baseUrl}}/mover/not-a-uuid

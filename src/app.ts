@@ -1,5 +1,6 @@
 import './config/env';
 import express from 'express';
+import path from 'path';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -7,7 +8,11 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import authRouter from './modules/auth/authRoute';
+<<<<<<< HEAD
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
+=======
+import moverRouter from './modules/mover/moverRoute';
+>>>>>>> 20d2234 (feat: 기사님 목록 조회 및 프로필 등록,수정 api 구현)
 import swaggerTestRouter from './docs/swaggertest.route';
 import estimateRouter from './modules/estimate/estimateRoute';
 
@@ -20,11 +25,16 @@ app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use('/auth', authRouter);
+<<<<<<< HEAD
 app.use('/estimate-requests', estimateRequestRouter);
+=======
+app.use('/mover', moverRouter);
+>>>>>>> 20d2234 (feat: 기사님 목록 조회 및 프로필 등록,수정 api 구현)
 app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
 
