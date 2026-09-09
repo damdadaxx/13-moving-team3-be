@@ -5,8 +5,8 @@ import { NextFunction, Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
 import { ENV } from '../config/env';
 
-// AppError.code가 없으면 status로 역산한다.
-// 같은 status를 쓰는 에러는 사유가 달라도 같은 code로 응답한다 — 세분화가 필요하면 code 또는 message로 구분한다.
+// AppError는 status로 body code를 역산한다.
+// 같은 status를 쓰는 에러는 사유가 달라도 같은 code로 응답한다 — 세분화가 필요하면 message로 구분한다.
 const CODE_BY_STATUS: Record<number, string> = {
   400: 'BAD_REQUEST',
   401: 'UNAUTHORIZED',
@@ -81,7 +81,7 @@ export default function errorHandler(
     return res.status(error.status).json({
       success: false,
       error: {
-        code: error.code ?? CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
+        code: CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
         message: error.message,
       },
     });
