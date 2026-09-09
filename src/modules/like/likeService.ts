@@ -156,7 +156,7 @@ const likeService = {
     role,
   }: DeleteLikeInput & AuthenticatedInput) => {
     if (role !== Role.CUSTOMER) {
-      throw new ForbiddenError('고객만 기사님을 찜을 취소할 수 있습니다.');
+      throw new ForbiddenError('고객만 찜을 취소할 수 있습니다.');
     }
     const where: Prisma.LikeWhereUniqueInput = {
       id: likeId,
