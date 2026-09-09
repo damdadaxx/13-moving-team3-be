@@ -1,4 +1,9 @@
 /**
+ * Customer Profile API 문서.
+ * 공통 ErrorResponse 스키마는 src/docs/swagger.ts에 정의되어 있습니다.
+ */
+
+/**
  * @swagger
  * /customer/profile:
  *   post:
@@ -29,10 +34,28 @@
  *         description: 등록 성공. `{ success, data }`
  *       400:
  *         description: region / serviceTypes 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: MOVER 계정
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       409:
  *         description: 이미 등록된 프로필
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *   get:
  *     tags: [Customer]
  *     summary: 내 프로필 조회
@@ -43,8 +66,22 @@
  *         description: `{ success, data }` User 기본정보 + 프로필
  *       401:
  *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: MOVER 계정
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: 프로필 미등록
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *   patch:
  *     tags: [Customer]
  *     summary: 내 프로필 수정
@@ -74,8 +111,28 @@
  *         description: `{ success, data }` 수정된 프로필
  *       400:
  *         description: region / serviceTypes 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: MOVER 계정
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: 프로필 미등록
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 export {};

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireCustomer } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
-import * as customerController from './customerController';
+import { customerController } from './customerController';
 import { upsertProfileSchema } from './customerValidation';
 
 const router = Router();
@@ -28,7 +28,5 @@ router.patch(
   validate(upsertProfileSchema),
   customerController.updateProfile
 );
-
-router.use(customerController.errorHandler);
 
 export default router;
