@@ -5,12 +5,10 @@ export const likeMoverIdSchema = z.object({
 });
 
 export const getLikeMoverListSchema = z.object({
-  nextCursorId: z.uuid().optional(),
-  limit: z.coerce.number().min(1).default(5),
+  cursor: z.uuid().optional(),
+  size: z.coerce.number().min(1).default(10),
 });
-export const deleteLikeSchema = z.object({
-  likeId: z.uuid('like ID는 필수 입력 필드입니다.'),
-});
+
 export const bulkDeleteLikeSchema = z.object({
-  likeIds: z.array(z.uuid('like ID는 필수 입력 필드입니다.')),
+  moverIds: z.array(z.uuid('기사 ID는 필수 입력 필드입니다.')),
 });

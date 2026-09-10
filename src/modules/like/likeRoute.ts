@@ -4,7 +4,6 @@ import { authenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
 import {
   bulkDeleteLikeSchema,
-  deleteLikeSchema,
   getLikeMoverListSchema,
   likeMoverIdSchema,
 } from './likeSchema';
@@ -49,7 +48,7 @@ likeRouter.post(
 likeRouter.delete(
   '/:likeId',
   authenticate,
-  validate(deleteLikeSchema, 'params'),
+  validate(likeMoverIdSchema, 'params'),
   likeController.deleteLike
 );
 

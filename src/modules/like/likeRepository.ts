@@ -5,21 +5,17 @@ import { GetLikeMoverListData } from './likeTypes';
 
 const likeRepository = {
   //찜을 누른 기사님 목록
-  getLikeMoverList: async ({
-    userId,
-    nextCursorId,
-    limit,
-  }: GetLikeMoverListData) => {
+  getLikeMoverList: async ({ userId, cursor, size }: GetLikeMoverListData) => {
     const [likeMoversList, likeMoverTotal] = await Promise.all([
       prisma.like.findMany({
         where: {
           customerId: userId,
         },
         include: { mover: { include: { serviceTypes: true } } },
-        ...(nextCursorId && { cursor: { id: nextCursorId } }),
+        ...(cursor && { cursor: { id: cursor } }),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip: nextCursorId ? 1 : 0,
-        take: limit + 1,
+        skip: cursor ? 1 : 0,
+        take: size + 1,
       }),
       prisma.like.count({
         where: {
@@ -56,7 +52,7 @@ const likeRepository = {
   },
   findLikeList: async (likeIds: string[], userId: string) => {
     const likeInfoList = await prisma.like.findMany({
-      where: { id: { in: likeIds }, customerId: userId },
+      where: { moverId: { in: likeIds }, customerId: userId },
     });
     return likeInfoList;
   },
@@ -93,12 +89,9 @@ const likeRepository = {
     });
     return deletedLikeList;
   },
-  deleteLike: async (likeId: string, userId: string) => {
+  deleteLike: async (where: Prisma.LikeWhereUniqueInput) => {
     const like = await prisma.like.delete({
-      where: {
-        id: likeId,
-        customerId: userId,
-      },
+      where,
     });
     return like;
   },

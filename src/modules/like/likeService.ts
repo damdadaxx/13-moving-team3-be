@@ -5,7 +5,6 @@ import likeRepository from './likeRepository';
 import {
   AuthenticatedInput,
   BulkDeleteLikeInput,
-  DeleteLikeInput,
   GetLikeMoverListData,
   LikeMoverIdInput,
 } from './likeTypes';
@@ -14,8 +13,8 @@ const likeService = {
   getLikeMoverList: async ({
     userId,
     role,
-    nextCursorId,
-    limit,
+    cursor,
+    size,
   }: GetLikeMoverListData) => {
     if (role !== Role.CUSTOMER) {
       //기사 페이지에서 찜한 기사목록을 보여주지는 않는것 같아서 고객만 볼 수 있게 처리.
@@ -23,15 +22,15 @@ const likeService = {
     }
 
     const { likeMoversList, likeMoverTotal } =
-      await likeRepository.getLikeMoverList({ userId, nextCursorId, limit });
-    const isNext = likeMoversList.length > limit;
+      await likeRepository.getLikeMoverList({ userId, cursor, size });
+    const isNext = likeMoversList.length > size;
     const nextList = isNext ? likeMoversList.slice(0, -1) : likeMoversList;
-    const nextId = isNext ? nextList[nextList.length - 1].id : undefined;
+    const nextCursor = isNext ? nextList[nextList.length - 1].id : null;
 
     const moverIds = nextList ? nextList.map((data) => data.moverId) : [];
     //찜한 기사가 없다면 빈 배열로 반환.
     if (moverIds.length === 0) {
-      return { result: [], nextId: undefined };
+      return { result: [], nextCursor: null, likeMoverTotal: 0 };
     }
 
     const [ratingInfo, acceptedEstimateCountList, likeCountList] =
@@ -55,7 +54,7 @@ const likeService = {
           ),
         },
         ratingCount: findRatingInfo?._count.rating ?? 0,
-        ratingAvg: findRatingInfo?._avg.rating ?? 0,
+        ratingAvg: findRatingInfo?._avg.rating?.toFixed(1) ?? 0,
         acceptedEstimateCount:
           acceptedEstimateCountList.find(
             (info) => info.moverId === data.moverId
@@ -66,7 +65,7 @@ const likeService = {
       };
     });
 
-    return { result, nextId, likeMoverTotal };
+    return { result, nextCursor, likeMoverTotal };
   },
   getLikeMoverCount: async ({ moverId }: LikeMoverIdInput) => {
     const likeCount = await likeRepository.getLikeCount(moverId);
@@ -119,7 +118,7 @@ const likeService = {
     return { like, likeCount };
   },
   bulkDeleteLike: async ({
-    likeIds,
+    moverIds,
     userId,
     role,
   }: BulkDeleteLikeInput & AuthenticatedInput) => {
@@ -127,15 +126,13 @@ const likeService = {
       throw new ForbiddenError('고객만 찜을 여러개 취소할 수 있습니다.');
     }
 
-    const likeInfoList = await likeRepository.findLikeList(likeIds, userId);
-    if (likeInfoList.length !== likeIds.length) {
+    const likeInfoList = await likeRepository.findLikeList(moverIds, userId);
+    if (likeInfoList.length !== moverIds.length) {
       throw new BadRequestError('찜을 먼저 해야 취소할 수 있습니다.');
     }
 
-    await likeRepository.bulkDeleteLike(likeIds);
-    const likeCountList = await likeRepository.getLikeCountList(
-      likeInfoList.map((info) => info.moverId)
-    );
+    await likeRepository.bulkDeleteLike(moverIds);
+    const likeCountList = await likeRepository.getLikeCountList(moverIds);
 
     const result = likeInfoList.map((info) => {
       const findLikeCount = likeCountList.find(
@@ -151,22 +148,24 @@ const likeService = {
     return { result };
   },
   deleteLike: async ({
-    likeId,
+    moverId,
     userId,
     role,
-  }: DeleteLikeInput & AuthenticatedInput) => {
+  }: LikeMoverIdInput & AuthenticatedInput) => {
     if (role !== Role.CUSTOMER) {
       throw new ForbiddenError('고객만 찜을 취소할 수 있습니다.');
     }
     const where: Prisma.LikeWhereUniqueInput = {
-      id: likeId,
-      customerId: userId,
+      customerId_moverId: {
+        customerId: userId,
+        moverId,
+      },
     };
     const likeInfo = await likeRepository.findLike(where);
     if (!likeInfo) {
       throw new BadRequestError('찜을 먼저 해야 취소할 수 있습니다.');
     }
-    await likeRepository.deleteLike(likeId, userId);
+    await likeRepository.deleteLike(where);
     const likeCount = await likeRepository.getLikeCount(likeInfo.moverId);
     return { likeCount };
   },

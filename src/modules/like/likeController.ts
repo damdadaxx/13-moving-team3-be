@@ -3,7 +3,6 @@ import likeService from './likeService';
 import { UnauthorizedError } from '../../utils/error';
 import {
   BulkDeleteLikeInput,
-  DeleteLikeInput,
   GetLikeMoverListInput,
   LikeMoverIdInput,
 } from './likeTypes';
@@ -16,13 +15,13 @@ const likeController = {
     const userId: string = req.auth.sub as string;
     const role: string = req.auth.role as string;
 
-    const { nextCursorId, limit } = req.validatedData as GetLikeMoverListInput;
+    const { cursor, size } = req.validatedData as GetLikeMoverListInput;
 
-    const { result, nextId, likeMoverTotal } =
-      await likeService.getLikeMoverList({ userId, role, nextCursorId, limit });
+    const { result, nextCursor, likeMoverTotal } =
+      await likeService.getLikeMoverList({ userId, role, cursor, size });
     return res.status(200).json({
       success: true,
-      data: { result, nextId, likeMoverTotal },
+      data: { result, nextCursor, likeMoverTotal },
     });
   },
   getLikeMoverCount: async (req: Request, res: Response) => {
@@ -67,8 +66,8 @@ const likeController = {
     }
     const userId: string = req.auth.sub as string;
     const role: string = req.auth.role as string;
-    const { likeIds } = req.validatedData as BulkDeleteLikeInput;
-    const data = await likeService.bulkDeleteLike({ likeIds, userId, role });
+    const { moverIds } = req.validatedData as BulkDeleteLikeInput;
+    const data = await likeService.bulkDeleteLike({ moverIds, userId, role });
     return res.status(200).json({ success: true, data });
   },
   deleteLike: async (req: Request, res: Response) => {
@@ -77,8 +76,8 @@ const likeController = {
     }
     const userId: string = req.auth.sub as string;
     const role: string = req.auth.role as string;
-    const { likeId } = req.validatedData as DeleteLikeInput;
-    const data = await likeService.deleteLike({ likeId, userId, role });
+    const { moverId } = req.validatedData as LikeMoverIdInput;
+    const data = await likeService.deleteLike({ moverId, userId, role });
     return res.status(200).json({ success: true, data });
   },
 };
