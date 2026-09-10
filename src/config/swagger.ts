@@ -26,7 +26,6 @@ const options: swaggerJSDoc.Options = {
       { name: 'Review', description: '리뷰 관련 API' },
     ],
   },
-
   // @swagger 주석은 src/docs/{domain}Swagger.ts 에 모아둔다.
   //
   // dist가 아니라 src의 .ts를 읽는다.

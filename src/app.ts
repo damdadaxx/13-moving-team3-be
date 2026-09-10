@@ -3,6 +3,8 @@ import express from 'express';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import authRouter from './modules/auth/authRoute';
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
@@ -20,13 +22,14 @@ app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
 app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
 app.use('/likes', likeRouter);
 app.use('/reviews', reviewRouter);
-
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 
 app.use(errorHandler);
