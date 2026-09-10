@@ -19,7 +19,7 @@ Content-Type: application/json
 }
 
 ### 내 찜 목록
-GET {{baseUrl}}/likes/me?&size=1
+GET {{baseUrl}}/likes/me?size=1
 
 ### 내 찜 목록 - 다음 페이지
 ### 위 응답 data.nextCursor 를 likeId 에 넣는다. 다음데이터가 없으면 nextCursor는 null이다.
