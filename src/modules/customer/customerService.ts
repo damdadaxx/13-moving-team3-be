@@ -4,7 +4,10 @@ import {
   customerRepository,
   CustomerProfileRecord,
 } from './customerRepository';
+import { deleteLocalUpload } from '../../middlewares/upload';
 import { UpsertProfileInput } from './customerValidation';
+
+type UpsertProfileCommand = UpsertProfileInput & { imgUrl?: string };
 
 export type CustomerProfileResponse = {
   id: string;
@@ -41,7 +44,7 @@ const isUniqueConflict = (error: unknown) =>
 export const customerService = {
   async create(
     userId: string,
-    input: UpsertProfileInput
+    input: UpsertProfileCommand
   ): Promise<CustomerProfileResponse> {
     const existing = await customerRepository.findByUserId(userId);
     if (existing) {
@@ -74,7 +77,7 @@ export const customerService = {
 
   async update(
     userId: string,
-    input: UpsertProfileInput
+    input: UpsertProfileCommand
   ): Promise<CustomerProfileResponse> {
     const existing = await customerRepository.findByUserId(userId);
     if (!existing) {
@@ -87,6 +90,11 @@ export const customerService = {
       region: input.region,
       serviceTypes: input.serviceTypes,
     });
+
+    if (input.imgUrl && existing.imgUrl) {
+      deleteLocalUpload(existing.imgUrl);
+    }
+
     return toResponse(profile);
   },
 };

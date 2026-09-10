@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { toPublicUploadPath } from '../../middlewares/upload';
 import { UnauthorizedError } from '../../utils/error';
 import { customerService } from './customerService';
 import { UpsertProfileInput } from './customerValidation';
@@ -16,7 +17,11 @@ const getUserId = (req: Request) => {
 export const customerController = {
   createProfile: async (req: Request, res: Response) => {
     const input = getValidated<UpsertProfileInput>(req);
-    const profile = await customerService.create(getUserId(req), input);
+    const imgUrl = req.file ? toPublicUploadPath(req.file) : undefined;
+    const profile = await customerService.create(getUserId(req), {
+      ...input,
+      imgUrl,
+    });
     res.status(201).json({ success: true, data: profile });
   },
 
@@ -27,7 +32,11 @@ export const customerController = {
 
   updateProfile: async (req: Request, res: Response) => {
     const input = getValidated<UpsertProfileInput>(req);
-    const profile = await customerService.update(getUserId(req), input);
+    const imgUrl = req.file ? toPublicUploadPath(req.file) : undefined;
+    const profile = await customerService.update(getUserId(req), {
+      ...input,
+      imgUrl,
+    });
     res.status(200).json({ success: true, data: profile });
   },
 };

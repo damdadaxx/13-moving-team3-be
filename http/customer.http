@@ -41,15 +41,35 @@ GET {{host}}/customer/profile
 
 
 ### ────────────────────────────────────────────────
-### 프로필 최초 등록 (201)
+### 프로필 최초 등록 (201) — 이미지 없이 JSON
 POST {{host}}/customer/profile
 Content-Type: application/json
 
 {
-  "imgUrl": "https://cdn.example.com/profile/abc.png",
   "region": "SEOUL",
   "serviceTypes": ["HOME_MOVE", "OFFICE_MOVE"]
 }
+
+
+### 프로필 최초 등록 (201) — multer multipart (image 필드)
+# 로컬 이미지 경로를 프로젝트 기준으로 바꿔서 실행한다.
+# POST {{host}}/customer/profile
+# Content-Type: multipart/form-data; boundary=----FormBoundary
+#
+# ------FormBoundary
+# Content-Disposition: form-data; name="region"
+#
+# SEOUL
+# ------FormBoundary
+# Content-Disposition: form-data; name="serviceTypes"
+#
+# ["HOME_MOVE","OFFICE_MOVE"]
+# ------FormBoundary
+# Content-Disposition: form-data; name="image"; filename="profile.png"
+# Content-Type: image/png
+#
+# < ./profile.png
+# ------FormBoundary--
 
 
 ### 이미 등록된 프로필 (409 CONFLICT)
@@ -87,12 +107,11 @@ Content-Type: application/json
 GET {{host}}/customer/profile
 
 
-### 내 프로필 수정 (200) — serviceTypes 전체 교체
+### 내 프로필 수정 (200) — serviceTypes 전체 교체 (이미지 유지)
 PATCH {{host}}/customer/profile
 Content-Type: application/json
 
 {
-  "imgUrl": "https://cdn.example.com/profile/new.png",
   "region": "GYEONGGI",
   "serviceTypes": ["SMALL_MOVE"]
 }

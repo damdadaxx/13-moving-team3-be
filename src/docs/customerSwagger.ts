@@ -14,12 +14,26 @@
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [region, serviceTypes]
+ *             properties:
+ *               region:
+ *                 type: string
+ *                 enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM, GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
+ *               serviceTypes:
+ *                 type: string
+ *                 description: 'JSON 배열 문자열. 예 ["HOME_MOVE","OFFICE_MOVE"]'
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: 프로필 이미지. jpeg/png/webp/gif, 5MB 이하
  *         application/json:
  *           schema:
  *             type: object
  *             required: [region, serviceTypes]
  *             properties:
- *               imgUrl: { type: string, format: uri, nullable: true }
  *               region:
  *                 type: string
  *                 enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM, GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
@@ -85,18 +99,32 @@
  *   patch:
  *     tags: [Customer]
  *     summary: 내 프로필 수정
- *     description: region/serviceTypes 는 필수. serviceTypes 는 전체 교체. name/phoneNumber 는 PATCH /auth/me.
+ *     description: region/serviceTypes 는 필수. serviceTypes 는 전체 교체. image를 보내면 기존 로컬 파일을 교체한다. name/phoneNumber 는 PATCH /auth/me.
  *     security:
  *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [region, serviceTypes]
+ *             properties:
+ *               region:
+ *                 type: string
+ *                 enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM, GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
+ *               serviceTypes:
+ *                 type: string
+ *                 description: 'JSON 배열 문자열. 예 ["SMALL_MOVE"]'
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: 보낼 때만 이미지를 교체한다
  *         application/json:
  *           schema:
  *             type: object
  *             required: [region, serviceTypes]
  *             properties:
- *               imgUrl: { type: string, format: uri, nullable: true }
  *               region:
  *                 type: string
  *                 enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM, GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
