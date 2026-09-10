@@ -317,29 +317,25 @@
  *           example: true
  *         data:
  *           type: object
- *           required: [list, page, pageSize, totalCount, hasNext]
+ *           required: [list, nextCursor, totalCount]
  *           properties:
  *             list:
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/MoverListItem'
- *             page:
- *               type: integer
- *               minimum: 1
- *               example: 1
- *             pageSize:
- *               type: integer
- *               minimum: 1
- *               maximum: 100
- *               example: 10
+ *             nextCursor:
+ *               type: string
+ *               format: uuid
+ *               nullable: true
+ *               description: |
+ *                 다음 페이지 요청의 cursor 쿼리에 전달할 기사님 ID입니다.
+ *                 다음 페이지가 없으면 null을 반환합니다.
+ *               example: 10000000-0000-4000-8000-000000000003
  *             totalCount:
  *               type: integer
  *               minimum: 0
+ *               description: 검색과 필터 조건을 만족하는 전체 기사님 수
  *               example: 5
- *             hasNext:
- *               type: boolean
- *               description: 다음 페이지가 존재하는지 여부
- *               example: false
  *
  *     MoverDetail:
  *       type: object
@@ -624,8 +620,15 @@
  *     summary: 기사님 목록 조회
  *     description: |
  *       비회원도 호출할 수 있는 공개 API입니다.
- *       기사님 별명 검색, 지역·서비스 필터, 정렬 및 페이지 기반 페이지네이션을 지원합니다.
+ *       기사님 별명 검색, 지역·서비스 필터, 정렬 및 커서 기반 무한 스크롤을 지원합니다.
+ *
+ *       첫 번째 요청에는 cursor를 전달하지 않습니다.
+ *       다음 요청부터 직전 응답의 data.nextCursor를 cursor로 전달합니다.
+ *       data.nextCursor가 null이면 마지막 페이지입니다.
+ *
  *       필터를 초기화하려면 keyword, region, serviceType 쿼리를 보내지 않으면 됩니다.
+ *       keyword, region, serviceType 또는 sortBy가 변경되면 기존 cursor를 사용하지 않고
+ *       첫 페이지부터 다시 요청해야 합니다.
  *     parameters:
  *       - in: query
  *         name: keyword
@@ -656,17 +659,17 @@
  *           enum: [reviewCount, rating, career, confirmedCount]
  *           default: reviewCount
  *       - in: query
- *         name: page
+ *         name: cursor
  *         required: false
- *         description: 조회할 페이지 번호
+ *         description: 직전 응답의 data.nextCursor 값. 첫 페이지에서는 전달하지 않습니다.
  *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
+ *           type: string
+ *           format: uuid
+ *         example: 10000000-0000-4000-8000-000000000003
  *       - in: query
- *         name: pageSize
+ *         name: size
  *         required: false
- *         description: 한 페이지에 반환할 기사님 수
+ *         description: 한 번에 반환할 기사님 수
  *         schema:
  *           type: integer
  *           minimum: 1
@@ -680,7 +683,7 @@
  *             schema:
  *               $ref: '#/components/schemas/MoverListResponse'
  *       400:
- *         description: 검색, 필터, 정렬 또는 페이지네이션 쿼리 검증 실패
+ *         description: 검색, 필터, 정렬 또는 커서 쿼리 검증 실패
  *         content:
  *           application/json:
  *             schema:

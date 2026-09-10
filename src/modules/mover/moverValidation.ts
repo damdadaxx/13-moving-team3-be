@@ -158,6 +158,19 @@ export const updateMoverProfileSchema = z.object({
 기사님 목록 조회 쿼리 스키마
 =================================================*/
 
+/*
+@ getMoverListQuerySchema
+
+- GET /mover 목록 조회에 사용하는 쿼리를 검증합니다.
+- 첫 번째 요청에는 cursor를 보내지 않습니다.
+- 다음 요청부터 직전 응답의 nextCursor를 cursor로 전달합니다.
+- size는 한 번에 조회할 기사님 수이며 기본값은 10입니다.
+
+@ 주의사항
+
+- 검색어, 지역, 서비스 종류 또는 정렬 기준이 변경되면
+  기존 cursor를 사용하지 않고 첫 페이지부터 다시 요청해야 합니다.
+*/
 export const getMoverListQuerySchema = z.object({
   keyword: z.string().trim().min(1).optional(),
   region: z.enum(Region).optional(),
@@ -165,8 +178,28 @@ export const getMoverListQuerySchema = z.object({
   sortBy: z
     .enum(['reviewCount', 'rating', 'career', 'confirmedCount'])
     .default('reviewCount'),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+
+  /*
+  @ cursor
+
+  - 직전 응답의 data.nextCursor를 그대로 전달합니다.
+  - MoverProfile의 userId는 UUID 기본키이므로 UUID 형식을 검증합니다.
+  */
+  cursor: z.uuid('올바른 커서 값이 아닙니다.').optional(),
+
+  /*
+  @ size
+
+  - 한 번의 요청에서 반환할 기사님 수입니다.
+  - Repository에서는 다음 페이지 존재 여부를 확인하기 위해
+    실제로 size보다 한 건 더 조회합니다.
+  */
+  size: z.coerce
+    .number()
+    .int('size는 정수여야 합니다.')
+    .min(1, 'size는 1 이상이어야 합니다.')
+    .max(100, 'size는 최대 100까지 입력할 수 있습니다.')
+    .default(10),
 });
 
 /*=================================================

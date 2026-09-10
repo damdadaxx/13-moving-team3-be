@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../../utils/error';
+import { paginateByCursor } from '../../utils/cursorPagination';
 import { deleteMoverImage, saveMoverImage } from './moverImage';
 import moverMapper from './moverMapper';
 import moverRepository from './moverRepository';
@@ -236,23 +237,33 @@ const moverService = {
   },
 
   /*
-  @ getMovers
+@ getMovers
 
-  - GET /mover의 검색, 필터, 정렬, 페이지네이션 결과를 반환합니다.
-  - 목록 조회와 전체 개수 조회는 서로 독립적이므로 동시에 실행합니다.
-  */
+- GET /mover의 검색, 필터, 정렬, 커서 페이지네이션 결과를 반환합니다.
+- 목록 조회와 전체 개수 조회는 서로 독립적이므로 동시에 실행합니다.
+- Repository는 다음 페이지 존재 여부를 확인하기 위해 size + 1건을 조회합니다.
+- 공용 paginateByCursor가 초과 조회한 한 건을 제거하고
+  다음 요청에 사용할 nextCursor를 만들어 줍니다.
+*/
   getMovers: async (query: GetMoverListQuery) => {
     const [movers, totalCount] = await Promise.all([
       moverRepository.findMany(query),
       moverRepository.count(query),
     ]);
 
+    /*
+  @ paginateByCursor
+
+  - movers가 size보다 많으면 마지막 초과 데이터를 제외합니다.
+  - 실제 응답에 포함된 마지막 기사님의 id를 nextCursor로 반환합니다.
+  - 다음 데이터가 없으면 nextCursor는 null입니다.
+  */
+    const { items, nextCursor } = paginateByCursor(movers, query.size);
+
     return {
-      list: movers.map(moverMapper.toListItem),
-      page: query.page,
-      pageSize: query.pageSize,
+      list: items.map(moverMapper.toListItem),
+      nextCursor,
       totalCount,
-      hasNext: query.page * query.pageSize < totalCount,
     };
   },
 
