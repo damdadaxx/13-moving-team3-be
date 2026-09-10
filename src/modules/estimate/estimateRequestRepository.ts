@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import { Prisma, ServiceType } from '../../generated/prisma/client';
+import { buildCursorArgs } from '../../utils/cursorPagination';
 
 interface EstimateRequestWhereParams {
   customerId?: string;
@@ -9,7 +10,7 @@ interface EstimateRequestWhereParams {
 
 interface FindManyWithEstimatesParams extends EstimateRequestWhereParams {
   cursor?: string;
-  take: number;
+  size: number;
 }
 
 const buildWhere = ({
@@ -28,7 +29,7 @@ export const estimateRequestRepository = {
     serviceType,
     estimateWhere,
     cursor,
-    take,
+    size,
   }: FindManyWithEstimatesParams) => {
     return prisma.estimateRequest.findMany({
       where: buildWhere({ customerId, serviceType, estimateWhere }),
@@ -50,8 +51,7 @@ export const estimateRequestRepository = {
       },
       // id를 tie-break로 같이 정렬해야 커서 페이지네이션이 createdAt 동률에서도 안정적으로 동작한다.
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      take,
+      ...buildCursorArgs(cursor, size),
     });
   },
 

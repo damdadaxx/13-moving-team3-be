@@ -9,6 +9,7 @@ import { estimateRequestRepository } from './estimateRequestRepository';
 import { estimateRepository } from './estimateRepository';
 import { estimateFilter } from './estimateFilter';
 import { estimateMapper } from './estimateMapper';
+import { paginateByCursor } from '../../utils/cursorPagination';
 import {
   acceptEstimateSchema,
   GetEstimateDetailParamsDto,
@@ -49,14 +50,13 @@ export const estimateService = {
     );
     const customerId = role === Role.CUSTOMER ? userId : undefined;
 
-    // size + 1건을 조회해서, 초과분이 있으면 다음 페이지가 있다는 뜻
     const [estimateRequests, totalCount] = await Promise.all([
       estimateRequestRepository.findManyWithEstimates({
         customerId,
         serviceType,
         estimateWhere,
         cursor,
-        take: size + 1,
+        size,
       }),
       estimateRequestRepository.count({
         customerId,
@@ -65,12 +65,10 @@ export const estimateService = {
       }),
     ]);
 
-    const hasNext = estimateRequests.length > size;
-    const page = hasNext ? estimateRequests.slice(0, size) : estimateRequests;
-    const nextCursor = hasNext ? page[page.length - 1].id : null;
+    const { items, nextCursor } = paginateByCursor(estimateRequests, size);
 
     return {
-      list: page.map(estimateMapper.toEstimateListItem),
+      list: items.map(estimateMapper.toEstimateListItem),
       nextCursor,
       totalCount,
     };
