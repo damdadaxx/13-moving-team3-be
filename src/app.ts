@@ -8,11 +8,8 @@ import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import authRouter from './modules/auth/authRoute';
-<<<<<<< HEAD
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
-=======
 import moverRouter from './modules/mover/moverRoute';
->>>>>>> 20d2234 (feat: 기사님 목록 조회 및 프로필 등록,수정 api 구현)
 import swaggerTestRouter from './docs/swaggertest.route';
 import estimateRouter from './modules/estimate/estimateRoute';
 
@@ -30,11 +27,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use('/auth', authRouter);
-<<<<<<< HEAD
 app.use('/estimate-requests', estimateRequestRouter);
-=======
 app.use('/mover', moverRouter);
->>>>>>> 20d2234 (feat: 기사님 목록 조회 및 프로필 등록,수정 api 구현)
 app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
 
