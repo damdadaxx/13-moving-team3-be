@@ -23,7 +23,7 @@ export type PublicUser = {
   updatedAt: Date;
 };
 
-export const authRepository = {
+const authRepository = {
   findByEmailAndRole(email: string, role: Role) {
     return prisma.user.findUnique({
       where: { email_role: { email, role } },
@@ -94,3 +94,5 @@ export const authRepository = {
     });
   },
 };
+
+export default authRepository;

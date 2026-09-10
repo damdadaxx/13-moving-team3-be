@@ -1,4 +1,9 @@
 /**
+ * Auth API 문서.
+ * 공통 ErrorResponse 스키마는 src/docs/swagger.ts에 정의되어 있습니다.
+ */
+
+/**
  * @swagger
  * /auth/signUp:
  *   post:
@@ -20,8 +25,24 @@
  *     responses:
  *       201:
  *         description: 가입 성공. `{ success, data }` + accessToken/refreshToken HttpOnly 쿠키
+ *       400:
+ *         description: 요청 값 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       409:
  *         description: 이미 사용 중인 이메일
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: 요청 횟수 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -44,8 +65,24 @@
  *     responses:
  *       200:
  *         description: 로그인 성공. `{ success, data }` + accessToken/refreshToken HttpOnly 쿠키
+ *       400:
+ *         description: 요청 값 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: 이메일 또는 비밀번호 불일치
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: 요청 횟수 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -72,6 +109,10 @@
  *         description: 재발급 성공. `{ success, data }` 유저 정보
  *       401:
  *         description: 리프레시 토큰 없음/만료/불일치
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -86,7 +127,11 @@
  *       200:
  *         description: 조회 성공. `{ success, data }` 이름/이메일/전화번호 등 기본정보
  *       401:
- *         description: 인증 필요
+ *         description: 인증 필요. 만료 시 code는 TOKEN_EXPIRED
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *   patch:
  *     tags: [Auth]
  *     summary: 내 기본정보 수정
@@ -104,8 +149,18 @@
  *     responses:
  *       200:
  *         description: 수정 성공. `{ success, data }` 수정된 기본정보
+ *       400:
+ *         description: 요청 값 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       401:
  *         description: 인증 필요
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -129,8 +184,30 @@
  *     responses:
  *       200:
  *         description: 변경 성공
+ *       400:
+ *         description: 요청 값 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 필요 또는 현재 비밀번호 불일치
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       403:
  *         description: 소셜 로그인 계정
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: 요청 횟수 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -164,10 +241,28 @@
  *         description: 로그인 성공. `{ success, data }` + 쿠키 설정
  *       400:
  *         description: code 교환 실패 / redirectUri 불일치 / 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       409:
  *         description: 이미 사용 중인 이메일
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: 요청 횟수 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       503:
  *         description: 해당 소셜 로그인 미설정
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 export {};

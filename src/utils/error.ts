@@ -7,6 +7,7 @@
  *
  * 이 클래스들로 throw한 에러는 errorHandler가 instanceof AppError 분기에서
  * status와 message를 그대로 사용해 응답합니다.
+ * body의 error.code는 status로 역산합니다 (404 → NOT_FOUND).
  * 그 외 예상치 못한 에러(TypeError 등)는 마지막 분기에서 500으로 처리됩니다.
  *
  * isOperational은 "의도적으로 던진 예측 가능한 에러"라는 표시로 항상 true이며,

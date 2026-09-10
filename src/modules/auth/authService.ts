@@ -17,7 +17,7 @@ import {
   ACCESS_TOKEN_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN,
 } from './authConstants';
-import { authRepository, PublicUser } from './authRepository';
+import authRepository, { PublicUser } from './authRepository';
 import {
   LoginInput,
   ProviderParam,
@@ -315,7 +315,7 @@ const isUniqueConflict = (error: unknown) =>
 // authService (public API)
 // ────────────────────────────────────────────────
 
-export const authService = {
+const authService = {
   async signUp(input: SignupInput): Promise<AuthResult> {
     const existing = await authRepository.findByEmailAndRole(
       input.email,
@@ -501,3 +501,5 @@ export const authService = {
     }
   },
 };
+
+export default authService;
