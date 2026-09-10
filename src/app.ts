@@ -11,7 +11,6 @@ import estimateRequestRouter from './modules/estimate-request/estimateRequestRou
 import swaggerTestRouter from './docs/swaggertest.route';
 import estimateRouter from './modules/estimate/estimateRoute';
 import likeRouter from './modules/like/likeRoute';
-//import swaggerTestRouter from './docs/swaggertest.route';
 
 const app = express();
 
@@ -24,15 +23,12 @@ app.use(express.json());
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
 app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
 app.use('/likes', likeRouter);
-app.use('/auth', authRouter);
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
-//app.use('/swaggertest', swaggerTestRouter);
 
 app.use(errorHandler);
 
