@@ -1,5 +1,10 @@
 import { Prisma } from '../../generated/prisma/client';
-import { BadRequestError, ForbiddenError } from '../../utils/error';
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from '../../utils/error';
+import { estimateRepository } from '../estimate/estimateRepository';
 import reviewRepository from './reviewRepository';
 import {
   CreateReviewInput,
@@ -23,11 +28,8 @@ const reviewService = {
       review: hasReview ? { isNot: null } : { is: null },
     };
 
-    const { estimates, estimateCount } = await reviewRepository.getMyestimate(
-      where,
-      page,
-      pageSize
-    );
+    const { estimates, estimateCount } =
+      await reviewRepository.getFindReviewEstimates(where, page, pageSize);
 
     //페이지 수 계산을 위해 전체에서 나눈후 올림한다.
     const totalPages = Math.ceil(estimateCount / pageSize);
@@ -52,7 +54,7 @@ const reviewService = {
     });
 
     const reviewCount = ratingInfo[0]?._count.rating ?? 0;
-    const ratingAvg = ratingInfo[0]?._avg.rating ?? 0;
+    const ratingAvg = Number((ratingInfo[0]?._avg.rating ?? 0).toFixed(1));
 
     const totalPages = Math.ceil(reviewCount / pageSize);
     return {
@@ -67,8 +69,12 @@ const reviewService = {
     userId: string,
     { estimateId, content, rating }: CreateReviewInput
   ) => {
-    const estimateInfo = await reviewRepository.getMyEstimate(estimateId);
+    const estimateInfo =
+      await estimateRepository.findByIdWithDetail(estimateId);
 
+    if (!estimateInfo) {
+      throw new NotFoundError('견적 정보를 찾을 수 없습니다.');
+    }
     //견적서의 주인 인지 확인한다.
     if (estimateInfo.estimateRequest.customerId !== userId)
       throw new ForbiddenError('리뷰 작성 권한이 없는 견적서입니다.');

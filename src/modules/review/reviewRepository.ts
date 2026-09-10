@@ -1,10 +1,9 @@
 import { Prisma } from '../../generated/prisma/client';
 import { prisma } from '../../lib/prisma';
-import { NotFoundError } from '../../utils/error';
 import { CreateReviewData, GetMoverReviewsData } from './reviewTypes';
 
 const reviewRepository = {
-  getMyestimate: async (
+  getFindReviewEstimates: async (
     where: Prisma.EstimateWhereInput,
     page: number,
     pageSize: number
@@ -84,21 +83,6 @@ const reviewRepository = {
     });
 
     return review;
-  },
-  getMyEstimate: async (estimateId: string) => {
-    const estimateInfo = await prisma.estimate.findUnique({
-      where: { id: estimateId },
-      include: {
-        estimateRequest: true,
-        review: true,
-      },
-    });
-
-    if (!estimateInfo) {
-      throw new NotFoundError('견적 정보를 찾을 수 없습니다..');
-    }
-
-    return estimateInfo;
   },
 };
 
