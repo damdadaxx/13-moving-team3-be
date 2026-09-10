@@ -1,5 +1,6 @@
 import './config/env';
 import express from 'express';
+import path from 'path';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -8,6 +9,7 @@ import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import authRouter from './modules/auth/authRoute';
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
+import moverRouter from './modules/mover/moverRoute';
 import swaggerTestRouter from './docs/swaggertest.route';
 import estimateRouter from './modules/estimate/estimateRoute';
 import likeRouter from './modules/like/likeRoute';
@@ -22,10 +24,12 @@ app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
+app.use('/mover', moverRouter);
 app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
 app.use('/likes', likeRouter);
