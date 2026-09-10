@@ -1,5 +1,7 @@
+import { NextFunction, Request, Response } from 'express';
 import { expressjwt } from 'express-jwt';
 import { ENV } from '../config/env';
+import { ForbiddenError } from '../utils/error';
 import { ACCESS_TOKEN_COOKIE } from '../modules/auth/authConstants';
 
 /**
@@ -18,3 +20,15 @@ export const authenticate = expressjwt({
   algorithms: ['HS256'],
   getToken: (req) => req.cookies?.[ACCESS_TOKEN_COOKIE],
 });
+
+/** authenticate 뒤에 붙인다. CUSTOMER 가 아니면 403. */
+export const requireCustomer = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) => {
+  if (req.auth?.role !== 'CUSTOMER') {
+    return next(new ForbiddenError());
+  }
+  next();
+};
