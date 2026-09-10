@@ -1,5 +1,6 @@
 import { Prisma } from '../../generated/prisma/client';
 import { Role } from '../../generated/prisma/enums';
+import { paginateByCursor } from '../../utils/cursorPagination';
 import { BadRequestError, ForbiddenError } from '../../utils/error';
 import likeRepository from './likeRepository';
 import {
@@ -21,16 +22,14 @@ const likeService = {
       throw new ForbiddenError('고객만 찜 목록을 볼 수 있습니다.');
     }
 
-    const { likeMoversList, likeMoverTotal } =
+    const { likeMoversList, totalCount } =
       await likeRepository.getLikeMoverList({ userId, cursor, size });
-    const isNext = likeMoversList.length > size;
-    const nextList = isNext ? likeMoversList.slice(0, -1) : likeMoversList;
-    const nextCursor = isNext ? nextList[nextList.length - 1].id : null;
+    const { items, nextCursor } = paginateByCursor(likeMoversList, size);
 
-    const moverIds = nextList ? nextList.map((data) => data.moverId) : [];
+    const moverIds = items ? items.map((data) => data.moverId) : [];
     //찜한 기사가 없다면 빈 배열로 반환.
     if (moverIds.length === 0) {
-      return { result: [], nextCursor: null, likeMoverTotal: 0 };
+      return { list: [], nextCursor: null, totalCount: 0 };
     }
 
     const [ratingInfo, acceptedEstimateCountList, likeCountList] =
@@ -40,7 +39,7 @@ const likeService = {
         likeRepository.getLikeCountList(moverIds),
       ]);
 
-    const result = nextList.map((data) => {
+    const result = items.map((data) => {
       const findRatingInfo = ratingInfo.find(
         (info) => info.moverId === data.moverId
       );
@@ -65,7 +64,7 @@ const likeService = {
       };
     });
 
-    return { result, nextCursor, likeMoverTotal };
+    return { list: result, nextCursor, totalCount };
   },
   getLikeMoverCount: async ({ moverId }: LikeMoverIdInput) => {
     const likeCount = await likeRepository.getLikeCount(moverId);

@@ -46,7 +46,7 @@ likeRouter.post(
 );
 //기사님을 찜 취소하기
 likeRouter.delete(
-  '/:likeId',
+  '/:moverId',
   authenticate,
   validate(likeMoverIdSchema, 'params'),
   likeController.deleteLike

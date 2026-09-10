@@ -1,21 +1,20 @@
 import { Prisma } from '../../generated/prisma/client';
 import { EstimateStatus } from '../../generated/prisma/enums';
 import { prisma } from '../../lib/prisma';
+import { buildCursorArgs } from '../../utils/cursorPagination';
 import { GetLikeMoverListData } from './likeTypes';
 
 const likeRepository = {
   //찜을 누른 기사님 목록
   getLikeMoverList: async ({ userId, cursor, size }: GetLikeMoverListData) => {
-    const [likeMoversList, likeMoverTotal] = await Promise.all([
+    const [likeMoversList, totalCount] = await Promise.all([
       prisma.like.findMany({
         where: {
           customerId: userId,
         },
         include: { mover: { include: { serviceTypes: true } } },
-        ...(cursor && { cursor: { id: cursor } }),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip: cursor ? 1 : 0,
-        take: size + 1,
+        ...buildCursorArgs(cursor, size),
       }),
       prisma.like.count({
         where: {
@@ -23,7 +22,7 @@ const likeRepository = {
         },
       }),
     ]);
-    return { likeMoversList, likeMoverTotal };
+    return { likeMoversList, totalCount };
   },
   getRatingInfo: async (moverIds: string[]) => {
     const ratingInfo = await prisma.review.groupBy({

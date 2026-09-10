@@ -36,7 +36,7 @@
  *         id:
  *           type: string
  *           format: uuid
- *           description: 찜 ID. 단건 삭제 시 path로 전달.
+ *           description: 찜 ID
  *         customerId:
  *           type: string
  *           format: uuid
@@ -70,17 +70,16 @@
  *         data:
  *           type: object
  *           properties:
- *             result:
+ *             list:
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/LikedMoverItem'
- *             nextId:
+ *             nextCursor:
  *               type: string
  *               format: uuid
- *               description: >
- *                 다음 페이지 요청 시 nextCursorId 쿼리로 그대로 전달.
- *                 더 없으면 필드 자체가 생략됩니다.
- *             likeMoverTotal:
+ *               nullable: true
+ *               description: 다음 페이지 요청 시 cursor 쿼리로 그대로 전달. 더 없으면 null.
+ *             totalCount:
  *               type: integer
  *               description: 로그인한 고객이 찜한 기사 전체 수
  *
@@ -90,25 +89,25 @@
  *     summary: 내 찜 기사 목록 조회
  *     description: |
  *       로그인한 고객이 찜한 기사 목록입니다. CUSTOMER만 호출할 수 있습니다.
- *       커서 기반이며, 응답 data.nextId를 다음 요청의 nextCursorId로 넘기면 됩니다.
+ *       cursor 기반 무한 스크롤이며, 응답의 data.nextCursor를 다음 요청의 cursor로 그대로 넘기면 됩니다.
  *       각 항목의 likeCount는 그 기사님이 받은 전체 찜 수입니다.
  *     security:
  *       - cookieAuth: []
  *     parameters:
  *       - in: query
- *         name: nextCursorId
+ *         name: cursor
  *         required: false
- *         description: 직전 응답의 data.nextId. 첫 페이지는 생략.
+ *         description: 직전 응답의 data.nextCursor. 첫 페이지는 생략.
  *         schema:
  *           type: string
  *           format: uuid
  *       - in: query
- *         name: limit
+ *         name: size
  *         required: false
  *         description: 한 번에 가져올 개수
  *         schema:
  *           type: integer
- *           default: 5
+ *           default: 10
  *           minimum: 1
  *     responses:
  *       200:
@@ -118,7 +117,7 @@
  *             schema:
  *               $ref: '#/components/schemas/LikeListResponse'
  *       400:
- *         description: nextCursorId/limit 값이 올바르지 않음 (VALIDATION_ERROR)
+ *         description: cursor/size 값이 올바르지 않음 (VALIDATION_ERROR)
  *         content:
  *           application/json:
  *             schema:
@@ -181,6 +180,47 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *   delete:
+ *     tags: [Like]
+ *     summary: 찜 단건 취소
+ *     description: 기사 ID로 한 건을 취소합니다. CUSTOMER만 가능하고, 본인 찜만 취소할 수 있습니다.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: moverId
+ *         required: true
+ *         description: 찜 취소할 기사님 ID
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: 취소 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeleteLikeResponse'
+ *       400:
+ *         description: >
+ *           code: VALIDATION_ERROR — moverId가 uuid가 아님.
+ *           code: BAD_REQUEST — 찜하지 않은 기사님.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 정보 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: CUSTOMER가 아님
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 
 /**
@@ -207,7 +247,7 @@
  *               type: string
  *               format: uuid
  *               description: >
- *                 찜한 경우에만 내려가는 찜 ID. 단건 삭제 path로 사용.
+ *                 찜한 경우에만 내려가는 찜 ID.
  *                 찜하지 않았으면 필드가 생략됩니다.
  *
  * /likes/me/{moverId}:
@@ -363,8 +403,8 @@
  *     tags: [Like]
  *     summary: 찜 여러 개 취소
  *     description: |
- *       찜 ID 배열로 여러 건을 한 번에 취소합니다. 모두 본인 찜이어야 하며,
- *       하나라도 없거나 남의 찜이면 400입니다.
+ *       기사 ID 배열로 여러 건을 한 번에 취소합니다. 모두 본인 찜이어야 하며,
+ *       하나라도 찜하지 않은 기사가 있으면 400입니다.
  *     security:
  *       - cookieAuth: []
  *     requestBody:
@@ -373,16 +413,18 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required: [likeIds]
+ *             required: [moverIds]
  *             properties:
- *               likeIds:
+ *               moverIds:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: uuid
+ *                 description: 찜 취소할 기사님 ID 목록
  *           example:
- *             likeIds:
- *               - 85f02c91-c3cd-4a93-8474-d8608b853ea2
+ *             moverIds:
+ *               - 10000000-0000-4000-8000-000000000001
+ *               - 10000000-0000-4000-8000-000000000002
  *     responses:
  *       200:
  *         description: 취소 성공
@@ -392,8 +434,8 @@
  *               $ref: '#/components/schemas/BulkDeleteLikeResponse'
  *       400:
  *         description: >
- *           code: VALIDATION_ERROR — likeIds 검증 실패.
- *           code: BAD_REQUEST — 본인 찜이 아닌 id가 포함됨.
+ *           code: VALIDATION_ERROR — moverIds 검증 실패.
+ *           code: BAD_REQUEST — 찜하지 않은 기사 ID가 포함됨.
  *         content:
  *           application/json:
  *             schema:
@@ -428,47 +470,4 @@
  *             likeCount:
  *               type: integer
  *               description: 취소한 뒤 해당 기사님이 받은 찜 수
- *
- * /likes/{likeId}:
- *   delete:
- *     tags: [Like]
- *     summary: 찜 단건 취소
- *     description: 찜 ID로 한 건을 취소합니다. 본인 찜만 가능합니다.
- *     security:
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: likeId
- *         required: true
- *         description: 찜 ID (목록 항목의 id)
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: 취소 성공
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/DeleteLikeResponse'
- *       400:
- *         description: >
- *           code: VALIDATION_ERROR — likeId가 uuid가 아님.
- *           code: BAD_REQUEST — 찜하지 않은 건이거나 본인 찜이 아님.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       401:
- *         description: 인증 정보 없음
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       403:
- *         description: CUSTOMER가 아님
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */

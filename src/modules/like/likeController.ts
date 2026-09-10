@@ -17,11 +17,12 @@ const likeController = {
 
     const { cursor, size } = req.validatedData as GetLikeMoverListInput;
 
-    const { result, nextCursor, likeMoverTotal } =
-      await likeService.getLikeMoverList({ userId, role, cursor, size });
+    const { list, nextCursor, totalCount } = await likeService.getLikeMoverList(
+      { userId, role, cursor, size }
+    );
     return res.status(200).json({
       success: true,
-      data: { result, nextCursor, likeMoverTotal },
+      data: { list, nextCursor, totalCount },
     });
   },
   getLikeMoverCount: async (req: Request, res: Response) => {
