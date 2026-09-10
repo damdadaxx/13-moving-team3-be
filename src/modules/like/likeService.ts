@@ -53,7 +53,7 @@ const likeService = {
           ),
         },
         ratingCount: findRatingInfo?._count.rating ?? 0,
-        ratingAvg: findRatingInfo?._avg.rating?.toFixed(1) ?? 0,
+        ratingAvg: Number((findRatingInfo?._avg.rating ?? 0).toFixed(1)),
         acceptedEstimateCount:
           acceptedEstimateCountList.find(
             (info) => info.moverId === data.moverId
