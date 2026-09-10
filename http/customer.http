@@ -51,7 +51,7 @@ Content-Type: application/json
 }
 
 
-### 프로필 최초 등록 (201) — multer multipart (image 필드)
+### 프로필 최초 등록 (201) — multer multipart (profileImage 필드)
 # 로컬 이미지 경로를 프로젝트 기준으로 바꿔서 실행한다.
 # POST {{host}}/customer/profile
 # Content-Type: multipart/form-data; boundary=----FormBoundary
@@ -65,7 +65,7 @@ Content-Type: application/json
 #
 # ["HOME_MOVE","OFFICE_MOVE"]
 # ------FormBoundary
-# Content-Disposition: form-data; name="image"; filename="profile.png"
+# Content-Disposition: form-data; name="profileImage"; filename="profile.png"
 # Content-Type: image/png
 #
 # < ./profile.png

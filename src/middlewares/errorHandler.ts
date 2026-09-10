@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { UnauthorizedError as JwtUnauthorizedError } from 'express-jwt';
-import { MulterError } from 'multer';
 import { AppError } from '../utils/error';
 import { NextFunction, Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
@@ -24,19 +23,6 @@ export default function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  if (error instanceof MulterError) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        code: 'BAD_REQUEST',
-        message:
-          error.code === 'LIMIT_FILE_SIZE'
-            ? '이미지 크기는 5MB 이하여야 합니다.'
-            : '이미지 업로드에 실패했습니다.',
-      },
-    });
-  }
-
   if (error instanceof z.ZodError) {
     return res.status(400).json({
       success: false,

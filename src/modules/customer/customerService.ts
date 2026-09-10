@@ -4,10 +4,8 @@ import {
   customerRepository,
   CustomerProfileRecord,
 } from './customerRepository';
-import { deleteLocalUpload } from '../../middlewares/upload';
+import { deleteLocalUpload, saveCustomerProfileImage } from './customerUpload';
 import { UpsertProfileInput } from './customerValidation';
-
-type UpsertProfileCommand = UpsertProfileInput & { imgUrl?: string };
 
 export type CustomerProfileResponse = {
   id: string;
@@ -44,22 +42,28 @@ const isUniqueConflict = (error: unknown) =>
 export const customerService = {
   async create(
     userId: string,
-    input: UpsertProfileCommand
+    input: UpsertProfileInput,
+    file?: Express.Multer.File
   ): Promise<CustomerProfileResponse> {
     const existing = await customerRepository.findByUserId(userId);
     if (existing) {
       throw new ConflictError('이미 등록된 프로필입니다.');
     }
 
+    const imgUrl = file ? await saveCustomerProfileImage(file) : undefined;
+
     try {
       const profile = await customerRepository.create({
         userId,
-        imgUrl: input.imgUrl,
+        imgUrl,
         region: input.region,
         serviceTypes: input.serviceTypes,
       });
       return toResponse(profile);
     } catch (error) {
+      if (imgUrl) {
+        deleteLocalUpload(imgUrl);
+      }
       if (isUniqueConflict(error)) {
         throw new ConflictError('이미 등록된 프로필입니다.');
       }
@@ -77,21 +81,24 @@ export const customerService = {
 
   async update(
     userId: string,
-    input: UpsertProfileCommand
+    input: UpsertProfileInput,
+    file?: Express.Multer.File
   ): Promise<CustomerProfileResponse> {
     const existing = await customerRepository.findByUserId(userId);
     if (!existing) {
       throw new NotFoundError('등록된 프로필이 없습니다.');
     }
 
+    const imgUrl = file ? await saveCustomerProfileImage(file) : undefined;
+
     const profile = await customerRepository.updateWithServiceTypes({
       userId,
-      imgUrl: input.imgUrl,
+      imgUrl,
       region: input.region,
       serviceTypes: input.serviceTypes,
     });
 
-    if (input.imgUrl && existing.imgUrl) {
+    if (imgUrl && existing.imgUrl) {
       deleteLocalUpload(existing.imgUrl);
     }
 
