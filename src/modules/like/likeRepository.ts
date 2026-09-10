@@ -49,9 +49,9 @@ const likeRepository = {
     });
     return likeInfo;
   },
-  findLikeList: async (likeIds: string[], userId: string) => {
+  findLikeList: async (moverIds: string[], userId: string) => {
     const likeInfoList = await prisma.like.findMany({
-      where: { moverId: { in: likeIds }, customerId: userId },
+      where: { moverId: { in: moverIds }, customerId: userId },
     });
     return likeInfoList;
   },
@@ -82,9 +82,9 @@ const likeRepository = {
     });
     return like;
   },
-  bulkDeleteLike: async (likeIds: string[]) => {
+  bulkDeleteLike: async (moverIds: string[]) => {
     const deletedLikeList = await prisma.like.deleteMany({
-      where: { id: { in: likeIds } },
+      where: { moverId: { in: moverIds } },
     });
     return deletedLikeList;
   },
