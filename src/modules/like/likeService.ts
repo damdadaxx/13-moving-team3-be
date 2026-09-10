@@ -29,7 +29,7 @@ const likeService = {
     const moverIds = items ? items.map((data) => data.moverId) : [];
     //찜한 기사가 없다면 빈 배열로 반환.
     if (moverIds.length === 0) {
-      return { list: [], nextCursor: null, totalCount: 0 };
+      return { list: [], nextCursor: null, totalCount };
     }
 
     const [ratingInfo, acceptedEstimateCountList, likeCountList] =
@@ -130,7 +130,7 @@ const likeService = {
       throw new BadRequestError('찜을 먼저 해야 취소할 수 있습니다.');
     }
 
-    await likeRepository.bulkDeleteLike(moverIds);
+    await likeRepository.bulkDeleteLike(moverIds, userId);
     const likeCountList = await likeRepository.getLikeCountList(moverIds);
 
     const result = likeInfoList.map((info) => {
