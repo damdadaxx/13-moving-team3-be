@@ -1,7 +1,6 @@
 import './config/env';
 import path from 'node:path';
 import express from 'express';
-import path from 'path';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -26,8 +25,6 @@ app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use('/auth', authRouter);
