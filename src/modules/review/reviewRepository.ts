@@ -34,6 +34,10 @@ const reviewRepository = {
           },
           review: true,
         },
+        // 정렬을 지정하지 않으면 Postgres 가 순서를 보장하지 않아
+        // 페이지를 넘길 때 같은 행이 다시 나오거나 누락된다.
+        // createdAt 이 같은 행이 있어도 흔들리지 않도록 id 를 tie-break 로 둔다.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -45,6 +49,8 @@ const reviewRepository = {
   getMoverReviews: async ({ moverId, page, pageSize }: GetMoverReviewsData) => {
     const reviews = await prisma.review.findMany({
       where: { moverId },
+      // 최신 리뷰부터. id tie-break 로 페이지 간 중복·누락을 막는다.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     });
