@@ -32,7 +32,21 @@ const SEED_PASSWORD = 'test1234!';
  * 인증 모듈(src/utils/hash.ts)과 같은 함수를 써야 시드 계정으로 로그인할 수 있습니다.
  * 모든 계정이 같은 비밀번호라 main()에서 한 번만 계산해 재사용합니다.
  */
-// let seedPasswordHash = '';
+let seedPasswordHash = '';
+
+/**
+ * main()이 계산해 둔 해시를 돌려줍니다.
+ * 초기화 전에 호출하면 빈 문자열이 비밀번호로 저장돼 시드 계정 로그인이
+ * 조용히 실패하므로, 그 전에 즉시 실패시킵니다.
+ */
+const getSeedPasswordHash = () => {
+  if (!seedPasswordHash) {
+    throw new Error(
+      'seedPasswordHash가 초기화되지 않았습니다. main()에서 먼저 계산해야 합니다.'
+    );
+  }
+  return seedPasswordHash;
+};
 
 // ---------------------------------------------------------------------------
 // 고정 ID — 데이터 간 참조를 위해 UUID를 하드코딩합니다.
@@ -205,7 +219,7 @@ async function seedMovers() {
         name: mover.name,
         email: mover.email,
         phoneNumber: mover.phoneNumber,
-        password: await hashPassword(SEED_PASSWORD),
+        password: getSeedPasswordHash(),
         role: 'MOVER',
         provider: 'LOCAL',
         moverProfile: {
@@ -312,10 +326,7 @@ async function seedCustomers() {
         email: customer.email,
         phoneNumber: customer.phoneNumber,
         // 소셜 로그인 계정은 비밀번호를 두지 않습니다.
-        password:
-          customer.provider === 'LOCAL'
-            ? await hashPassword(SEED_PASSWORD)
-            : null,
+        password: customer.provider === 'LOCAL' ? getSeedPasswordHash() : null,
         role: 'CUSTOMER',
         provider: customer.provider,
         providerId: customer.providerId,
@@ -690,9 +701,9 @@ const estimateRequests = [
     moveDate: days(-7),
     createdAt: days(-25),
     status: 'COMPLETED',
-    departureZipCode: 4524,
+    departureZipCode: '04524',
     departureAddress: '서울특별시 중구 세종대로 110 3층',
-    arrivalZipCode: 6236,
+    arrivalZipCode: '06236',
     arrivalAddress: '서울특별시 강남구 테헤란로 50 801호',
     estimates: [
       {
@@ -715,9 +726,9 @@ const estimateRequests = [
     moveDate: days(-14),
     createdAt: days(-35),
     status: 'COMPLETED',
-    departureZipCode: 3722,
+    departureZipCode: '03722',
     departureAddress: '서울특별시 서대문구 연희로 25 401호',
-    arrivalZipCode: 4524,
+    arrivalZipCode: '04524',
     arrivalAddress: '서울특별시 중구 을지로 100 202호',
     estimates: [
       {
@@ -740,9 +751,9 @@ const estimateRequests = [
     moveDate: days(-2),
     createdAt: days(-10),
     status: 'EXPIRED',
-    departureZipCode: 4524,
+    departureZipCode: '04524',
     departureAddress: '서울특별시 중구 명동길 14 301호',
-    arrivalZipCode: 3722,
+    arrivalZipCode: '03722',
     arrivalAddress: '서울특별시 서대문구 홍제천로 88 102호',
     estimates: [
       {
@@ -765,9 +776,9 @@ const estimateRequests = [
     moveDate: days(-18),
     createdAt: days(-40),
     status: 'EXPIRED',
-    departureZipCode: 6236,
+    departureZipCode: '06236',
     departureAddress: '서울특별시 강남구 역삼로 168 1003호',
-    arrivalZipCode: 3722,
+    arrivalZipCode: '03722',
     arrivalAddress: '서울특별시 서대문구 신촌로 83 501호',
     estimates: [
       {
