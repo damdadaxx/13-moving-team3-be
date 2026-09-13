@@ -1,13 +1,13 @@
-import { Request, Router } from 'express';
+import { Request, Response, Router } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { authenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
 import { getClientIp } from '../../utils/clientIp';
-import authController from './authController';
+import authController, { redirectSocialError } from './authController';
 import {
   loginSchema,
   signupSchema,
-  socialAuthSchema,
+  socialStartQuerySchema,
   updateMeSchema,
   updatePasswordSchema,
 } from './authValidation';
@@ -29,7 +29,8 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const createRateLimit = (
   windowMs: number,
   limit: number,
-  keyGenerator: (req: Request) => string
+  keyGenerator: (req: Request) => string,
+  handler?: (req: Request, res: Response) => void
 ) =>
   rateLimit({
     windowMs,
@@ -38,6 +39,7 @@ const createRateLimit = (
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: rateLimitMessage,
+    ...(handler && { handler }),
   });
 
 /*
@@ -63,8 +65,13 @@ const loginEmailRateLimit = createRateLimit(
 // 로그인 — 한 IP 에서 이메일을 바꿔가며 시도하는 크리덴셜 스터핑 상한
 const loginIpRateLimit = createRateLimit(TEN_MINUTES_MS, 100, ipKey);
 
-// 소셜 로그인 — body 에 이메일이 없어 IP 단위
-const socialRateLimit = createRateLimit(TEN_MINUTES_MS, 30, ipKey);
+// 소셜 로그인 시작 — IP 단위. 브라우저 이동 흐름이라 429 JSON 대신 프론트 안내 페이지로 보낸다
+const socialRateLimit = createRateLimit(
+  TEN_MINUTES_MS,
+  30,
+  ipKey,
+  (_req, res) => redirectSocialError(res, 'TOO_MANY_REQUESTS')
+);
 
 // 비밀번호 변경 — authenticate 뒤에 붙으므로 유저 단위
 const passwordRateLimit = createRateLimit(TEN_MINUTES_MS, 10, (req) =>
@@ -111,13 +118,18 @@ router.patch(
   authController.updatePassword
 );
 
-// 공용 validate 는 req.validatedData 를 덮어써서 params + body 를 같이 담지 못한다.
-// :provider 는 컨트롤러에서 providerParamSchema 로 직접 검증한다.
-router.post(
+/*
+@ 소셜 로그인 (Passport)
+- 브라우저가 프론트 프록시(/api/auth/social/...)를 통해 직접 이동하는 GET 흐름이다
+- :provider 는 컨트롤러에서 providerParamSchema 로 검증한다 (validate 는 query 를 담는다)
+*/
+router.get(
   '/social/:provider',
   socialRateLimit,
-  validate(socialAuthSchema),
-  authController.socialLogin
+  validate(socialStartQuerySchema, 'query'),
+  authController.startSocialLogin
 );
+
+router.get('/social/:provider/callback', authController.socialLoginCallback);
 
 export default router;

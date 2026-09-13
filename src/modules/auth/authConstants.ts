@@ -11,3 +11,10 @@ export const ACCESS_TOKEN_MAX_AGE_MS = 15 * 60 * 1000;
 
 export const REFRESH_TOKEN_EXPIRES_IN = '7d';
 export const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// 소셜 로그인 state 쿠키 (authController.startSocialLogin → socialLoginCallback)
+// - path 는 /auth: 프론트 프록시가 Set-Cookie 의 Path=/auth 를 /api/auth 로 바꿔 넘기는 규칙에 맞춘다
+// - 프로바이더 인가 화면에 머무는 시간을 고려해 10분
+export const OAUTH_STATE_COOKIE = 'oauthState';
+export const OAUTH_STATE_COOKIE_PATH = '/auth';
+export const OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;

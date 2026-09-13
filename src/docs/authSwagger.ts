@@ -213,56 +213,63 @@
 /**
  * @swagger
  * /auth/social/{provider}:
- *   post:
+ *   get:
  *     tags: [Auth]
- *     summary: 소셜 로그인 (프론트 릴레이)
+ *     summary: 소셜 로그인 시작 (Passport, 브라우저 이동)
  *     description: >
- *       프론트가 프로바이더 authorize 후 받은 code 를 전달하면, 백엔드가 code→token→프로필
- *       교환 후 accessToken/refreshToken 쿠키를 설정한다. redirect_uri 는 프론트 소유.
+ *       브라우저가 프론트 프록시(`/api/auth/social/{provider}`)로 이동하면 state 쿠키(`oauthState`)를 설정하고
+ *       프로바이더 인가 페이지로 302 한다. Swagger "Try it out" 으로는 흐름을 끝까지 확인할 수 없다.
  *     parameters:
  *       - in: path
  *         name: provider
  *         required: true
  *         schema: { type: string, enum: [google, kakao, naver] }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [code, redirectUri, role]
- *             properties:
- *               code: { type: string }
- *               redirectUri: { type: string, description: 프론트가 authorize 에 쓴 redirect_uri }
- *               state: { type: string, description: 네이버 필수 }
- *               role: { type: string, enum: [CUSTOMER, MOVER] }
+ *       - in: query
+ *         name: role
+ *         required: true
+ *         schema: { type: string, enum: [CUSTOMER, MOVER] }
+ *       - in: query
+ *         name: callbackUrl
+ *         required: false
+ *         description: 로그인 후 이동할 프론트 상대 경로 (예 /customer/profile)
+ *         schema: { type: string }
  *     responses:
- *       200:
- *         description: 로그인 성공. `{ success, data }` + 쿠키 설정
+ *       302:
+ *         description: >
+ *           프로바이더 인가 페이지로 이동.
+ *           미설정 프로바이더 / 요청 횟수 초과 시 `{FRONTEND_URL}/auth/callback?error=NOT_CONFIGURED|TOO_MANY_REQUESTS`
  *       400:
- *         description: code 교환 실패 / redirectUri 불일치 / 검증 실패
+ *         description: provider / role / callbackUrl 검증 실패
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *       409:
- *         description: 이미 사용 중인 이메일
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       429:
- *         description: 요청 횟수 초과
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       503:
- *         description: 해당 소셜 로그인 미설정
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *
+ * /auth/social/{provider}/callback:
+ *   get:
+ *     tags: [Auth]
+ *     summary: 소셜 로그인 콜백 (프로바이더가 호출)
+ *     description: >
+ *       state 쿠키 검증 → Passport 가 code 교환·프로필 조회 → 유저 조회/생성 → accessToken/refreshToken 쿠키 설정 후
+ *       프론트 `/auth/callback` 으로 302 한다. 각 콘솔 Redirect URI 는
+ *       `{FRONTEND_URL}/api/auth/social/{provider}/callback`.
+ *     parameters:
+ *       - in: path
+ *         name: provider
+ *         required: true
+ *         schema: { type: string, enum: [google, kakao, naver] }
+ *       - in: query
+ *         name: code
+ *         schema: { type: string }
+ *       - in: query
+ *         name: state
+ *         schema: { type: string }
+ *     responses:
+ *       302:
+ *         description: >
+ *           성공 `{FRONTEND_URL}/auth/callback?callbackUrl=...` (쿠키 설정) /
+ *           실패 `{FRONTEND_URL}/auth/callback?error={CODE}&role={ROLE}`.
+ *           CODE: CANCELLED, STATE_MISMATCH, EMAIL_REQUIRED, EMAIL_CONFLICT, SOCIAL_LOGIN_FAILED
  */
 
 export {};

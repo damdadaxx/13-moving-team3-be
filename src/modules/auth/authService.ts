@@ -2,7 +2,6 @@ import jwt from 'jsonwebtoken';
 import { AuthProvider, Prisma, Role } from '../../generated/prisma/client';
 import { ENV } from '../../config/env';
 import {
-  AppError,
   BadRequestError,
   ConflictError,
   ForbiddenError,
@@ -17,12 +16,11 @@ import {
   ACCESS_TOKEN_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN,
 } from './authConstants';
+import { SocialProfile } from './authPassport';
 import authRepository, { PublicUser } from './authRepository';
 import {
   LoginInput,
-  ProviderParam,
   SignupInput,
-  SocialAuthInput,
   UpdateMeInput,
   UpdatePasswordInput,
 } from './authValidation';
@@ -31,16 +29,6 @@ import {
 export type TokenPayload = {
   sub: string;
   role: Role;
-};
-
-type SocialProvider = 'google' | 'kakao' | 'naver';
-
-type SocialProfile = {
-  provider: AuthProvider;
-  providerId: string;
-  email?: string;
-  name: string;
-  phoneNumber?: string;
 };
 
 type AuthResult = {
@@ -97,194 +85,6 @@ const verifyRefreshTokenAllowExpired = (token: string): TokenPayload | null => {
   } catch {
     return null;
   }
-};
-
-// 소셜 프로바이더 연동 (프론트 릴레이: 프론트가 받은 code 를 백엔드가 교환)
-type ProviderConfig = {
-  authProvider: AuthProvider;
-  tokenUrl: string;
-  userInfoUrl: string;
-  clientId?: string;
-  clientSecret?: string;
-};
-
-const socialConfigs: Record<SocialProvider, ProviderConfig> = {
-  google: {
-    authProvider: 'GOOGLE',
-    tokenUrl: 'https://oauth2.googleapis.com/token',
-    userInfoUrl: 'https://openidconnect.googleapis.com/v1/userinfo',
-    clientId: ENV.GOOGLE_CLIENT_ID,
-    clientSecret: ENV.GOOGLE_CLIENT_SECRET,
-  },
-  kakao: {
-    authProvider: 'KAKAO',
-    tokenUrl: 'https://kauth.kakao.com/oauth/token',
-    userInfoUrl: 'https://kapi.kakao.com/v2/user/me',
-    clientId: ENV.KAKAO_CLIENT_ID,
-    clientSecret: ENV.KAKAO_CLIENT_SECRET,
-  },
-  naver: {
-    authProvider: 'NAVER',
-    tokenUrl: 'https://nid.naver.com/oauth2.0/token',
-    userInfoUrl: 'https://openapi.naver.com/v1/nid/me',
-    clientId: ENV.NAVER_CLIENT_ID,
-    clientSecret: ENV.NAVER_CLIENT_SECRET,
-  },
-};
-
-type GoogleUserInfo = { sub?: string; email?: string; name?: string };
-type KakaoUserInfo = {
-  id?: number | string;
-  kakao_account?: {
-    email?: string;
-    phone_number?: string;
-    profile?: { nickname?: string };
-  };
-};
-type NaverUserInfo = {
-  response?: {
-    id?: string;
-    email?: string;
-    name?: string;
-    nickname?: string;
-    mobile?: string;
-  };
-};
-
-const normalizeEmail = (email: unknown) =>
-  typeof email === 'string' && email.trim()
-    ? email.trim().toLowerCase()
-    : undefined;
-
-// 프로바이더 고유 ID. 누락 시 String(undefined) → "undefined" 로 저장·조회되는 것을 막는다.
-const toProviderId = (id: unknown) => {
-  if ((typeof id !== 'string' && typeof id !== 'number') || id === '') {
-    throw new BadRequestError('소셜 계정 정보를 확인할 수 없습니다.');
-  }
-  return String(id);
-};
-
-// 소셜 전화번호를 회원가입 폼과 같은 숫자만 형식(01012345678)으로 맞춘다.
-// - 카카오 "+82 10-1234-5678", 네이버 "010-1234-5678"
-// - 휴대폰 번호 형식이 아니면 저장하지 않는다(선택 값)
-const normalizePhoneNumber = (phoneNumber: unknown) => {
-  if (typeof phoneNumber !== 'string') return undefined;
-  const digits = phoneNumber.replace(/\D/g, '');
-  const local = digits.startsWith('82') ? `0${digits.slice(2)}` : digits;
-  return /^01[016789]\d{7,8}$/.test(local) ? local : undefined;
-};
-
-const isSocialConfigured = (provider: SocialProvider) =>
-  Boolean(
-    socialConfigs[provider].clientId && socialConfigs[provider].clientSecret
-  );
-
-/** code → access_token 교환 */
-const exchangeSocialCode = async (
-  provider: SocialProvider,
-  code: string,
-  redirectUri: string,
-  state?: string
-): Promise<string> => {
-  const config = socialConfigs[provider];
-  const params = new URLSearchParams({
-    grant_type: 'authorization_code',
-    client_id: config.clientId!,
-    client_secret: config.clientSecret!,
-    code,
-  });
-  // OAuth state(CSRF 방어)는 프론트 릴레이 구조라 프론트가 생성·검증한다.
-  //   (FE: lib/auth/socialAuth.ts 에서 sessionStorage 에 저장, 콜백 페이지에서 비교)
-  //   백엔드는 네이버 state 를 토큰 교환에 그대로 전달만 한다.
-  // 네이버는 redirect_uri 대신 state 를 요구하고, 나머지는 redirect_uri 를 요구한다.
-  if (provider === 'naver') {
-    params.set('state', state ?? '');
-  } else {
-    params.set('redirect_uri', redirectUri);
-  }
-
-  const res = await fetch(config.tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params,
-  });
-  const data = (await res.json().catch(() => null)) as {
-    access_token?: string;
-  } | null;
-
-  if (!res.ok || !data?.access_token) {
-    if (ENV.NODE_ENV !== 'production') {
-      console.error(`[social] ${provider} token exchange failed`, data);
-    }
-    throw new BadRequestError('소셜 인증에 실패했습니다.');
-  }
-  return data.access_token;
-};
-
-/** access_token → 프로필 조회 및 정규화 */
-const fetchSocialProfile = async (
-  provider: SocialProvider,
-  accessToken: string
-): Promise<SocialProfile> => {
-  const res = await fetch(socialConfigs[provider].userInfoUrl, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
-    throw new BadRequestError('소셜 프로필 조회에 실패했습니다.');
-  }
-  const data: unknown = await res.json();
-
-  switch (provider) {
-    case 'google': {
-      const d = (data ?? {}) as GoogleUserInfo;
-      return {
-        provider: 'GOOGLE',
-        providerId: toProviderId(d.sub),
-        email: normalizeEmail(d.email),
-        name: d.name || '사용자',
-      };
-    }
-    case 'kakao': {
-      const d = (data ?? {}) as KakaoUserInfo;
-      const account = d.kakao_account ?? {};
-      return {
-        provider: 'KAKAO',
-        providerId: toProviderId(d.id),
-        email: normalizeEmail(account.email),
-        name: account.profile?.nickname || '사용자',
-        phoneNumber: normalizePhoneNumber(account.phone_number),
-      };
-    }
-    case 'naver': {
-      const d = (data ?? {}) as NaverUserInfo;
-      const response = d.response ?? {};
-      return {
-        provider: 'NAVER',
-        providerId: toProviderId(response.id),
-        email: normalizeEmail(response.email),
-        name: response.nickname || response.name || '사용자',
-        phoneNumber: normalizePhoneNumber(response.mobile),
-      };
-    }
-  }
-};
-
-const getSocialProfile = async (
-  provider: SocialProvider,
-  code: string,
-  redirectUri: string,
-  state?: string
-): Promise<SocialProfile> => {
-  if (!isSocialConfigured(provider)) {
-    throw new AppError('해당 소셜 로그인이 설정되지 않았습니다.', 503);
-  }
-  const accessToken = await exchangeSocialCode(
-    provider,
-    code,
-    redirectUri,
-    state
-  );
-  return fetchSocialProfile(provider, accessToken);
 };
 
 // ────────────────────────────────────────────────
@@ -462,18 +262,8 @@ const authService = {
     //   다른 기기/세션 재로그인 유도. 현재는 변경 후에도 기존 세션이 그대로 유효함.
   },
 
-  // 프론트가 넘긴 code 를 교환해 프로필을 얻고, provider+role 로 유저를 찾거나 만든다.
-  async socialLogin(
-    input: ProviderParam & SocialAuthInput
-  ): Promise<AuthResult> {
-    const profile = await getSocialProfile(
-      input.provider,
-      input.code,
-      input.redirectUri,
-      input.state
-    );
-    const { role } = input;
-
+  // Passport 가 조회·정규화한 프로필로 provider+role 유저를 찾거나 만든다. (authPassport.ts)
+  async socialLogin(profile: SocialProfile, role: Role): Promise<AuthResult> {
     if (!profile.email) {
       throw new BadRequestError(
         '소셜 계정에서 이메일을 가져올 수 없습니다. 이메일 제공에 동의해 주세요.'

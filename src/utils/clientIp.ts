@@ -1,7 +1,7 @@
-import { createHash, timingSafeEqual } from 'crypto';
 import { isIP } from 'net';
 import type { Request } from 'express';
 import { ENV } from '../config/env';
+import { isSameSecret } from './hash';
 
 /*=================================================
 요청한 사용자의 실제 IP
@@ -19,13 +19,6 @@ import { ENV } from '../config/env';
 const PROXY_SECRET_HEADER = 'x-proxy-secret';
 const CLIENT_IP_HEADER = 'x-client-ip';
 
-// 길이가 달라도 비교 시간이 같도록 해시 후 비교한다
-const isValidProxySecret = (value: string, secret: string) =>
-  timingSafeEqual(
-    createHash('sha256').update(value).digest(),
-    createHash('sha256').update(secret).digest()
-  );
-
 export const getClientIp = (req: Request): string => {
   const secret = req.get(PROXY_SECRET_HEADER);
   const clientIp = req.get(CLIENT_IP_HEADER)?.trim();
@@ -35,7 +28,7 @@ export const getClientIp = (req: Request): string => {
     secret &&
     clientIp &&
     isIP(clientIp) &&
-    isValidProxySecret(secret, ENV.PROXY_SECRET)
+    isSameSecret(secret, ENV.PROXY_SECRET)
   ) {
     return clientIp;
   }
