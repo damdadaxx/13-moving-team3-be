@@ -1,0 +1,194 @@
+# 알림 REST + 시나리오
+# VS Code REST Client
+#
+# 사전
+#   1. npm run dev
+#   2. SSE는 REST Client가 버퍼링해서 이벤트가 안 보일 수 있다.
+#      curl: curl -N -H "Cookie: accessToken=로그인에서 받은 accessToken 값" http://localhost:3001/notifications/stream
+#   3. NEW_REQUEST 를 보려면 기사 스트림도 따로 연다. [E] 로그인 후 stream.
+#
+# 쿠키 jar는 로그인할 때마다 덮인다. 기사 요청 전에 [E], 고객 요청 전에 [A] 또는 [G]를 다시 보낸다.
+# 시드 기사 비밀번호는 test1234!
+# @id 는 목록 응답의 알림 id. 커서·개별 읽음에 쓴다.
+
+@BASE_URL = http://localhost:3001
+@email = test1@gmail.com
+@password = asdf1234!
+@role = CUSTOMER
+@id = 502dff89-9ad7-43dd-9bc4-e33c2bf32dae
+@moverEmail = kim.minjae@moving.kr
+@moverPassword = test1234!
+@moverId = 10000000-0000-4000-8000-000000000001
+# [C] 201 → data.id, [D] 201 → data.id. JSONPath는 이전 요청이 실패하면 에디터 오류가 난다.
+@estimateRequestId = bec2ef74-3a41-4213-9c54-7964172d91e1
+@estimateId = bec2ef74-3a41-4213-9c54-7964172d91e1
+
+###############################################################################
+# REST — 알림 API
+###############################################################################
+
+### 로그인 (accessToken 쿠키)
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "{{role}}"
+}
+
+### SSE 알림 스트림 (로그인 후, 연결 유지)
+### curl -N -H "Cookie: accessToken=로그인에서 받은 accessToken 값" http://localhost:3001/notifications/stream
+GET {{BASE_URL}}/notifications/stream
+
+### 알림 목록 조회
+GET {{BASE_URL}}/notifications?size=10
+
+### 알림 목록 조회 (다음 페이지)
+GET {{BASE_URL}}/notifications?size=10&cursor={{id}}
+
+### 안 읽은 알림 개수 (GNB 뱃지)
+GET {{BASE_URL}}/notifications/unread-count
+
+### 알림 읽음 처리 (개별 클릭 시 호출)
+PATCH {{BASE_URL}}/notifications/{{id}}/read
+
+### 전체 읽음 처리
+PATCH {{BASE_URL}}/notifications/read-all
+
+### 미인증 (401)
+GET {{BASE_URL}}/notifications
+Cookie: accessToken=
+
+###############################################################################
+# 시나리오 A. 고객 로그인 (김테스트 / CUSTOMER)
+###############################################################################
+
+### [A] 고객 로그인
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### [A-stream] 고객 SSE (Send 후 연결 유지 — REST Client는 이벤트가 안 보일 수 있음)
+### curl -N -H "Cookie: accessToken=로그인에서 받은 accessToken 값" http://localhost:3001/notifications/stream
+
+GET {{BASE_URL}}/notifications/stream
+
+###############################################################################
+# 시나리오 B. 프로필 (최초 1회. 이미 있으면 409)
+###############################################################################
+
+### [B] 고객 프로필 생성
+POST {{BASE_URL}}/customer/profile
+Content-Type: application/json
+
+{
+  "region": "SEOUL",
+  "serviceTypes": ["SMALL_MOVE", "HOME_MOVE"]
+}
+
+###############################################################################
+# 시나리오 C. 견적 요청 — 알림 없음. 이사일은 내일(MOVE_DAY 용)
+###############################################################################
+
+### [C] 견적 요청 생성
+# @name createRequest
+POST {{BASE_URL}}/estimate-requests
+Content-Type: application/json
+
+{
+  "serviceType": "SMALL_MOVE",
+  "moveDate": "2026-12-20T00:00:00.000Z",
+  "departureZipCode": "10393",
+  "departureAddress": "경기도 고양시 일산서구 중앙로 1000 101동 101호",
+  "arrivalZipCode": "07335",
+  "arrivalAddress": "서울특별시 영등포구 여의대로 108 20층"
+}
+
+###############################################################################
+# 시나리오 D. 지정 견적 — NEW_REQUEST → 기사(김민재) 스트림
+###############################################################################
+
+### [D] 김민재에게 지정 견적
+# @name designate
+POST {{BASE_URL}}/estimate-requests/{{estimateRequestId}}/estimates
+Content-Type: application/json
+
+{
+  "moverId": "{{moverId}}"
+}
+
+###############################################################################
+# 시나리오 E~F. 기사 로그인 후 견적 제출 — NEW_ESTIMATE → 고객 스트림
+###############################################################################
+
+### [E] 기사 로그인 (쿠키가 기사로 바뀜)
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{moverEmail}}",
+  "password": "{{moverPassword}}",
+  "role": "MOVER"
+}
+
+### [E-stream] 기사 SSE
+GET {{BASE_URL}}/notifications/stream
+
+### [E-list] 기사 알림 목록 (NEW_REQUEST 확인)
+GET {{BASE_URL}}/notifications?size=10
+
+### [E-designated] 지정 견적 목록 — 응답 estimates[].estimateId 를 @estimateId 에 넣는다
+GET {{BASE_URL}}/estimates?status=DESIGNATED
+
+### [F] 지정 견적에 금액 제출 (DESIGNATED → PROPOSED)
+PATCH {{BASE_URL}}/estimates/{{estimateId}}
+Content-Type: application/json
+
+{
+  "status": "PROPOSED",
+  "price": 180000,
+  "comment": "원룸 기준으로 안전하게 옮기겠습니다."
+}
+
+###############################################################################
+# 시나리오 G~H. 고객 다시 로그인 후 확정 — ESTIMATE_CONFIRMED → 양쪽 스트림
+###############################################################################
+
+### [G] 고객 다시 로그인
+POST {{BASE_URL}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### [H] 견적 확정 (PROPOSED → ACCEPTED)
+PATCH {{BASE_URL}}/estimates/{{estimateId}}
+Content-Type: application/json
+
+{
+  "status": "ACCEPTED"
+}
+
+###############################################################################
+# 시나리오 I. 진행 중 요청 조회 — MOVE_DAY
+# 이사일이 오늘/내일이어야 한다. [C]의 12-20이면 안 뜬다.
+# 확정 후 DB에서 moveDate를 내일로 바꾼 다음 이 요청을 보낸다.
+###############################################################################
+
+### [I] GET /active (MOVE_DAY)
+GET {{BASE_URL}}/estimate-requests/active
+
+### [I-list] 고객 알림 목록
+GET {{BASE_URL}}/notifications?size=10
+
+### [I-badge] 고객 안 읽은 개수
+GET {{BASE_URL}}/notifications/unread-count
