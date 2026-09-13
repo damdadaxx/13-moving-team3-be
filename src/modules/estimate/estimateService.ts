@@ -1,4 +1,5 @@
 import { EstimateStatus, Role } from '../../generated/prisma/client';
+import { prisma } from '../../lib/prisma';
 import {
   BadRequestError,
   ConflictError,
@@ -10,6 +11,8 @@ import { estimateRepository } from './estimateRepository';
 import { estimateFilter } from './estimateFilter';
 import { estimateMapper } from './estimateMapper';
 import { paginateByCursor } from '../../utils/cursorPagination';
+import notificationService from '../notification/notificationService';
+import notificationMessage from '../notification/notificationMessage';
 import {
   acceptEstimateSchema,
   GetEstimateDetailParamsDto,
@@ -172,11 +175,32 @@ export const estimateService = {
 
     if (status === 'PROPOSED') {
       const { price, comment } = proposeEstimateSchema.parse(body);
-      await estimateRepository.update(estimateId, {
-        status: 'PROPOSED',
-        price,
-        comment,
+
+      // 견적 생성 시 알림 생성
+      const notifications = await prisma.$transaction(async (tx) => {
+        await estimateRepository.update(
+          estimateId,
+          { status: 'PROPOSED', price, comment },
+          tx
+        );
+
+        return [
+          await notificationService.create(
+            {
+              userId: estimate.estimateRequest.customerId,
+              type: 'NEW_ESTIMATE',
+              content: notificationMessage.newEstimate(
+                estimate.mover.user.name,
+                estimate.estimateRequest.serviceType
+              ),
+              targetPath: estimate.id,
+            },
+            tx
+          ),
+        ];
       });
+
+      await notificationService.publishCreated(notifications);
     } else if (status === 'REJECTED') {
       const { rejectReason } = rejectEstimateSchema.parse(body);
       await estimateRepository.update(estimateId, {
@@ -185,10 +209,45 @@ export const estimateService = {
       });
     } else {
       acceptEstimateSchema.parse(body);
-      await estimateRepository.confirmAndCloseOthers({
-        estimateId,
-        estimateRequestId: estimate.estimateRequestId,
+      const customerId = estimate.estimateRequest.customerId;
+      const moverId = estimate.moverId;
+
+      // 견적 확정 시 알림 생성
+      const notifications = await prisma.$transaction(async (tx) => {
+        await estimateRepository.confirmAndCloseOthers(
+          {
+            estimateId,
+            estimateRequestId: estimate.estimateRequestId,
+          },
+          tx
+        );
+
+        return notificationService.createMany(
+          [
+            {
+              userId: customerId,
+              type: 'ESTIMATE_CONFIRMED',
+              content: notificationMessage.estimateConfirmed(
+                estimate.mover.user.name,
+                'mover'
+              ),
+              targetPath: estimate.id,
+            },
+            {
+              userId: moverId,
+              type: 'ESTIMATE_CONFIRMED',
+              content: notificationMessage.estimateConfirmed(
+                estimate.estimateRequest.customer.user.name,
+                'customer'
+              ),
+              targetPath: estimate.id,
+            },
+          ],
+          tx
+        );
       });
+
+      await notificationService.publishCreated(notifications);
     }
 
     return {

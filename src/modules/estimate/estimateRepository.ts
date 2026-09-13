@@ -12,6 +12,7 @@ export const estimateRepository = {
             nickname: true,
             imgUrl: true,
             careerMonths: true,
+            user: { select: { name: true } },
           },
         },
         estimateRequest: {
@@ -30,33 +31,48 @@ export const estimateRepository = {
     });
   },
 
-  update: (id: string, data: Prisma.EstimateUpdateInput) => {
-    return prisma.estimate.update({ where: { id }, data });
+  update: (
+    id: string,
+    data: Prisma.EstimateUpdateInput,
+    tx?: Prisma.TransactionClient
+  ) => {
+    return (tx ?? prisma).estimate.update({ where: { id }, data });
   },
 
   // 견적 확정: 해당 견적은 ACCEPTED, 같은 요청의 나머지 PROPOSED 견적은 NOT_SELECTED,
   // 견적 요청은 CONFIRMED로 같이 전환한다. DESIGNATED로 남은 행은 건드리지 않는다.
-  confirmAndCloseOthers: (params: {
-    estimateId: string;
-    estimateRequestId: string;
-  }) => {
-    return prisma.$transaction([
-      prisma.estimate.update({
+  confirmAndCloseOthers: async (
+    params: {
+      estimateId: string;
+      estimateRequestId: string;
+    },
+    tx?: Prisma.TransactionClient
+  ) => {
+    const run = async (client: Prisma.TransactionClient) => {
+      // 해당 견적은 ACCEPTED로 변경
+      await client.estimate.update({
         where: { id: params.estimateId },
         data: { status: 'ACCEPTED' },
-      }),
-      prisma.estimate.updateMany({
+      });
+
+      // 같은 요청의 나머지 PROPOSED 견적은 NOT_SELECTED로 변경
+      await client.estimate.updateMany({
         where: {
           estimateRequestId: params.estimateRequestId,
           status: 'PROPOSED',
           id: { not: params.estimateId },
         },
         data: { status: 'NOT_SELECTED' },
-      }),
-      prisma.estimateRequest.update({
+      });
+
+      // 견적 요청은 CONFIRMED로 전환
+      await client.estimateRequest.update({
         where: { id: params.estimateRequestId },
         data: { status: 'CONFIRMED' },
-      }),
-    ]);
+      });
+    };
+
+    if (tx) return run(tx);
+    return prisma.$transaction((tx) => run(tx));
   },
 };
