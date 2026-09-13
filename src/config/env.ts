@@ -20,6 +20,15 @@ for (const key of required) {
   }
 }
 
+/*
+ * 불리언 환경변수 파싱.
+ * 값이 없으면 defaultValue를 쓰고, 'false'/'0'만 거짓으로 본다.
+ */
+const toBoolean = (value: string | undefined, defaultValue: boolean) => {
+  if (value === undefined || value === '') return defaultValue;
+  return value !== 'false' && value !== '0';
+};
+
 export const ENV = {
   NODE_ENV: env,
   PORT: Number(process.env.PORT) || 3000,
@@ -34,4 +43,13 @@ export const ENV = {
   KAKAO_CLIENT_SECRET: process.env.KAKAO_CLIENT_SECRET,
   NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID,
   NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET,
+
+  // 스케줄러 (src/scheduler) — 셋 다 선택값이고 기본값으로 동작한다.
+  // 서버리스/다중 인스턴스 배포에서 인프로세스 배치를 끄려면 false.
+  SCHEDULER_ENABLED: toBoolean(process.env.SCHEDULER_ENABLED, true),
+  // 이사일 경과 견적 요청 정리 주기. 기본값은 매시 정각.
+  SCHEDULER_CLOSE_REQUESTS_CRON:
+    process.env.SCHEDULER_CLOSE_REQUESTS_CRON || '0 * * * *',
+  // cron 표현식 해석 기준 시간대. 서버가 UTC로 떠도 KST 기준으로 돈다.
+  SCHEDULER_TIMEZONE: process.env.SCHEDULER_TIMEZONE || 'Asia/Seoul',
 };

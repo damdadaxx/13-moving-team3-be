@@ -72,6 +72,18 @@ export default function errorHandler(
         },
       });
     }
+    // 외래 키 위반 — 참조하려는 대상이 없다. (없는 moverId로 찜하기 등)
+    // 잡지 않으면 500으로 새어나간다. 도메인별 메시지가 필요하면
+    // 서비스에서 먼저 잡아 NotFoundError로 바꾼다. (estimateRequestService 참고)
+    if (error.code === 'P2003') {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: '참조하는 데이터를 찾을 수 없습니다.',
+        },
+      });
+    }
   }
 
   if (error instanceof AppError) {

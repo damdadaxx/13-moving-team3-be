@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pageSizeSchema } from '../../utils/paginationSchema';
 
 export const likeMoverIdSchema = z.object({
   moverId: z.uuid('기사 ID는 필수 입력 필드입니다.'),
@@ -6,7 +7,7 @@ export const likeMoverIdSchema = z.object({
 
 export const getLikeMoverListSchema = z.object({
   cursor: z.uuid().optional(),
-  size: z.coerce.number().min(1).default(10),
+  size: pageSizeSchema(),
 });
 
 export const bulkDeleteLikeSchema = z.object({

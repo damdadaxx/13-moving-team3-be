@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EstimateStatus, ServiceType } from '../../generated/prisma/client';
+import { pageSizeSchema } from '../../utils/paginationSchema';
 
 const ESTIMATE_STATUS_VALUES = Object.values(EstimateStatus);
 
@@ -23,7 +24,7 @@ export const getEstimatesQuerySchema = z.object({
   serviceType: z.enum(ServiceType).optional(),
   // 무한 스크롤 커서 — 직전 응답의 nextCursor(마지막 estimateRequestId)를 그대로 넘긴다.
   cursor: z.uuid().optional(),
-  size: z.coerce.number().int().positive().optional().default(10),
+  size: pageSizeSchema(),
 });
 
 export type GetEstimatesQueryDto = z.infer<typeof getEstimatesQuerySchema>;

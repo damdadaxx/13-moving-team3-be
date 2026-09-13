@@ -77,7 +77,7 @@
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: `{ success, data }` User 기본정보 + 프로필
+ *         description: 조회 성공. `{ success, data }` User 기본정보 + 프로필
  *       401:
  *         description: 인증 필요
  *         content:
@@ -136,7 +136,7 @@
  *                   enum: [SMALL_MOVE, HOME_MOVE, OFFICE_MOVE]
  *     responses:
  *       200:
- *         description: `{ success, data }` 수정된 프로필
+ *         description: 수정 성공. `{ success, data }` 수정된 프로필
  *       400:
  *         description: region / serviceTypes 검증 실패
  *         content:
