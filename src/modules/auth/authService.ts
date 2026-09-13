@@ -156,6 +156,24 @@ const normalizeEmail = (email: unknown) =>
     ? email.trim().toLowerCase()
     : undefined;
 
+// 프로바이더 고유 ID. 누락 시 String(undefined) → "undefined" 로 저장·조회되는 것을 막는다.
+const toProviderId = (id: unknown) => {
+  if ((typeof id !== 'string' && typeof id !== 'number') || id === '') {
+    throw new BadRequestError('소셜 계정 정보를 확인할 수 없습니다.');
+  }
+  return String(id);
+};
+
+// 소셜 전화번호를 회원가입 폼과 같은 숫자만 형식(01012345678)으로 맞춘다.
+// - 카카오 "+82 10-1234-5678", 네이버 "010-1234-5678"
+// - 휴대폰 번호 형식이 아니면 저장하지 않는다(선택 값)
+const normalizePhoneNumber = (phoneNumber: unknown) => {
+  if (typeof phoneNumber !== 'string') return undefined;
+  const digits = phoneNumber.replace(/\D/g, '');
+  const local = digits.startsWith('82') ? `0${digits.slice(2)}` : digits;
+  return /^01[016789]\d{7,8}$/.test(local) ? local : undefined;
+};
+
 const isSocialConfigured = (provider: SocialProvider) =>
   Boolean(
     socialConfigs[provider].clientId && socialConfigs[provider].clientSecret
@@ -175,8 +193,9 @@ const exchangeSocialCode = async (
     client_secret: config.clientSecret!,
     code,
   });
-  // TODO: OAuth state(CSRF 방어) 검증이 백엔드에 없음. 프론트 릴레이 구조라 state 생성·검증은
-  //   전적으로 프론트 책임 상태. 네이버 state 도 여기선 그대로 전달만 하고 우리가 발급한 값인지 확인하지 않음. 프론트팀과 "state 는 프론트가 생성/검증한다" 문서로 합의 필요.
+  // OAuth state(CSRF 방어)는 프론트 릴레이 구조라 프론트가 생성·검증한다.
+  //   (FE: lib/auth/socialAuth.ts 에서 sessionStorage 에 저장, 콜백 페이지에서 비교)
+  //   백엔드는 네이버 state 를 토큰 교환에 그대로 전달만 한다.
   // 네이버는 redirect_uri 대신 state 를 요구하고, 나머지는 redirect_uri 를 요구한다.
   if (provider === 'naver') {
     params.set('state', state ?? '');
@@ -216,15 +235,11 @@ const fetchSocialProfile = async (
   const data: unknown = await res.json();
 
   switch (provider) {
-    // TODO: providerId 가 없을 때 String(undefined) → "undefined" 문자열로 저장/조회됨.
-    //   각 case 에서 id 누락 시 BadRequestError 로 가드 필요.
-    // TODO: 소셜 phoneNumber(카카오 "+82 10-...", 네이버 "010-...")를 정규화 없이 저장.
-    //   회원가입 폼의 전화번호 형식과 불일치 → 저장 전 정규화 필요.
     case 'google': {
       const d = (data ?? {}) as GoogleUserInfo;
       return {
         provider: 'GOOGLE',
-        providerId: String(d.sub),
+        providerId: toProviderId(d.sub),
         email: normalizeEmail(d.email),
         name: d.name || '사용자',
       };
@@ -234,10 +249,10 @@ const fetchSocialProfile = async (
       const account = d.kakao_account ?? {};
       return {
         provider: 'KAKAO',
-        providerId: String(d.id),
+        providerId: toProviderId(d.id),
         email: normalizeEmail(account.email),
         name: account.profile?.nickname || '사용자',
-        phoneNumber: account.phone_number,
+        phoneNumber: normalizePhoneNumber(account.phone_number),
       };
     }
     case 'naver': {
@@ -245,10 +260,10 @@ const fetchSocialProfile = async (
       const response = d.response ?? {};
       return {
         provider: 'NAVER',
-        providerId: String(response.id),
+        providerId: toProviderId(response.id),
         email: normalizeEmail(response.email),
         name: response.nickname || response.name || '사용자',
-        phoneNumber: response.mobile,
+        phoneNumber: normalizePhoneNumber(response.mobile),
       };
     }
   }
