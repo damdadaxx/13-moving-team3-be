@@ -6,7 +6,7 @@
 @host = http://localhost:3000
 @email = customer-tester@example.com
 @moverEmail = mover-tester@example.com
-@password = password123
+@password = password123!
 
 
 ### ────────────────────────────────────────────────

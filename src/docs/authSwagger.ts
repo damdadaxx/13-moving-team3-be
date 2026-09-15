@@ -18,7 +18,7 @@
  *             required: [email, password, name, phoneNumber, role]
  *             properties:
  *               email: { type: string, format: email }
- *               password: { type: string, minLength: 8 }
+ *               password: { type: string, minLength: 8, maxLength: 64, description: "숫자·특수문자 각 1개 이상 포함", example: "test1234!" }
  *               name: { type: string }
  *               phoneNumber: { type: string, example: "01012345678" }
  *               role: { type: string, enum: [CUSTOMER, MOVER] }
@@ -180,7 +180,7 @@
  *             required: [currentPassword, newPassword]
  *             properties:
  *               currentPassword: { type: string }
- *               newPassword: { type: string, minLength: 8 }
+ *               newPassword: { type: string, minLength: 8, maxLength: 64, description: "숫자·특수문자 각 1개 이상 포함", example: "test1234!" }
  *     responses:
  *       200:
  *         description: 변경 성공

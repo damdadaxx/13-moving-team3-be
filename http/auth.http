@@ -5,7 +5,7 @@
 
 @host = http://localhost:3000
 @email = tester@example.com
-@password = password123
+@password = password123!
 @role = CUSTOMER
 
 
