@@ -109,6 +109,97 @@
  *               description: 조건에 맞는 전체 견적 요청 건수
  *
  * /estimates:
+ *   post:
+ *     tags: [Estimate]
+ *     summary: 견적 보내기 (지정 없이)
+ *     description: |
+ *       기사님이 지정 없이(고객이 지정하지 않은) PENDING 상태의 견적 요청에 직접 견적을 보낸다.
+ *       생성되는 견적은 `isDesignated: false`, `status: PROPOSED`로 고정된다.
+ *
+ *       같은 요청에 이미 견적(지정 포함)을 보낸 기사님은 다시 보낼 수 없다(유니크 제약).
+ *       지정 견적과 별도로, 요청 1건당 지정 없는 견적은 최대 5건까지 가능하다.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [estimateRequestId, price, comment]
+ *             properties:
+ *               estimateRequestId:
+ *                 type: string
+ *                 format: uuid
+ *               price:
+ *                 type: integer
+ *                 example: 180000
+ *               comment:
+ *                 type: string
+ *                 minLength: 10
+ *                 example: 안전하게 모시겠습니다. 감사합니다.
+ *     responses:
+ *       201:
+ *         description: 생성 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     estimateId:
+ *                       type: string
+ *                       format: uuid
+ *                     estimateRequestId:
+ *                       type: string
+ *                       format: uuid
+ *                     price:
+ *                       type: integer
+ *                     comment:
+ *                       type: string
+ *                     isDesignated:
+ *                       type: boolean
+ *                       example: false
+ *                     status:
+ *                       type: string
+ *                       example: PROPOSED
+ *       400:
+ *         description: 검증 실패 (price/comment 형식 오류 등)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 정보 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: 기사님(MOVER)이 아님
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: 존재하지 않는 견적 요청
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: >
+ *           code: CONFLICT — 이미 이 요청에 견적을 보냈음 / 견적 상한(5건) 초과 /
+ *           확정되었거나 이사일이 지난 요청이라 더 이상 보낼 수 없음.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *   get:
  *     tags: [Estimate]
  *     summary: 내 견적 목록 조회 (무한 스크롤)

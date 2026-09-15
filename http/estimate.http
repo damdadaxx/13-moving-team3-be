@@ -144,6 +144,96 @@ Content-Type: application/json
 
 { "status": "REJECTED", "rejectReason": "해당 날짜에 일정이 있어 어렵습니다." }
 
+# ─────────────────────────────────────────────────────────────
+# 기사: 박지훈 (park.jihoon@moving.kr)
+# 지정 없이 견적 보내기 (POST /estimates). 한지민 고객의 PENDING 요청(30000000-...-0001)에는
+# 아직 박지훈의 견적이 없어 성공 케이스를 그대로 확인할 수 있다.
+# ─────────────────────────────────────────────────────────────
+
+### 로그인 (박지훈 / MOVER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "park.jihoon@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### 견적 보내기 - 400 VALIDATION_ERROR (comment 10자 미만)
+POST {{baseUrl}}/estimates
+Content-Type: application/json
+
+{
+  "estimateRequestId": "30000000-0000-4000-8000-000000000001",
+  "price": 250000,
+  "comment": "짧음"
+}
+
+### 견적 보내기 - 201 생성 (isDesignated: false, status: PROPOSED)
+POST {{baseUrl}}/estimates
+Content-Type: application/json
+
+{
+  "estimateRequestId": "30000000-0000-4000-8000-000000000001",
+  "price": 250000,
+  "comment": "원룸 기준으로 안전하게 진행하겠습니다."
+}
+
+### 견적 보내기 - 같은 요청에 재시도 -> 409 CONFLICT (유니크 제약, 이미 보낸 견적)
+POST {{baseUrl}}/estimates
+Content-Type: application/json
+
+{
+  "estimateRequestId": "30000000-0000-4000-8000-000000000001",
+  "price": 260000,
+  "comment": "가격을 조금 낮춰서 다시 보내봅니다."
+}
+
+### 견적 보내기 - 409 CONFLICT (지정 견적으로 이미 있는 기사님이 재시도, 이서준)
+# 위 로그인을 이서준으로 바꿔서 실행하면 지정 견적(DESIGNATED) 보유 기사님도
+# 같은 유니크 제약에 걸려 동일하게 409가 난다는 걸 확인할 수 있다.
+
+### 견적 보내기 - 404 NOT_FOUND (존재하지 않는 견적 요청)
+POST {{baseUrl}}/estimates
+Content-Type: application/json
+
+{
+  "estimateRequestId": "00000000-0000-4000-8000-000000000000",
+  "price": 250000,
+  "comment": "존재하지 않는 요청에 보내는 시도입니다."
+}
+
+### 견적 보내기 - 409 CONFLICT (이미 확정된 요청, 오세훈 고객의 CONFIRMED 요청)
+POST {{baseUrl}}/estimates
+Content-Type: application/json
+
+{
+  "estimateRequestId": "30000000-0000-4000-8000-000000000002",
+  "price": 250000,
+  "comment": "이미 확정된 요청에 보내는 시도입니다."
+}
+
+### 로그인 (한지민 / CUSTOMER) - 견적 보내기 권한 확인용
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "han.jimin@example.com",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### 견적 보내기 - 403 FORBIDDEN (기사님만 가능)
+POST {{baseUrl}}/estimates
+Content-Type: application/json
+
+{
+  "estimateRequestId": "30000000-0000-4000-8000-000000000001",
+  "price": 250000,
+  "comment": "고객이 견적을 보내려는 시도입니다."
+}
+
 ### 쿠키 없이 요청 -> 401 UNAUTHORIZED
 # (쿠키 jar를 비운 새 세션에서 실행하거나, rest-client.cookies 캐시를 지우고 실행)
 GET {{baseUrl}}/estimates

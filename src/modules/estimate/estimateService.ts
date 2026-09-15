@@ -1,4 +1,4 @@
-import { EstimateStatus, Role } from '../../generated/prisma/client';
+import { EstimateStatus, Prisma, Role } from '../../generated/prisma/client';
 import { prisma } from '../../lib/prisma';
 import {
   BadRequestError,
@@ -15,11 +15,17 @@ import notificationService from '../notification/notificationService';
 import notificationMessage from '../notification/notificationMessage';
 import {
   acceptEstimateSchema,
+  CreateEstimateInput,
   GetEstimateDetailParamsDto,
   GetEstimatesQueryDto,
   proposeEstimateSchema,
   rejectEstimateSchema,
 } from './estimateSchema';
+
+/** 유니크 제약 위반(P2002) 여부 */
+const isUniqueViolation = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === 'P2002';
 
 type EstimateStatusAction = 'PROPOSED' | 'REJECTED' | 'ACCEPTED';
 
@@ -75,6 +81,58 @@ export const estimateService = {
       nextCursor,
       totalCount,
     };
+  },
+
+  // 지정 없이(PENDING 상태의 열린 요청에) 견적을 새로 보낸다. 기사님만 가능하다.
+  createEstimate: async (
+    moverId: string,
+    role: Role,
+    input: CreateEstimateInput
+  ) => {
+    if (role !== Role.MOVER) {
+      throw new ForbiddenError('견적은 기사님만 보낼 수 있습니다.');
+    }
+
+    const { estimateRequestId, price, comment } = input;
+    const estimateRequest =
+      await estimateRequestRepository.findById(estimateRequestId);
+
+    if (!estimateRequest) {
+      throw new NotFoundError('견적 요청을 찾을 수 없습니다.');
+    }
+
+    // PENDING이 아니거나(CONFIRMED/COMPLETED/EXPIRED) 이사일이 지났으면 더 이상 견적을 보낼 수 없다.
+    // moveDate를 status와 별도로 체크하는 이유는 updateEstimateStatus와 동일 — 배치가 아직 없어서
+    // 이사일이 지나도 status만 보면 계속 PENDING으로 남는다.
+    if (
+      estimateRequest.status !== 'PENDING' ||
+      estimateRequest.moveDate.getTime() < Date.now()
+    ) {
+      throw new ConflictError('현재 상태에서는 견적을 보낼 수 없습니다.');
+    }
+
+    try {
+      const estimate = await estimateRepository.createGeneral({
+        estimateRequestId,
+        moverId,
+        price,
+        comment,
+      });
+
+      return {
+        estimateId: estimate.id,
+        estimateRequestId: estimate.estimateRequestId,
+        price: estimate.price,
+        comment: estimate.comment,
+        isDesignated: estimate.isDesignated,
+        status: estimate.status,
+      };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictError('이미 해당 요청에 견적을 보냈습니다.');
+      }
+      throw error;
+    }
   },
 
   getEstimateDetail: async (

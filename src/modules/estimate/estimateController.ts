@@ -2,11 +2,25 @@ import { Request, Response } from 'express';
 import { UnauthorizedError } from '../../utils/error';
 import { estimateService } from './estimateService';
 import type {
+  CreateEstimateInput,
   GetEstimateDetailParamsDto,
   GetEstimatesQueryDto,
 } from './estimateSchema';
 
 export const estimateController = {
+  createEstimate: async (req: Request, res: Response) => {
+    if (!req.auth?.sub) throw new UnauthorizedError();
+
+    const input = req.validatedData as CreateEstimateInput;
+    const result = await estimateService.createEstimate(
+      req.auth.sub,
+      req.auth.role,
+      input
+    );
+
+    res.status(201).json({ success: true, data: result });
+  },
+
   getEstimates: async (req: Request, res: Response) => {
     if (!req.auth?.sub) throw new UnauthorizedError();
 
