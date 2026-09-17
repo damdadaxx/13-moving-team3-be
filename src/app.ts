@@ -4,9 +4,11 @@ import express from 'express';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
+import { registerSocialStrategies } from './modules/auth/authPassport';
 import authRouter from './modules/auth/authRoute';
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
 import moverRouter from './modules/mover/moverRoute';
@@ -18,12 +20,14 @@ import notificationRouter from './modules/notification/notificationRoute';
 
 const app = express();
 
-// app.set('trust proxy', 1);
-
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
+
+// 소셜 로그인 전략 등록. 세션은 쓰지 않는다 (JWT 쿠키)
+registerSocialStrategies();
+app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

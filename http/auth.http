@@ -5,7 +5,7 @@
 
 @host = http://localhost:3000
 @email = tester@example.com
-@password = password123
+@password = password123!
 @role = CUSTOMER
 
 
@@ -178,39 +178,18 @@ Cookie: refreshToken=PASTE_REFRESH_TOKEN_HERE
 
 
 ### ────────────────────────────────────────────────
-### 소셜 로그인 (프론트 릴레이) — 프론트가 프로바이더 authorize 후 받은 code 를 전달
-# 실제 code 는 프론트 콜백에서만 얻을 수 있어 아래는 형식 예시(가짜 code → 400)
-POST {{host}}/auth/social/google
-Content-Type: application/json
+### 소셜 로그인 (Passport) — 브라우저 이동 흐름이라 REST Client 로는 시작 302 까지만 확인 가능
+# 실제 로그인은 브라우저에서: http://localhost:5173/api/auth/social/google?role=CUSTOMER
+# 콘솔 Redirect URI: http://localhost:5173/api/auth/social/{google|kakao|naver}/callback
 
-{
-  "code": "PASTE_AUTH_CODE_HERE",
-  "redirectUri": "http://localhost:3000/auth/callback/google",
-  "role": "CUSTOMER"
-}
+### 소셜 로그인 시작 — 302 프로바이더 인가 페이지 + Set-Cookie oauthState
+GET {{host}}/auth/social/google?role=CUSTOMER&callbackUrl=/customer/profile
 
-
-### 소셜 로그인 - 네이버 (state 필수)
-POST {{host}}/auth/social/naver
-Content-Type: application/json
-
-{
-  "code": "PASTE_AUTH_CODE_HERE",
-  "redirectUri": "http://localhost:3000/auth/callback/naver",
-  "state": "PASTE_STATE_HERE",
-  "role": "MOVER"
-}
-
+### 소셜 로그인 시작 - role 누락 (400)
+GET {{host}}/auth/social/kakao
 
 ### 소셜 로그인 - 잘못된 provider (400)
-POST {{host}}/auth/social/kakaoo
-Content-Type: application/json
+GET {{host}}/auth/social/kakaoo?role=CUSTOMER
 
-{ "code": "x", "redirectUri": "http://localhost:3000/cb", "role": "CUSTOMER" }
-
-
-### 소셜 로그인 - redirectUri origin 불일치 (400)
-POST {{host}}/auth/social/google
-Content-Type: application/json
-
-{ "code": "x", "redirectUri": "https://evil.com/cb", "role": "CUSTOMER" }
+### 소셜 로그인 콜백 - state 쿠키 없음 → 302 /auth/callback?error=STATE_MISMATCH
+GET {{host}}/auth/social/google/callback?code=x&state=y

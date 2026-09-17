@@ -1,19 +1,33 @@
-import { CookieOptions, Request, Response } from 'express';
+import { randomBytes } from 'crypto';
+import { CookieOptions, NextFunction, Request, Response } from 'express';
+import passport from 'passport';
 import { ENV } from '../../config/env';
-import { BadRequestError, UnauthorizedError } from '../../utils/error';
+import { Role } from '../../generated/prisma/client';
+import {
+  BadRequestError,
+  ConflictError,
+  UnauthorizedError,
+} from '../../utils/error';
+import { isSameSecret } from '../../utils/hash';
+import { isSocialConfigured, SocialProfile } from './authPassport';
 import authService from './authService';
 import {
   ACCESS_TOKEN_COOKIE,
   ACCESS_TOKEN_MAX_AGE_MS,
+  OAUTH_STATE_COOKIE,
+  OAUTH_STATE_COOKIE_PATH,
+  OAUTH_STATE_MAX_AGE_MS,
   REFRESH_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE_PATH,
   REFRESH_TOKEN_MAX_AGE_MS,
 } from './authConstants';
 import {
   LoginInput,
+  OAuthState,
+  oauthStateSchema,
   providerParamSchema,
   SignupInput,
-  SocialAuthInput,
+  SocialStartQuery,
   UpdateMeInput,
   UpdatePasswordInput,
 } from './authValidation';
@@ -57,6 +71,66 @@ const clearAuthCookies = (res: Response) => {
     ...base,
     path: REFRESH_TOKEN_COOKIE_PATH,
   });
+};
+
+/*=================================================
+소셜 로그인 리다이렉트 / state 쿠키
+=================================================*/
+/*
+@ 가이드
+- 소셜 로그인은 브라우저 이동 흐름이라 결과를 JSON 대신 프론트 /auth/callback 으로 302 한다
+- 실패 사유는 메시지가 아니라 코드로 넘긴다 (쿼리 문자열 메시지를 그대로 화면에 띄우면 콘텐츠 스푸핑 가능)
+- state 는 세션 대신 httpOnly 쿠키에 저장하고 콜백에서 직접 비교한다
+  (passport.authenticate 에 문자열 state 를 넘기면 passport-oauth2 는 검증을 건너뛴다)
+*/
+type SocialErrorCode =
+  | 'CANCELLED'
+  | 'STATE_MISMATCH'
+  | 'EMAIL_REQUIRED'
+  | 'EMAIL_CONFLICT'
+  | 'NOT_CONFIGURED'
+  | 'TOO_MANY_REQUESTS'
+  | 'SOCIAL_LOGIN_FAILED';
+
+const SOCIAL_CALLBACK_PAGE_PATH = '/auth/callback';
+
+const redirectToSocialCallbackPage = (
+  res: Response,
+  params: Record<string, string | undefined>
+) => {
+  const url = new URL(SOCIAL_CALLBACK_PAGE_PATH, ENV.FRONTEND_URL);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) url.searchParams.set(key, value);
+  });
+  res.redirect(url.toString());
+};
+
+export const redirectSocialError = (
+  res: Response,
+  error: SocialErrorCode,
+  role?: Role
+) => redirectToSocialCallbackPage(res, { error, role });
+
+const oauthStateCookieOptions = (): CookieOptions => ({
+  ...baseCookieOptions(),
+  path: OAUTH_STATE_COOKIE_PATH,
+});
+
+const readOAuthStateCookie = (req: Request): OAuthState | null => {
+  const raw: unknown = req.cookies?.[OAUTH_STATE_COOKIE];
+  if (typeof raw !== 'string') return null;
+  try {
+    const result = oauthStateSchema.safeParse(JSON.parse(raw));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+};
+
+const logSocialError = (error: unknown) => {
+  if (ENV.NODE_ENV !== 'production') {
+    console.error('[social] login failed', error);
+  }
 };
 
 const getUserId = (req: Request) => {
@@ -116,22 +190,75 @@ const authController = {
     success(res, { message: '비밀번호가 변경되었습니다.' });
   },
 
-  socialLogin: async (req: Request, res: Response) => {
-    const input = getValidated<SocialAuthInput>(req);
+  // GET /auth/social/:provider — state 쿠키를 심고 프로바이더 인가 페이지로 302
+  startSocialLogin: (req: Request, res: Response, next: NextFunction) => {
     const { provider } = providerParamSchema.parse(req.params);
+    const { role, callbackUrl } = getValidated<SocialStartQuery>(req);
 
-    if (
-      new URL(input.redirectUri).origin !== new URL(ENV.FRONTEND_URL).origin
-    ) {
-      throw new BadRequestError('허용되지 않은 redirectUri입니다.');
+    if (!isSocialConfigured(provider)) {
+      return redirectSocialError(res, 'NOT_CONFIGURED', role);
     }
 
-    const { user, accessToken, refreshToken } = await authService.socialLogin({
-      ...input,
-      provider,
+    const state = randomBytes(16).toString('hex');
+    const saved: OAuthState = { state, provider, role, callbackUrl };
+    res.cookie(OAUTH_STATE_COOKIE, JSON.stringify(saved), {
+      ...oauthStateCookieOptions(),
+      maxAge: OAUTH_STATE_MAX_AGE_MS,
     });
-    setAuthCookies(res, accessToken, refreshToken);
-    success(res, user);
+
+    passport.authenticate(provider, { session: false, state })(req, res, next);
+  },
+
+  // GET /auth/social/:provider/callback — state 검증 → Passport 가 code 교환·프로필 조회 → 로그인
+  socialLoginCallback: (req: Request, res: Response, next: NextFunction) => {
+    const { provider } = providerParamSchema.parse(req.params);
+    const saved = readOAuthStateCookie(req);
+    // state 는 1회용 — 결과와 상관없이 즉시 지운다
+    res.clearCookie(OAUTH_STATE_COOKIE, oauthStateCookieOptions());
+
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    if (
+      !saved ||
+      saved.provider !== provider ||
+      !state ||
+      !isSameSecret(state, saved.state)
+    ) {
+      return redirectSocialError(res, 'STATE_MISMATCH', saved?.role);
+    }
+
+    const { role, callbackUrl } = saved;
+
+    passport.authenticate(
+      provider,
+      { session: false, state },
+      (error: unknown, profile: SocialProfile | false) => {
+        if (error) {
+          logSocialError(error);
+          return redirectSocialError(res, 'SOCIAL_LOGIN_FAILED', role);
+        }
+        // 사용자가 동의 화면에서 취소 (error=access_denied)
+        if (!profile) {
+          return redirectSocialError(res, 'CANCELLED', role);
+        }
+
+        authService
+          .socialLogin(profile, role)
+          .then(({ accessToken, refreshToken }) => {
+            setAuthCookies(res, accessToken, refreshToken);
+            redirectToSocialCallbackPage(res, { callbackUrl });
+          })
+          .catch((loginError: unknown) => {
+            if (loginError instanceof ConflictError) {
+              return redirectSocialError(res, 'EMAIL_CONFLICT', role);
+            }
+            if (loginError instanceof BadRequestError) {
+              return redirectSocialError(res, 'EMAIL_REQUIRED', role);
+            }
+            logSocialError(loginError);
+            redirectSocialError(res, 'SOCIAL_LOGIN_FAILED', role);
+          });
+      }
+    )(req, res, next);
   },
 };
 

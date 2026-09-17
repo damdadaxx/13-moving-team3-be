@@ -1,12 +1,13 @@
-import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
+import { Request, Response, Router } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { authenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
-import authController from './authController';
+import { getClientIp } from '../../utils/clientIp';
+import authController, { redirectSocialError } from './authController';
 import {
   loginSchema,
   signupSchema,
-  socialAuthSchema,
+  socialStartQuerySchema,
   updateMeSchema,
   updatePasswordSchema,
 } from './authValidation';
@@ -22,26 +23,63 @@ const rateLimitMessage = {
   },
 };
 
-// TODO: 기본 keyGenerator 가 IP 만 사용. 공유 IP(회사/학교 NAT)에서 무고한 사용자가 함께 잠길 수 있음. 여유되면 email+IP 조합 키로 변경.
-// TODO: 배포 시 app.set('trust proxy', ...) 없으면 모든 요청이 프록시 IP 로 잡혀
-//   전원 같은 버킷 → 즉시 429 + ValidationError. (app.ts 참고)
-// 로그인 / 비밀번호 변경 / 소셜 — 자격 증명 브루트포스 방어
-const loginRateLimit = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 10, // IP당 10분에 10회
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  message: rateLimitMessage,
-});
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+const createRateLimit = (
+  windowMs: number,
+  limit: number,
+  keyGenerator: (req: Request) => string,
+  handler?: (req: Request, res: Response) => void
+) =>
+  rateLimit({
+    windowMs,
+    limit,
+    keyGenerator,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: rateLimitMessage,
+    ...(handler && { handler }),
+  });
+
+/*
+@ 키
+- IP 는 프록시가 보낸 실제 사용자 IP (utils/clientIp.ts). ipKeyGenerator 는 IPv6 를 /56 단위로 묶는다
+- 리미터는 validate 앞에서 돌아 body 가 검증 전이므로 email 은 방어적으로 정규화한다
+*/
+const ipKey = (req: Request) => ipKeyGenerator(getClientIp(req));
+
+const emailKey = (req: Request) => {
+  const email: unknown = req.body?.email;
+  return typeof email === 'string' ? email.trim().toLowerCase() : '';
+};
+
+// 로그인 — 이메일+IP 단위로 브루트포스 방어.
+// 공유 IP(회사/학교 NAT)에서 다른 계정 사용자까지 함께 잠기지 않는다.
+const loginEmailRateLimit = createRateLimit(
+  TEN_MINUTES_MS,
+  10,
+  (req) => `${ipKey(req)}:${emailKey(req)}`
+);
+
+// 로그인 — 한 IP 에서 이메일을 바꿔가며 시도하는 크리덴셜 스터핑 상한
+const loginIpRateLimit = createRateLimit(TEN_MINUTES_MS, 100, ipKey);
+
+// 소셜 로그인 시작 — IP 단위. 브라우저 이동 흐름이라 429 JSON 대신 프론트 안내 페이지로 보낸다
+const socialRateLimit = createRateLimit(
+  TEN_MINUTES_MS,
+  30,
+  ipKey,
+  (_req, res) => redirectSocialError(res, 'TOO_MANY_REQUESTS')
+);
+
+// 비밀번호 변경 — authenticate 뒤에 붙으므로 유저 단위
+const passwordRateLimit = createRateLimit(TEN_MINUTES_MS, 10, (req) =>
+  req.auth?.sub ? `user:${req.auth.sub}` : ipKey(req)
+);
 
 // 회원가입 — 대량 계정 생성 방어
-const signupRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 5, // IP당 1시간에 5회
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  message: rateLimitMessage,
-});
+const signupRateLimit = createRateLimit(ONE_HOUR_MS, 5, ipKey);
 
 router.post(
   '/signUp',
@@ -52,7 +90,8 @@ router.post(
 
 router.post(
   '/login',
-  loginRateLimit,
+  loginIpRateLimit,
+  loginEmailRateLimit,
   validate(loginSchema),
   authController.login
 );
@@ -74,18 +113,23 @@ router.patch(
 router.patch(
   '/password',
   authenticate,
-  loginRateLimit,
+  passwordRateLimit,
   validate(updatePasswordSchema),
   authController.updatePassword
 );
 
-// 공용 validate 는 req.validatedData 를 덮어써서 params + body 를 같이 담지 못한다.
-// :provider 는 컨트롤러에서 providerParamSchema 로 직접 검증한다.
-router.post(
+/*
+@ 소셜 로그인 (Passport)
+- 브라우저가 프론트 프록시(/api/auth/social/...)를 통해 직접 이동하는 GET 흐름이다
+- :provider 는 컨트롤러에서 providerParamSchema 로 검증한다 (validate 는 query 를 담는다)
+*/
+router.get(
   '/social/:provider',
-  loginRateLimit,
-  validate(socialAuthSchema),
-  authController.socialLogin
+  socialRateLimit,
+  validate(socialStartQuerySchema, 'query'),
+  authController.startSocialLogin
 );
+
+router.get('/social/:provider/callback', authController.socialLoginCallback);
 
 export default router;
