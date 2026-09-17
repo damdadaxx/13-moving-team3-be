@@ -1,6 +1,7 @@
 /* eslint-disable no-console -- 시드 실행 로그는 콘솔로 출력합니다. */
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
+import notificationMessage from '../src/modules/notification/notificationMessage';
 import { hashPassword } from '../src/utils/hash';
 
 /**
@@ -932,7 +933,7 @@ const notifications = [
   {
     userId: CUSTOMER.jimin,
     type: 'NEW_ESTIMATE',
-    content: '김민재 기사님이 견적을 보냈어요.',
+    content: notificationMessage.newEstimate('김민재', 'SMALL_MOVE'),
     targetPath: ESTIMATE.jiminMinjae,
     isRead: false,
     createdAt: days(-2),
@@ -940,7 +941,7 @@ const notifications = [
   {
     userId: CUSTOMER.jimin,
     type: 'NEW_ESTIMATE',
-    content: '정하늘 기사님이 견적을 보냈어요.',
+    content: notificationMessage.newEstimate('정하늘', 'SMALL_MOVE'),
     targetPath: ESTIMATE.jiminHaneul,
     isRead: true,
     createdAt: days(-2),
@@ -948,23 +949,21 @@ const notifications = [
   {
     userId: MOVER.minjae,
     type: 'NEW_REQUEST',
-    content: '한지민 고객님의 소형이사 견적 요청이 도착했어요.',
-    targetPath: REQUEST.jiminActive,
+    content: notificationMessage.newRequest('한지민', 'SMALL_MOVE'),
     isRead: true,
     createdAt: days(-3),
   },
   {
     userId: MOVER.seojun,
     type: 'NEW_REQUEST',
-    content: '한지민 고객님이 지정 견적을 요청했어요.',
-    targetPath: REQUEST.jiminActive,
+    content: notificationMessage.newRequest('한지민', 'SMALL_MOVE'),
     isRead: false,
     createdAt: days(-1),
   },
   {
     userId: CUSTOMER.sehun,
     type: 'ESTIMATE_CONFIRMED',
-    content: '김민재 기사님의 견적을 확정했어요.',
+    content: notificationMessage.estimateConfirmed('김민재', 'mover'),
     targetPath: ESTIMATE.sehunMinjae,
     isRead: true,
     createdAt: days(-8),
@@ -972,7 +971,7 @@ const notifications = [
   {
     userId: MOVER.minjae,
     type: 'ESTIMATE_CONFIRMED',
-    content: '오세훈 고객님이 견적을 확정했어요.',
+    content: notificationMessage.estimateConfirmed('오세훈', 'customer'),
     targetPath: ESTIMATE.sehunMinjae,
     isRead: false,
     createdAt: days(-8),
@@ -980,23 +979,30 @@ const notifications = [
   {
     userId: CUSTOMER.sehun,
     type: 'MOVE_DAY',
-    content: '이사가 하루 남았어요. 준비물을 확인해 주세요.',
-    targetPath: REQUEST.sehunConfirmed,
+    content: notificationMessage.moveDay(
+      '내일',
+      notificationMessage.toMoveDayPlace(
+        '경기도 성남시 분당구 판교역로 235 102동 1503호'
+      ),
+      notificationMessage.toMoveDayPlace(
+        '경기도 수원시 영통구 광교중앙로 145 305동 802호'
+      )
+    ),
+    targetPath: ESTIMATE.sehunMinjae,
     isRead: false,
     createdAt: days(-1),
   },
   {
     userId: MOVER.haneul,
     type: 'NEW_REQUEST',
-    content: '배진우 고객님의 소형이사 견적 요청이 도착했어요.',
-    targetPath: REQUEST.jinwooActive,
+    content: notificationMessage.newRequest('배진우', 'SMALL_MOVE'),
     isRead: false,
     createdAt: days(-1),
   },
   {
     userId: CUSTOMER.jinwoo,
     type: 'NEW_ESTIMATE',
-    content: '정하늘 기사님이 견적을 보냈어요.',
+    content: notificationMessage.newEstimate('정하늘', 'SMALL_MOVE'),
     targetPath: ESTIMATE.jinwooHaneul,
     isRead: false,
     createdAt: days(-1),
@@ -1004,12 +1010,18 @@ const notifications = [
   {
     userId: CUSTOMER.nayoung,
     type: 'MOVE_DAY',
-    content: '오늘은 이사 당일이에요. 기사님께 연락해 보세요.',
-    targetPath: REQUEST.nayoungDone,
+    content: notificationMessage.moveDay(
+      '오늘',
+      notificationMessage.toMoveDayPlace(
+        '인천광역시 남동구 예술로 149 201동 1102호'
+      ),
+      notificationMessage.toMoveDayPlace('인천광역시 중구 영종대로 106 508호')
+    ),
+    targetPath: ESTIMATE.nayoungHaneul,
     isRead: true,
     createdAt: days(-20),
   },
-] as const;
+];
 
 async function seedNotifications() {
   await prisma.notification.createMany({ data: [...notifications] });

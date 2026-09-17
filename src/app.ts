@@ -10,11 +10,11 @@ import { ENV } from './config/env';
 import authRouter from './modules/auth/authRoute';
 import estimateRequestRouter from './modules/estimate-request/estimateRequestRoute';
 import moverRouter from './modules/mover/moverRoute';
-import swaggerTestRouter from './docs/swaggertest.route';
 import estimateRouter from './modules/estimate/estimateRoute';
 import customerRouter from './modules/customer/customerRoute';
 import likeRouter from './modules/like/likeRoute';
 import reviewRouter from './modules/review/reviewRoute';
+import notificationRouter from './modules/notification/notificationRoute';
 
 const app = express();
 
@@ -30,13 +30,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
 app.use('/mover', moverRouter);
-app.use('/swaggertest', swaggerTestRouter);
 app.use('/estimates', estimateRouter);
 app.use('/customer', customerRouter);
 app.use('/likes', likeRouter);
 app.use('/reviews', reviewRouter);
-// 라우터는 여기에 추가 (반드시 errorHandler 위에)
+app.use('/notifications', notificationRouter);
 
+// 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use(errorHandler);
 
 export default app;

@@ -198,12 +198,12 @@ export const estimateRequestRepository = {
   // isolationLevel: 'Serializable' 또는 부모 행 SELECT ... FOR UPDATE가 필요합니다.
   // 같은 기사님에게 이미 요청했다면 @@unique([estimateRequestId, moverId])에 걸려
   // P2002가 발생합니다. -> service에서 409로 변환
-  async createDirectEstimateRequest({
-    estimateRequestId,
-    moverId,
-  }: CreateDirectEstimateRequestInput) {
-    return prisma.$transaction(async (tx) => {
-      const designatedCount = await tx.estimate.count({
+  async createDirectEstimateRequest(
+    { estimateRequestId, moverId }: CreateDirectEstimateRequestInput,
+    tx?: Prisma.TransactionClient
+  ) {
+    const run = async (client: Prisma.TransactionClient) => {
+      const designatedCount = await client.estimate.count({
         where: { estimateRequestId, isDesignated: true },
       });
 
@@ -213,7 +213,7 @@ export const estimateRequestRepository = {
         );
       }
 
-      return tx.estimate.create({
+      return client.estimate.create({
         data: {
           estimateRequestId,
           moverId,
@@ -233,7 +233,10 @@ export const estimateRequestRepository = {
           },
         },
       });
-    });
+    };
+
+    if (tx) return run(tx);
+    return prisma.$transaction((client) => run(client));
   },
 
   // 이사일 경과 처리 (스케줄러에서 주기적으로 호출)

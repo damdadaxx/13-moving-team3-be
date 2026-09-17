@@ -1,4 +1,5 @@
 import { Prisma } from '../../generated/prisma/client';
+import { prisma } from '../../lib/prisma';
 import {
   BadRequestError,
   ConflictError,
@@ -9,6 +10,8 @@ import {
   estimateRequestRepository,
   type CreateEstimateRequestInput,
 } from './estimateRequestRepository';
+import notificationService from '../notification/notificationService';
+import notificationMessage from '../notification/notificationMessage';
 
 /** 목록 조회 시 허용하는 최대 페이지 크기 */
 const MAX_LIMIT = 50;
@@ -20,6 +23,10 @@ type ListParams = {
   cursor?: string;
   limit?: number;
 };
+
+type ActiveEstimateRequest = NonNullable<
+  Awaited<ReturnType<typeof estimateRequestRepository.findActiveByCustomerId>>
+>;
 
 /** 유니크 제약 위반(P2002) 여부 */
 function isUniqueViolation(error: unknown) {
@@ -37,13 +44,66 @@ function isForeignKeyViolation(error: unknown) {
   );
 }
 
+/** CONFIRMED 요청의 이사일이 오늘/내일이면 MOVE_DAY 알림을 한 번씩 생성 */
+const notifyMoveDayIfDue = async (active: ActiveEstimateRequest) => {
+  if (active.status !== 'CONFIRMED') return;
+
+  const relativeDay = notificationMessage.relativeMoveDay(active.moveDate);
+  if (!relativeDay) return;
+
+  const accepted = active.estimates.find(
+    (estimate) => estimate.status === 'ACCEPTED'
+  );
+  if (!accepted) return;
+
+  const targetPath = accepted.id;
+  const content = notificationMessage.moveDay(
+    relativeDay,
+    notificationMessage.toMoveDayPlace(active.departureAddress),
+    notificationMessage.toMoveDayPlace(active.arrivalAddress)
+  );
+  const recipients = [active.customerId, accepted.mover.userId];
+
+  // 이사 예정일 알림 생성
+  const notifications = await prisma.$transaction(async (tx) => {
+    const created: Awaited<ReturnType<typeof notificationService.create>>[] =
+      [];
+    for (const userId of recipients) {
+      const exists = await notificationService.hasNotification(
+        { userId, type: 'MOVE_DAY', targetPath },
+        tx
+      );
+
+      if (exists) continue;
+
+      created.push(
+        await notificationService.create(
+          { userId, type: 'MOVE_DAY', content, targetPath },
+          tx
+        )
+      );
+    }
+    return created;
+  });
+
+  await notificationService.publishCreated(notifications);
+};
+
 export const estimateRequestService = {
   /**
    * 진행 중인 견적 요청과 받은 견적 목록을 조회합니다.
    * 진행 중인 요청이 없는 것은 정상 상태이므로 null을 반환합니다.
+   * CONFIRMED 요청의 이사일이 오늘/내일이면 MOVE_DAY 알림을 한 번씩 생성합니다.
    */
   async getActive(customerId: string) {
-    return estimateRequestRepository.findActiveByCustomerId(customerId);
+    const active =
+      await estimateRequestRepository.findActiveByCustomerId(customerId);
+
+    // CONFIRMED 요청의 이사일이 오늘/내일이면 MOVE_DAY 알림을 한 번씩 생성
+    if (active) {
+      await notifyMoveDayIfDue(active);
+    }
+    return active;
   },
 
   /** 이사 이력 목록 (커서 기반 무한 스크롤) */
@@ -108,11 +168,41 @@ export const estimateRequestService = {
     }
 
     try {
-      // 지정 견적 3건 상한 초과 시 repository가 ConflictError를 던집니다.
-      return await estimateRequestRepository.createDirectEstimateRequest({
-        estimateRequestId,
-        moverId,
-      });
+      // 지정 견적 요청 시 알림 생성
+      const { estimate, notifications } = await prisma.$transaction(
+        async (tx) => {
+          // 지정 견적 요청 생성
+          const estimate =
+            await estimateRequestRepository.createDirectEstimateRequest(
+              { estimateRequestId, moverId },
+              tx
+            );
+
+          // 고객 정보 조회
+          const customer = await tx.user.findUniqueOrThrow({
+            where: { id: customerId },
+            select: { name: true },
+          });
+
+          // 새로운 견적 요청 알림 생성
+          const notification = await notificationService.create(
+            {
+              userId: moverId,
+              type: 'NEW_REQUEST',
+              content: notificationMessage.newRequest(
+                customer.name,
+                active.serviceType
+              ),
+            },
+            tx
+          );
+
+          return { estimate, notifications: [notification] };
+        }
+      );
+
+      await notificationService.publishCreated(notifications);
+      return estimate;
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new ConflictError('이미 지정 견적을 요청한 기사님입니다.');
