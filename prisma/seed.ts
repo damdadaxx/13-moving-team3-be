@@ -70,6 +70,22 @@ const CUSTOMER = {
   jinwoo: '20000000-0000-4000-8000-000000000006',
 } as const;
 
+/**
+ * 기사님 "받은 요청" 목록(GET /estimate-requests/received) 확인용 고객입니다.
+ * 진행 중(PENDING) 요청은 고객당 1건만 가능해 요청 수만큼 고객이 필요합니다.
+ * 이름은 검색(keyword) 확인을 위해 김/이/박 성씨를 섞었습니다.
+ */
+const RECEIVED_CUSTOMER = {
+  kimSeoul: '21000000-0000-4000-8000-000000000001',
+  kimGyeonggi: '21000000-0000-4000-8000-000000000002',
+  kimIncheon: '21000000-0000-4000-8000-000000000003',
+  leeSeoul: '21000000-0000-4000-8000-000000000004',
+  leeGyeonggi: '21000000-0000-4000-8000-000000000005',
+  parkIncheon: '21000000-0000-4000-8000-000000000006',
+  parkBusan: '21000000-0000-4000-8000-000000000007',
+  parkDaejeon: '21000000-0000-4000-8000-000000000008',
+} as const;
+
 const REQUEST = {
   jiminActive: '30000000-0000-4000-8000-000000000001',
   sehunConfirmed: '30000000-0000-4000-8000-000000000002',
@@ -85,6 +101,18 @@ const REQUEST = {
   jiminDoneNoReview2: '30000000-0000-4000-8000-000000000012',
   jiminExpired1: '30000000-0000-4000-8000-000000000013',
   jiminExpired2: '30000000-0000-4000-8000-000000000014',
+} as const;
+
+/** 받은 요청 목록 확인용 PENDING 요청 (RECEIVED_CUSTOMER 와 1:1) */
+const RECEIVED_REQUEST = {
+  kimSeoul: '31000000-0000-4000-8000-000000000001',
+  kimGyeonggi: '31000000-0000-4000-8000-000000000002',
+  kimIncheon: '31000000-0000-4000-8000-000000000003',
+  leeSeoul: '31000000-0000-4000-8000-000000000004',
+  leeGyeonggi: '31000000-0000-4000-8000-000000000005',
+  parkIncheon: '31000000-0000-4000-8000-000000000006',
+  parkBusan: '31000000-0000-4000-8000-000000000007',
+  parkDaejeon: '31000000-0000-4000-8000-000000000008',
 } as const;
 
 const ESTIMATE = {
@@ -842,6 +870,201 @@ async function seedEstimateRequests() {
 }
 
 // ---------------------------------------------------------------------------
+// 4-1. 받은 요청 목록 확인용 데이터 (GET /estimate-requests/received)
+// ---------------------------------------------------------------------------
+
+/*
+@ 설계 의도
+
+- moveDate(이사일)와 createdAt(요청일) 순서를 일부러 엇갈리게 배치했습니다.
+  sortBy=moveDate 와 sortBy=createdAt 의 결과가 눈으로 구분됩니다.
+- 지역·서비스를 흩뿌려 regions / serviceTypes 필터가 각각 다른 건수를 냅니다.
+- 이름에 김/이/박 성씨를 섞어 keyword 검색을 확인할 수 있습니다.
+- designatedTo 가 있으면 그 기사님에게 지정 견적(DESIGNATED)을 하나 답니다.
+  parkBusan 은 정하늘의 서비스 지역(수도권) 밖인데 정하늘에게 지정했습니다.
+  "지정 견적은 서비스·지역과 무관하게 보인다"는 규칙을 확인하는 케이스입니다.
+
+@ 정렬 결과 (정하늘 기준)
+
+  이사일 빠른순 : 이경기 → 김서울 → 김인천 → 박부산 → 김경기 → 박대전 → 이서울
+  요청일 빠른순 : 김경기 → 이경기 → 박부산 → 김인천 → 박대전 → 이서울 → 김서울
+*/
+const receivedFixtures = [
+  {
+    customerId: RECEIVED_CUSTOMER.kimSeoul,
+    requestId: RECEIVED_REQUEST.kimSeoul,
+    name: '김서울',
+    email: 'kim.seoul@example.com',
+    phoneNumber: '01077770001',
+    region: 'SEOUL',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(4),
+    createdAt: days(-1),
+    departureAddress: '서울특별시 마포구 양화로 45 302호',
+    arrivalAddress: '서울특별시 성동구 왕십리로 222 1104호',
+    designatedTo: null,
+  },
+  {
+    customerId: RECEIVED_CUSTOMER.kimGyeonggi,
+    requestId: RECEIVED_REQUEST.kimGyeonggi,
+    name: '김경기',
+    email: 'kim.gyeonggi@example.com',
+    phoneNumber: '01077770002',
+    region: 'GYEONGGI',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(11),
+    createdAt: days(-9),
+    departureAddress: '경기도 용인시 수지구 풍덕천로 100 203동 501호',
+    arrivalAddress: '경기도 화성시 동탄대로 500 105동 1203호',
+    designatedTo: MOVER.haneul,
+  },
+  {
+    customerId: RECEIVED_CUSTOMER.kimIncheon,
+    requestId: RECEIVED_REQUEST.kimIncheon,
+    name: '김인천',
+    email: 'kim.incheon@example.com',
+    phoneNumber: '01077770003',
+    region: 'INCHEON',
+    serviceType: 'OFFICE_MOVE',
+    moveDate: days(6),
+    createdAt: days(-5),
+    departureAddress: '인천광역시 연수구 컨벤시아대로 165 7층',
+    arrivalAddress: '인천광역시 서구 청라커낼로 250 4층',
+    designatedTo: null,
+  },
+  {
+    customerId: RECEIVED_CUSTOMER.leeSeoul,
+    requestId: RECEIVED_REQUEST.leeSeoul,
+    name: '이서울',
+    email: 'lee.seoul@example.com',
+    phoneNumber: '01077770004',
+    region: 'SEOUL',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(18),
+    createdAt: days(-2),
+    departureAddress: '서울특별시 노원구 동일로 1234 505동 802호',
+    arrivalAddress: '서울특별시 송파구 올림픽로 300 21층',
+    designatedTo: null,
+  },
+  {
+    customerId: RECEIVED_CUSTOMER.leeGyeonggi,
+    requestId: RECEIVED_REQUEST.leeGyeonggi,
+    name: '이경기',
+    email: 'lee.gyeonggi@example.com',
+    phoneNumber: '01077770005',
+    region: 'GYEONGGI',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(2),
+    createdAt: days(-7),
+    departureAddress: '경기도 고양시 일산동구 중앙로 1275 401호',
+    arrivalAddress: '경기도 파주시 심학산로 300 102동 703호',
+    designatedTo: null,
+  },
+  {
+    customerId: RECEIVED_CUSTOMER.parkIncheon,
+    requestId: RECEIVED_REQUEST.parkIncheon,
+    name: '박인천',
+    email: 'park.incheon@example.com',
+    phoneNumber: '01077770006',
+    region: 'INCHEON',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(25),
+    createdAt: days(-3),
+    departureAddress: '인천광역시 부평구 부평대로 168 1502호',
+    arrivalAddress: '인천광역시 미추홀구 인하로 100 301호',
+    designatedTo: MOVER.minjae,
+  },
+  {
+    // 정하늘의 서비스 지역(수도권) 밖이지만 정하늘에게 지정한 요청
+    customerId: RECEIVED_CUSTOMER.parkBusan,
+    requestId: RECEIVED_REQUEST.parkBusan,
+    name: '박부산',
+    email: 'park.busan@example.com',
+    phoneNumber: '01077770007',
+    region: 'BUSAN',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(8),
+    createdAt: days(-6),
+    departureAddress: '부산광역시 수영구 광안해변로 219 1801호',
+    arrivalAddress: '부산광역시 동래구 충렬대로 120 604호',
+    designatedTo: MOVER.haneul,
+  },
+  {
+    // 어느 기사님의 서비스 지역에도 없고 지정도 아닌 요청 — 목록에 뜨면 안 됩니다.
+    customerId: RECEIVED_CUSTOMER.parkDaejeon,
+    requestId: RECEIVED_REQUEST.parkDaejeon,
+    name: '박대전',
+    email: 'park.daejeon@example.com',
+    phoneNumber: '01077770008',
+    region: 'DAEJEON',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(13),
+    createdAt: days(-4),
+    departureAddress: '대전광역시 중구 계룡로 800 1205호',
+    arrivalAddress: '대전광역시 대덕구 계족로 400 302호',
+    designatedTo: null,
+  },
+] as const;
+
+async function seedReceivedFixtures() {
+  for (const fixture of receivedFixtures) {
+    await prisma.user.create({
+      data: {
+        id: fixture.customerId,
+        name: fixture.name,
+        email: fixture.email,
+        phoneNumber: fixture.phoneNumber,
+        password: getSeedPasswordHash(),
+        role: 'CUSTOMER',
+        provider: 'LOCAL',
+        customerProfile: {
+          create: {
+            region: fixture.region,
+            serviceTypes: { create: [{ serviceType: fixture.serviceType }] },
+          },
+        },
+      },
+    });
+
+    await prisma.estimateRequest.create({
+      data: {
+        id: fixture.requestId,
+        customerId: fixture.customerId,
+        serviceType: fixture.serviceType,
+        moveDate: fixture.moveDate,
+        createdAt: fixture.createdAt,
+        status: 'PENDING',
+        departureZipCode: '04524',
+        departureAddress: fixture.departureAddress,
+        arrivalZipCode: '06236',
+        arrivalAddress: fixture.arrivalAddress,
+        // 지정 견적은 금액 없이 DESIGNATED 상태로 만듭니다(기사님 응답 전).
+        ...(fixture.designatedTo
+          ? {
+              estimates: {
+                create: [
+                  {
+                    moverId: fixture.designatedTo,
+                    isDesignated: true,
+                    status: 'DESIGNATED',
+                    createdAt: fixture.createdAt,
+                  },
+                ],
+              },
+            }
+          : {}),
+      },
+    });
+
+    // PENDING 요청은 고객의 활성 요청으로 연결합니다.
+    await prisma.customerProfile.update({
+      where: { userId: fixture.customerId },
+      data: { activeEstimateRequestId: fixture.requestId },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 5. 리뷰 — 이사가 완료된 확정 견적에만 작성됩니다.
 // ---------------------------------------------------------------------------
 
@@ -1021,7 +1244,7 @@ const notifications = [
     isRead: true,
     createdAt: days(-20),
   },
-];
+] as const;
 
 async function seedNotifications() {
   await prisma.notification.createMany({ data: [...notifications] });
@@ -1047,6 +1270,9 @@ async function main() {
   console.log('견적 요청 / 견적 생성 중...');
   await seedEstimateRequests();
 
+  console.log('받은 요청 목록용 데이터 생성 중...');
+  await seedReceivedFixtures();
+
   console.log('리뷰 생성 중...');
   await seedReviews();
 
@@ -1064,8 +1290,9 @@ async function main() {
   console.log(
     [
       '시드 완료',
-      `- 기사님 ${movers.length}명 / 일반 유저 ${customers.length}명`,
-      `- 견적 요청 ${estimateRequests.length}건 / 견적 ${estimateCount}건`,
+      `- 기사님 ${movers.length}명 / 일반 유저 ${customers.length + receivedFixtures.length}명`,
+      `- 견적 요청 ${estimateRequests.length + receivedFixtures.length}건 / 견적 ${estimateCount + receivedFixtures.filter((f) => f.designatedTo).length}건`,
+      `- 받은 요청 목록용 PENDING ${receivedFixtures.length}건 (지정 ${receivedFixtures.filter((f) => f.designatedTo).length}건)`,
       `- 리뷰 ${reviews.length}건 / 찜 ${likes.length}건 / 알림 ${notifications.length}건`,
       `- 로컬 계정 공통 비밀번호: ${SEED_PASSWORD}`,
     ].join('\n')

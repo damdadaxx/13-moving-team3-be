@@ -373,4 +373,192 @@
  *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  */
 
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     ReceivedRequestCustomer:
+ *       type: object
+ *       properties:
+ *         customerId:
+ *           type: string
+ *           format: uuid
+ *         name:
+ *           type: string
+ *           example: 김서울
+ *         region:
+ *           type: string
+ *           description: 고객 프로필의 지역. 기사님 서비스 지역과 이 값으로 매칭한다.
+ *           enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM, GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
+ *     ReceivedRequestItem:
+ *       type: object
+ *       properties:
+ *         estimateRequestId:
+ *           type: string
+ *           format: uuid
+ *           description: 견적을 보낼 때 쓰는 키이자 커서 값이다.
+ *         serviceType:
+ *           type: string
+ *           enum: [SMALL_MOVE, HOME_MOVE, OFFICE_MOVE]
+ *         moveDate:
+ *           type: string
+ *           format: date-time
+ *         departureAddress:
+ *           type: string
+ *           example: 서울특별시 마포구 양화로 45 302호
+ *         arrivalAddress:
+ *           type: string
+ *           example: 서울특별시 성동구 왕십리로 222 1104호
+ *         requestedAt:
+ *           type: string
+ *           format: date-time
+ *           description: 고객이 견적을 요청한 시각(createdAt).
+ *         isDesignated:
+ *           type: boolean
+ *           description: 로그인한 기사님에게 온 지정 견적 요청인지 여부.
+ *         customer:
+ *           $ref: '#/components/schemas/ReceivedRequestCustomer'
+ *     ReceivedRequestList:
+ *       type: object
+ *       properties:
+ *         list:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ReceivedRequestItem' }
+ *         nextCursor:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: 다음 페이지 요청의 cursor 값. null 이면 마지막 페이지다.
+ *         totalCount:
+ *           type: integer
+ *           description: 필터를 만족하는 전체 건수(현재 페이지 수가 아니다).
+ *           example: 7
+ */
+
+/**
+ * @openapi
+ * /estimate-requests/received:
+ *   get:
+ *     tags: [EstimateRequest]
+ *     summary: 기사님이 받은 요청 목록
+ *     description: |
+ *       로그인한 기사님(MOVER)에게 보이는 견적 요청 목록이다. 커서 기반 무한 스크롤.
+ *
+ *       ### 목록에 뜨는 조건
+ *       - `status = PENDING` 이고 이사일이 아직 지나지 않은 요청
+ *       - 내가 아직 응답하지 않은 요청 (PROPOSED/REJECTED 로 답하면 목록에서 사라진다)
+ *       - 그리고 아래 둘 중 하나
+ *         - **자격**: 요청의 serviceType 이 내 제공 서비스에 있고, 고객 지역이 내 서비스 지역에 있다
+ *         - **지정**: 나에게 온 지정 견적이다 (자격과 무관하게 보인다)
+ *
+ *       ### 자격과 필터의 차이
+ *       - 자격은 기사님 프로필에서 나온다. "지정이 아닌 요청"을 볼 수 있는 범위를 정한다.
+ *       - 필터(`serviceTypes`/`regions`/`keyword`)는 지정 견적을 포함해 **모든 결과에 걸린다.**
+ *       - 프로필 밖의 값을 필터로 보내도 지정이 아닌 요청은 자격에서 걸리므로
+ *         서비스 범위를 넘겨볼 수 없다. 나에게 온 지정 견적만 보이는 것은 정상이다.
+ *
+ *       ### 커서 사용법
+ *       첫 요청은 `cursor` 없이 보내고, 응답의 `nextCursor` 를 다음 요청의 `cursor` 로 넘긴다.
+ *       `nextCursor` 가 null 이면 마지막 페이지다.
+ *
+ *       **정렬이나 필터를 바꾸면 기존 cursor 는 무효다.** 커서는 "정렬된 목록에서의 위치"라
+ *       기준이 바뀌면 의미를 잃는다. 첫 페이지부터 다시 요청해야 한다.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: sortBy
+ *         required: false
+ *         description: |
+ *           정렬 기준. 둘 다 오름차순이다.
+ *           - `moveDate`: 이사일자 빠른 순 (기본값)
+ *           - `createdAt`: 요청일이 빠른 순
+ *         schema:
+ *           type: string
+ *           enum: [moveDate, createdAt]
+ *           default: moveDate
+ *       - in: query
+ *         name: serviceTypes
+ *         required: false
+ *         description: |
+ *           제공 서비스 필터. `?serviceTypes=SMALL_MOVE,HOME_MOVE` 처럼 콤마로 나열하거나
+ *           `?serviceTypes=SMALL_MOVE&serviceTypes=HOME_MOVE` 처럼 반복해도 된다.
+ *         schema:
+ *           type: string
+ *           example: SMALL_MOVE,HOME_MOVE
+ *       - in: query
+ *         name: regions
+ *         required: false
+ *         description: |
+ *           지역 필터. 고객 프로필의 지역과 비교한다. 콤마/반복 모두 지원한다.
+ *         schema:
+ *           type: string
+ *           example: SEOUL,GYEONGGI
+ *       - in: query
+ *         name: keyword
+ *         required: false
+ *         description: |
+ *           고객 이름 부분 검색. 대소문자를 무시한다.
+ *           빈 문자열(`?keyword=`)은 "검색 안 함"으로 처리되어 400 이 아니다.
+ *         schema:
+ *           type: string
+ *           maxLength: 20
+ *           example: 김
+ *       - in: query
+ *         name: isDesignated
+ *         required: false
+ *         description: |
+ *           `true` 면 나에게 온 지정 견적 요청만, `false` 면 지정이 아닌 요청만.
+ *           생략하면 둘 다 조회한다.
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *       - in: query
+ *         name: cursor
+ *         required: false
+ *         description: 직전 응답의 nextCursor 를 그대로 넘긴다.
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *       - in: query
+ *         name: size
+ *         required: false
+ *         description: 한 번에 조회할 건수.
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *     responses:
+ *       200:
+ *         description: 조회 성공. 조건에 맞는 요청이 없으면 list 가 빈 배열이다.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data: { $ref: '#/components/schemas/ReceivedRequestList' }
+ *       400:
+ *         description: 쿼리 검증 실패 (없는 정렬 기준/지역/서비스 종류, size 범위 초과 등)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       401:
+ *         description: 미인증 또는 액세스 토큰 만료
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       403:
+ *         description: MOVER 가 아닌 계정으로 호출
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ *       404:
+ *         description: 기사님 프로필이 아직 등록되지 않음
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+ */
+
 export {};
