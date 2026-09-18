@@ -396,7 +396,14 @@
  *         estimateRequestId:
  *           type: string
  *           format: uuid
- *           description: 견적을 보낼 때 쓰는 키이자 커서 값이다.
+ *           description: 지정이 아닌 요청에 견적을 보낼 때 쓰는 키(POST /estimates)이자 커서 값이다.
+ *         estimateId:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: >
+ *             지정 견적일 때만 값이 있다. PATCH /estimates/{estimateId}(status: PROPOSED)로
+ *             견적을 보낼 때 쓴다. isDesignated가 false면 항상 null이다.
  *         serviceType:
  *           type: string
  *           enum: [SMALL_MOVE, HOME_MOVE, OFFICE_MOVE]

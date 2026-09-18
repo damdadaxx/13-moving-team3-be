@@ -37,9 +37,13 @@ type ActiveEstimateRequest = NonNullable<
 - 받은 요청 카드 한 장의 응답 모양으로 바꾼다.
 - estimates 는 "나에게 지정된 견적" 만 걸러 담겨 있으므로, 배열이 비었는지로
   지정 견적 여부를 판단하고 원본 배열은 응답에서 뺀다.
+- 지정 견적이면 estimateId도 함께 내려준다 — 프론트가 "견적 보내기"에서
+  PATCH /estimates/:estimateId(status: PROPOSED)를 호출하려면 이 id가 있어야 한다.
+  지정이 아니면 null이고, 그때는 POST /estimates(estimateRequestId)로 보낸다.
 */
 const toReceivedListItem = (row: ReceivedRequestRow) => ({
   estimateRequestId: row.id,
+  estimateId: row.estimates[0]?.id ?? null,
   serviceType: row.serviceType,
   moveDate: row.moveDate,
   departureAddress: row.departureAddress,
