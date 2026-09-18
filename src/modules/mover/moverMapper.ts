@@ -68,6 +68,7 @@ const moverMapper = {
       nickname: mover.nickname,
       careerMonths: mover.careerMonths,
       shortIntro: mover.shortIntro,
+      description: mover.description,
       serviceTypes: mover.serviceTypes,
       serviceRegions: mover.serviceRegions,
       averageRating: roundRating(mover.averageRating),
