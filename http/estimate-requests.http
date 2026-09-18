@@ -13,6 +13,7 @@
 # 명세는 estimate-requests.md 참고.
 
 @baseUrl = http://localhost:3001
+@password=알아서
 
 # 시드 계정 (공통 비밀번호 test1234!)
 #
@@ -298,6 +299,165 @@ Content-Type: application/json
 ### [5-6] MOVER 토큰으로 호출 → 403
 # [1-c]로 기사님 로그인한 뒤 실행합니다.
 GET {{baseUrl}}/estimate-requests/active
+
+
+###############################################################################
+# 5-1. 기사님이 받은 요청 목록  GET /estimate-requests/received
+###############################################################################
+#
+# 이 라우터에서 유일한 MOVER 전용 엔드포인트입니다. 고객 계정으로 부르면 403.
+# 아래 [R-0] 으로 기사님 로그인을 먼저 하세요. (쿠키가 기사님으로 바뀝니다)
+#
+# 시드 기준 정하늘이 보는 7건 (* = 정하늘에게 온 지정 견적)
+#   이름    지역      서비스        이사일   요청일
+#   이경기  GYEONGGI  SMALL_MOVE    +2일    -7일
+#   김서울  SEOUL     SMALL_MOVE    +4일    -1일
+#   김인천  INCHEON   OFFICE_MOVE   +6일    -5일
+#   박부산* BUSAN     SMALL_MOVE    +8일    -6일   지역 밖인데 지정이라 보임
+#   김경기* GYEONGGI  HOME_MOVE     +11일   -9일
+#   이서울  SEOUL     HOME_MOVE     +18일   -2일
+#   박인천  INCHEON   SMALL_MOVE    +25일   -3일   김민재에게 지정된 건
+#
+#   박대전(DAEJEON)은 아무 기사님의 서비스 지역도 아니고 지정도 아니라 어디에도 안 뜹니다.
+
+### [R-0] 기사님 로그인 (정하늘 — 수도권 3곳, 서비스 3종 전부)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jung.haneul@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### [R-1] 기본 조회 (정렬 기본값 = 이사일자 빠른 순)
+# 기대: 이경기 → 김서울 → 김인천 → 박부산 → 김경기 → 이서울 → 박인천
+GET {{baseUrl}}/estimate-requests/received
+
+### [R-2] 요청일이 빠른 순
+# 기대: 김경기 → 이경기 → 박부산 → 김인천 → 박인천 → 이서울 → 김서울
+# [R-1] 과 순서가 완전히 다릅니다.
+GET {{baseUrl}}/estimate-requests/received?sortBy=createdAt
+
+### [R-3] 커서 무한 스크롤 1페이지
+# 응답의 data.nextCursor 를 복사해 [R-4] 의 cursor 에 붙여넣습니다.
+GET {{baseUrl}}/estimate-requests/received?size=3
+
+### [R-4] 커서 무한 스크롤 2페이지
+# @cursor 를 [R-3] 응답의 nextCursor 로 바꿔 실행하세요.
+@cursor = 31000000-0000-4000-8000-000000000003
+GET {{baseUrl}}/estimate-requests/received?size=3&cursor={{cursor}}
+
+### [R-5] 제공 서비스 필터 — 소형이사만
+# 기대: 4건 (이경기, 김서울, 박부산, 박인천)
+# 김경기(HOME_MOVE)는 지정 견적이지만 필터에 걸려 빠집니다.
+GET {{baseUrl}}/estimate-requests/received?serviceTypes=SMALL_MOVE
+
+### [R-6] 제공 서비스 필터 — 여러 개 (콤마)
+GET {{baseUrl}}/estimate-requests/received?serviceTypes=SMALL_MOVE,HOME_MOVE
+
+### [R-7] 제공 서비스 필터 — 반복 파라미터 (콤마와 동일하게 동작)
+GET {{baseUrl}}/estimate-requests/received?serviceTypes=SMALL_MOVE&serviceTypes=HOME_MOVE
+
+### [R-8] 지역 필터 — 서울만
+# 기대: 2건 (김서울, 이서울)
+# 박부산(BUSAN)·김경기(GYEONGGI)는 지정 견적이지만 필터에 걸려 빠집니다.
+GET {{baseUrl}}/estimate-requests/received?regions=SEOUL
+
+### [R-9] 지역 필터 — 서비스 지역 밖 (BUSAN)
+# 기대: 1건 (박부산)
+# 정하늘은 부산을 서비스하지 않지만 박부산은 정하늘에게 지정한 요청이라 보입니다.
+# 지정이 아닌 부산 요청은 자격(서비스·지역 매칭)에서 걸려 보이지 않습니다.
+GET {{baseUrl}}/estimate-requests/received?regions=BUSAN
+
+### [R-10] 고객 이름 검색 — 성씨
+# 기대: 김서울, 김인천, 김경기
+GET {{baseUrl}}/estimate-requests/received?keyword=김
+
+### [R-11] 고객 이름 검색 — 부분 일치
+# 기대: 김서울, 이서울
+GET {{baseUrl}}/estimate-requests/received?keyword=서울
+
+### [R-12] 고객 이름 검색 — 빈 값
+# 빈 문자열은 "검색 안 함" 입니다. 400 이 아니라 전체 목록이 나옵니다.
+GET {{baseUrl}}/estimate-requests/received?keyword=
+
+### [R-13] 지정 견적만 보기
+# 기대: 박부산, 김경기
+GET {{baseUrl}}/estimate-requests/received?isDesignated=true
+
+### [R-14] 지정이 아닌 요청만 보기
+# 기대: 이경기, 김서울, 김인천, 이서울, 박인천
+GET {{baseUrl}}/estimate-requests/received?isDesignated=false
+
+### [R-15] 필터 조합
+GET {{baseUrl}}/estimate-requests/received?serviceTypes=SMALL_MOVE&regions=SEOUL,GYEONGGI&keyword=이&sortBy=createdAt&size=5
+
+### [R-16] 다른 기사님으로 비교 (김민재 — 수도권 2곳, SMALL/HOME 만)
+# 정하늘과 서비스 범위가 달라 보이는 목록도 다릅니다.
+# 기대: 이경기 → 김서울 → 배진우(지정) → 김경기 → 이서울 → 박인천(지정)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "kim.minjae@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### [R-17] 김민재의 받은 요청
+GET {{baseUrl}}/estimate-requests/received
+
+### [R-18] 김민재 + OFFICE_MOVE 필터
+# 기대: 0건. 김민재가 볼 수 있는 요청 중 사무실이사가 없습니다.
+# 지정 견적(배진우·박인천)도 SMALL_MOVE 라 필터에 걸려 빠집니다.
+GET {{baseUrl}}/estimate-requests/received?serviceTypes=OFFICE_MOVE
+
+### [R-19] 프로필 없는 기사님 → 404
+# 시드 기사님은 전부 프로필이 있어 이 케이스는 직접 만들어야 재현됩니다.
+# 새 MOVER 계정으로 가입만 하고 POST /mover/profile 을 건너뛴 뒤 호출하세요.
+GET {{baseUrl}}/estimate-requests/received
+
+### [R-20] 고객 계정으로 호출 → 403
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{jiminEmail}}",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### [R-21] 403 확인
+GET {{baseUrl}}/estimate-requests/received
+
+### [R-22] 검증 실패 — 없는 정렬 기준
+GET {{baseUrl}}/estimate-requests/received?sortBy=rating
+
+### [R-23] 검증 실패 — 없는 지역
+GET {{baseUrl}}/estimate-requests/received?regions=MARS
+
+### [R-24] 검증 실패 — 없는 서비스 종류
+GET {{baseUrl}}/estimate-requests/received?serviceTypes=BIG_MOVE
+
+### [R-25] 검증 실패 — size 상한(50) 초과
+GET {{baseUrl}}/estimate-requests/received?size=999
+
+# ─────────────────────────────────────────────────────────────
+# 자격과 필터는 역할이 다릅니다
+#
+# 자격 (기사님 프로필의 제공 서비스·서비스 지역)
+#   - "지정이 아닌 요청"을 볼 수 있는 범위를 정합니다.
+#   - 나에게 온 지정 견적은 자격과 무관하게 보입니다([R-9] 박부산).
+#
+# 필터 (serviceTypes / regions / keyword 쿼리 파라미터)
+#   - 지정 견적을 포함해 모든 결과에 똑같이 걸립니다.
+#   - 프로필 밖의 값을 보내도 지정이 아닌 요청은 자격에서 걸리므로
+#     서비스 범위를 넘겨볼 수 없습니다.
+#
+# 정렬이나 필터를 바꾸면 기존 nextCursor 는 무효입니다.
+# 첫 페이지부터 다시 요청하세요.
+# ─────────────────────────────────────────────────────────────
 
 
 ###############################################################################

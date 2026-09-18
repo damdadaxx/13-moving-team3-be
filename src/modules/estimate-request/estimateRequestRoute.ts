@@ -7,6 +7,7 @@ import {
   createEstimateRequestSchema,
   estimateRequestIdParamSchema,
   historyQuerySchema,
+  receivedRequestsQuerySchema,
 } from './estimateRequestSchema';
 
 const estimateRequestRouter = Router();
@@ -31,6 +32,15 @@ estimateRequestRouter.get(
   '/history',
   validate(historyQuerySchema, 'query'),
   estimateRequestController.getHistory
+);
+
+// 기사님이 받은 요청 목록 (커서 기반 무한 스크롤)
+// 이 라우터에서 유일한 MOVER 전용 엔드포인트다. 역할 확인은 컨트롤러의 getMoverId 에서 한다.
+// 고정 경로이므로 /:estimateRequestId 형태의 동적 경로보다 먼저 등록한다.
+estimateRequestRouter.get(
+  '/received',
+  validate(receivedRequestsQuerySchema, 'query'),
+  estimateRequestController.getReceived
 );
 
 // 특정 기사님에게 지정 견적 요청

@@ -5,6 +5,7 @@ import type {
   CreateDesignatedEstimateBody,
   CreateEstimateRequestBody,
   HistoryQuery,
+  ReceivedRequestsQuery,
 } from './estimateRequestSchema';
 
 // auth 모듈과 동일한 응답 형식
@@ -26,6 +27,21 @@ const getCustomerId = (req: Request) => {
   }
   if (req.auth?.role !== 'CUSTOMER') {
     throw new ForbiddenError('일반 유저만 이용할 수 있는 기능입니다.');
+  }
+  return userId;
+};
+
+/**
+ * 인증 payload에서 기사님 id를 꺼낸다.
+ * 이 라우터는 대부분 고객 전용이지만 '받은 요청' 목록만 기사님(MOVER) 전용이다.
+ */
+const getMoverId = (req: Request) => {
+  const userId = req.auth?.sub;
+  if (!userId) {
+    throw new UnauthorizedError();
+  }
+  if (req.auth?.role !== 'MOVER') {
+    throw new ForbiddenError('기사님만 이용할 수 있는 기능입니다.');
   }
   return userId;
 };
@@ -56,6 +72,16 @@ export const getHistory = async (req: Request, res: Response) => {
     limit,
   });
   success(res, history);
+};
+
+/** GET /received - 기사님이 받은 요청 목록 (커서 기반 무한 스크롤) */
+export const getReceived = async (req: Request, res: Response) => {
+  const query = getValidated<ReceivedRequestsQuery>(req);
+  const received = await estimateRequestService.getReceivedRequests(
+    getMoverId(req),
+    query
+  );
+  success(res, received);
 };
 
 /** POST /:estimateRequestId/estimates - 특정 기사님에게 지정 견적 요청 */

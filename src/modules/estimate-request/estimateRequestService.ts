@@ -9,7 +9,10 @@ import {
 import {
   estimateRequestRepository,
   type CreateEstimateRequestInput,
+  type ReceivedRequestRow,
 } from './estimateRequestRepository';
+import { paginateByCursor } from '../../utils/cursorPagination';
+import type { ReceivedRequestsQuery } from './estimateRequestSchema';
 import notificationService from '../notification/notificationService';
 import notificationMessage from '../notification/notificationMessage';
 
@@ -27,6 +30,28 @@ type ListParams = {
 type ActiveEstimateRequest = NonNullable<
   Awaited<ReturnType<typeof estimateRequestRepository.findActiveByCustomerId>>
 >;
+
+/*
+@ toReceivedListItem
+
+- 받은 요청 카드 한 장의 응답 모양으로 바꾼다.
+- estimates 는 "나에게 지정된 견적" 만 걸러 담겨 있으므로, 배열이 비었는지로
+  지정 견적 여부를 판단하고 원본 배열은 응답에서 뺀다.
+*/
+const toReceivedListItem = (row: ReceivedRequestRow) => ({
+  estimateRequestId: row.id,
+  serviceType: row.serviceType,
+  moveDate: row.moveDate,
+  departureAddress: row.departureAddress,
+  arrivalAddress: row.arrivalAddress,
+  requestedAt: row.createdAt,
+  isDesignated: row.estimates.length > 0,
+  customer: {
+    customerId: row.customer.userId,
+    name: row.customer.user.name,
+    region: row.customer.region,
+  },
+});
 
 /** 유니크 제약 위반(P2002) 여부 */
 function isUniqueViolation(error: unknown) {
@@ -213,6 +238,60 @@ export const estimateRequestService = {
       }
       throw error;
     }
+  },
+
+  /*
+  @ getReceivedRequests — 기사님이 받은 요청 목록
+
+  - 기사님 프로필이 없으면 조회할 범위 자체가 없으므로 404 로 안내한다.
+  - 프로필 값(자격)과 쿼리 필터는 역할이 달라 섞지 않고 각각 repository 로 넘긴다.
+    자격은 "지정이 아닌 요청을 볼 수 있는가", 필터는 "지금 무엇을 보고 싶은가"다.
+  */
+  async getReceivedRequests(moverId: string, query: ReceivedRequestsQuery) {
+    const scope =
+      await estimateRequestRepository.findMoverServiceScope(moverId);
+
+    if (!scope) {
+      throw new NotFoundError('기사님 프로필을 먼저 등록해 주세요.');
+    }
+
+    /*
+    @ 프로필 값과 쿼리 필터를 섞지 않는다
+
+    - 프로필 값(자격)은 그대로 넘긴다. 교집합을 내지 않는다.
+      교집합을 내면 필터 값에 따라 배열이 비고, 그때만 결과가 통째로 달라져
+      같은 필터가 값에 따라 다르게 동작하게 된다.
+    - 쿼리 필터는 repository 가 AND 로 붙인다. 지정 견적에도 똑같이 걸린다.
+    - 프로필이 비어 있어도 matchesServiceArea 가 아무것도 매칭하지 않을 뿐이고,
+      나에게 온 지정 견적은 정상적으로 조회된다. 그래서 조기 반환이 필요 없다.
+    */
+    const where = estimateRequestRepository.buildReceivedWhere({
+      moverId,
+      profileServiceTypes: scope.serviceTypes.map((row) => row.serviceType),
+      profileRegions: scope.serviceRegions.map((row) => row.region),
+      filterServiceTypes: query.serviceTypes,
+      filterRegions: query.regions,
+      isDesignated: query.isDesignated,
+      keyword: query.keyword,
+    });
+
+    // 목록과 전체 건수는 서로 독립이라 동시에 조회한다.
+    const [rows, totalCount] = await Promise.all([
+      estimateRequestRepository.findReceivedByMoverId(moverId, where, {
+        sortBy: query.sortBy,
+        cursor: query.cursor,
+        size: query.size,
+      }),
+      estimateRequestRepository.countReceived(where),
+    ]);
+
+    const { items, nextCursor } = paginateByCursor(rows, query.size);
+
+    return {
+      list: items.map(toReceivedListItem),
+      nextCursor,
+      totalCount,
+    };
   },
 
   /** 이사일이 지난 요청 일괄 정리 (스케줄러용) */
