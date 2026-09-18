@@ -24,6 +24,13 @@ const buildWhere = ({
 });
 
 export const estimateRequestRepository = {
+  findById: (id: string) => {
+    return prisma.estimateRequest.findUnique({
+      where: { id },
+      select: { id: true, status: true, moveDate: true },
+    });
+  },
+
   findManyWithEstimates: ({
     customerId,
     serviceType,

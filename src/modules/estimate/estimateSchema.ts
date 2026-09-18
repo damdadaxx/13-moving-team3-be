@@ -57,3 +57,12 @@ export const acceptEstimateSchema = z.object({
 export type ProposeEstimateInput = z.infer<typeof proposeEstimateSchema>;
 export type RejectEstimateInput = z.infer<typeof rejectEstimateSchema>;
 export type AcceptEstimateInput = z.infer<typeof acceptEstimateSchema>;
+
+// POST /estimates — 기사님이 지정 없이(PENDING 상태의 열린 요청에) 견적을 새로 보낸다.
+export const createEstimateSchema = z.object({
+  estimateRequestId: z.uuid(),
+  price: z.number().int().positive('price는 양의 정수여야 합니다.'),
+  comment: z.string().min(10, 'comment은 10자 이상이어야 합니다.'),
+});
+
+export type CreateEstimateInput = z.infer<typeof createEstimateSchema>;
