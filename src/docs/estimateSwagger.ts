@@ -21,6 +21,34 @@
  *         careerMonths:
  *           type: integer
  *           example: 98
+ *     MoverListSummary:
+ *       description: >
+ *         견적 목록(GET /estimates)의 기사님 정보.
+ *         별점·리뷰수·확정건수·찜은 MoverProfile 컬럼이 아니라 매 조회마다 집계한 값이라
+ *         상세(MoverSummary)와 달리 목록에만 붙습니다.
+ *       allOf:
+ *         - $ref: '#/components/schemas/MoverSummary'
+ *         - type: object
+ *           properties:
+ *             averageRating:
+ *               type: number
+ *               format: double
+ *               description: 리뷰 평점 평균(소수점 첫째 자리). 리뷰가 없으면 0
+ *               example: 4.7
+ *             reviewCount:
+ *               type: integer
+ *               example: 178
+ *             confirmedCount:
+ *               type: integer
+ *               description: 확정(ACCEPTED)된 견적 수
+ *               example: 334
+ *             likeCount:
+ *               type: integer
+ *               example: 136
+ *             isLiked:
+ *               type: boolean
+ *               description: 로그인한 고객이 이 기사님을 찜했는지. MOVER 조회에는 없습니다.
+ *               example: true
  *     EstimateRequestSummary:
  *       type: object
  *       properties:
@@ -73,7 +101,7 @@
  *           type: string
  *           format: date-time
  *         mover:
- *           $ref: '#/components/schemas/MoverSummary'
+ *           $ref: '#/components/schemas/MoverListSummary'
  *     EstimateGroup:
  *       type: object
  *       properties:

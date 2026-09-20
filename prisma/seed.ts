@@ -1,6 +1,10 @@
 /* eslint-disable no-console -- 시드 실행 로그는 콘솔로 출력합니다. */
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../src/generated/prisma/client';
+import {
+  EstimateRequestStatus,
+  EstimateStatus,
+  PrismaClient,
+} from '../src/generated/prisma/client';
 import notificationMessage from '../src/modules/notification/notificationMessage';
 import { hashPassword } from '../src/utils/hash';
 
@@ -824,8 +828,139 @@ const estimateRequests = [
   },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// 4-2. 커서 페이지네이션 확인용 — 마감된 견적 요청 + 기사님 견적 (한지민)
+//    GET /estimates?status=closed 의 기본 size가 10건이라, 마감된 요청이 10건을
+//    넘어야 nextCursor가 내려오고 프론트 무한 스크롤 2페이지째를 확인할 수 있습니다.
+//    위 고정 픽스처만으로는 한지민의 마감 요청이 6건뿐이라 10건을 더 만듭니다.
+//    내용 차이가 거의 없는 분량용 데이터라 하드코딩 대신 생성합니다.
+// ---------------------------------------------------------------------------
+
+/** 고정 UUID 순번 생성 — seqId('30000000-0000-4000-8000-', 15) → ...-000000000015 */
+const seqId = (prefix: string, sequence: number) =>
+  `${prefix}${String(sequence).padStart(12, '0')}`;
+
+const REQUEST_ID_PREFIX = '30000000-0000-4000-8000-';
+const ESTIMATE_ID_PREFIX = '40000000-0000-4000-8000-';
+
+/** 위 REQUEST / ESTIMATE 상수가 쓴 마지막 순번 — 새 데이터는 여기서 이어 붙입니다. */
+const LAST_REQUEST_SEQUENCE = 14;
+const LAST_ESTIMATE_SEQUENCE = 23;
+
+/** 요청마다 돌려 쓰는 출발지/도착지 */
+const paginationRoutes = [
+  {
+    serviceType: 'SMALL_MOVE',
+    departureZipCode: '04524',
+    departureAddress: '서울특별시 중구 퇴계로 100 502호',
+    arrivalZipCode: '06236',
+    arrivalAddress: '서울특별시 강남구 테헤란로 152 1201호',
+  },
+  {
+    serviceType: 'HOME_MOVE',
+    departureZipCode: '03722',
+    departureAddress: '서울특별시 서대문구 연세로 50 301호',
+    arrivalZipCode: '07222',
+    arrivalAddress: '서울특별시 영등포구 여의대로 108 1802호',
+  },
+  {
+    serviceType: 'OFFICE_MOVE',
+    departureZipCode: '06035',
+    departureAddress: '서울특별시 강남구 가로수길 43 2층',
+    arrivalZipCode: '04539',
+    arrivalAddress: '서울특별시 중구 남대문로 63 8층',
+  },
+  {
+    serviceType: 'HOME_MOVE',
+    departureZipCode: '13529',
+    departureAddress: '경기도 성남시 분당구 판교로 255 104동 902호',
+    arrivalZipCode: '16489',
+    arrivalAddress: '경기도 수원시 영통구 월드컵로 206 201동 1103호',
+  },
+  {
+    serviceType: 'SMALL_MOVE',
+    departureZipCode: '22382',
+    departureAddress: '인천광역시 중구 영종대로 106 508호',
+    arrivalZipCode: '21999',
+    arrivalAddress: '인천광역시 연수구 송도과학로 32 1504호',
+  },
+] as const;
+
+const paginationComments = [
+  '원룸 기준 2.5톤 차량 1대로 진행합니다. 엘리베이터가 있어 사다리차는 필요 없습니다.',
+  '포장자재와 정리 인력 1명이 포함된 금액입니다. 당일 사진 기록을 남겨 드립니다.',
+  '사무실 집기 분해·조립까지 포함해서 안내드립니다.',
+  '가전제품은 별도 완충 포장 후 마지막에 싣습니다.',
+  '주말 이사라 작업자 1명을 더 배치해 오전 중에 마무리합니다.',
+  '엘리베이터 사용 예약만 미리 해주시면 사다리차 비용이 빠집니다.',
+] as const;
+
+/** 요청 1건에 견적 3건 — 기사님 5명을 한 칸씩 밀어가며 배정해 중복을 피합니다. */
+const paginationMoverIds = [
+  MOVER.minjae,
+  MOVER.seojun,
+  MOVER.jihoon,
+  MOVER.yuri,
+  MOVER.haneul,
+] as const;
+
+const PAGINATION_REQUEST_COUNT = 10;
+const ESTIMATES_PER_PAGINATION_REQUEST = 3;
+
+const paginationRequests = Array.from(
+  { length: PAGINATION_REQUEST_COUNT },
+  (_unusedRequest, index) => {
+    const route = paginationRoutes[index % paginationRoutes.length];
+    // 짝수는 확정까지 간 요청(확정견적 1 + 탈락 2), 홀수는 확정 없이 만료된 요청입니다.
+    const isCompleted = index % 2 === 0;
+
+    return {
+      id: seqId(REQUEST_ID_PREFIX, LAST_REQUEST_SEQUENCE + index + 1),
+      customerId: CUSTOMER.jimin,
+      serviceType: route.serviceType,
+      moveDate: days(-31 - index * 5),
+      // createdAt이 겹치면 커서 정렬이 흔들리므로 요청마다 5일씩 벌립니다.
+      createdAt: days(-45 - index * 5),
+      status: (isCompleted ? 'COMPLETED' : 'EXPIRED') as EstimateRequestStatus,
+      departureZipCode: route.departureZipCode,
+      departureAddress: route.departureAddress,
+      arrivalZipCode: route.arrivalZipCode,
+      arrivalAddress: route.arrivalAddress,
+      estimates: Array.from(
+        { length: ESTIMATES_PER_PAGINATION_REQUEST },
+        (_unusedEstimate, position) => ({
+          id: seqId(
+            ESTIMATE_ID_PREFIX,
+            LAST_ESTIMATE_SEQUENCE +
+              index * ESTIMATES_PER_PAGINATION_REQUEST +
+              position +
+              1
+          ),
+          moverId:
+            paginationMoverIds[(index + position) % paginationMoverIds.length],
+          price: 240000 + index * 20000 + position * 30000,
+          comment:
+            paginationComments[(index + position) % paginationComments.length],
+          // 세 요청에 한 번꼴로 첫 견적만 지정 견적으로 시작한 건입니다.
+          isDesignated: position === 0 && index % 3 === 0,
+          status: (isCompleted
+            ? position === 0
+              ? 'ACCEPTED'
+              : 'NOT_SELECTED'
+            : 'EXPIRED') as EstimateStatus,
+          rejectReason: null,
+          createdAt: days(-44 - index * 5),
+        })
+      ),
+    };
+  }
+);
+
+/** 위 고정 픽스처 + 페이지네이션용 데이터 */
+const allEstimateRequests = [...estimateRequests, ...paginationRequests];
+
 async function seedEstimateRequests() {
-  for (const request of estimateRequests) {
+  for (const request of allEstimateRequests) {
     await prisma.estimateRequest.create({
       data: {
         id: request.id,
@@ -1282,7 +1417,7 @@ async function main() {
   console.log('알림 생성 중...');
   await seedNotifications();
 
-  const estimateCount = estimateRequests.reduce(
+  const estimateCount = allEstimateRequests.reduce(
     (sum, request) => sum + request.estimates.length,
     0
   );
@@ -1291,7 +1426,7 @@ async function main() {
     [
       '시드 완료',
       `- 기사님 ${movers.length}명 / 일반 유저 ${customers.length + receivedFixtures.length}명`,
-      `- 견적 요청 ${estimateRequests.length + receivedFixtures.length}건 / 견적 ${estimateCount + receivedFixtures.filter((f) => f.designatedTo).length}건`,
+      `- 견적 요청 ${allEstimateRequests.length + receivedFixtures.length}건 / 견적 ${estimateCount + receivedFixtures.filter((f) => f.designatedTo).length}건`,
       `- 받은 요청 목록용 PENDING ${receivedFixtures.length}건 (지정 ${receivedFixtures.filter((f) => f.designatedTo).length}건)`,
       `- 리뷰 ${reviews.length}건 / 찜 ${likes.length}건 / 알림 ${notifications.length}건`,
       `- 로컬 계정 공통 비밀번호: ${SEED_PASSWORD}`,

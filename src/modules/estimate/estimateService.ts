@@ -10,6 +10,7 @@ import { estimateRequestRepository } from './estimateRequestRepository';
 import { estimateRepository } from './estimateRepository';
 import { estimateFilter } from './estimateFilter';
 import { estimateMapper } from './estimateMapper';
+import { moverStatsRepository } from './moverStatsRepository';
 import { paginateByCursor } from '../../utils/cursorPagination';
 import notificationService from '../notification/notificationService';
 import notificationMessage from '../notification/notificationMessage';
@@ -76,8 +77,23 @@ export const estimateService = {
 
     const { items, nextCursor } = paginateByCursor(estimateRequests, size);
 
+    // 기사님 집계값(별점·리뷰수·확정건수·찜)은 이번 페이지에 나온 기사님만 한 번에 구한다.
+    const moverIds = [
+      ...new Set(
+        items.flatMap((request) =>
+          request.estimates.map((estimate) => estimate.moverId)
+        )
+      ),
+    ];
+    const moverStatsByMoverId = await moverStatsRepository.findByMoverIds(
+      moverIds,
+      customerId
+    );
+
     return {
-      list: items.map(estimateMapper.toEstimateListItem),
+      list: items.map((item) =>
+        estimateMapper.toEstimateListItem(item, moverStatsByMoverId)
+      ),
       nextCursor,
       totalCount,
     };

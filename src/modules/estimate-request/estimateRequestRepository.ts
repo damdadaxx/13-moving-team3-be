@@ -19,6 +19,7 @@ const estimateRequestSelect = {
   departureAddress: true,
   arrivalAddress: true,
   status: true,
+  createdAt: true,
   estimates: {
     orderBy: { createdAt: 'desc' },
     select: {
