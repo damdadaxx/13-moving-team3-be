@@ -1,6 +1,11 @@
 /* eslint-disable no-console -- 시드 실행 로그는 콘솔로 출력합니다. */
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../src/generated/prisma/client';
+import {
+  EstimateRequestStatus,
+  EstimateStatus,
+  NotificationType,
+  PrismaClient,
+} from '../src/generated/prisma/client';
 import notificationMessage from '../src/modules/notification/notificationMessage';
 import { hashPassword } from '../src/utils/hash';
 
@@ -24,6 +29,76 @@ const prisma = new PrismaClient({ adapter });
 
 /** 오늘 기준 n일 뒤(음수면 n일 전) 날짜 */
 const days = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+
+/**
+ * 분량용 계정 이름 생성 — 성과 이름을 다른 주기로 돌려 조합합니다.
+ * 성씨가 골고루 섞여야 "받은 요청"의 고객 이름 검색(keyword)을 확인할 수 있습니다.
+ */
+const SURNAMES = [
+  '김',
+  '이',
+  '박',
+  '최',
+  '정',
+  '강',
+  '조',
+  '윤',
+  '장',
+  '임',
+  '한',
+  '오',
+  '서',
+  '신',
+  '권',
+  '황',
+  '안',
+  '송',
+  '전',
+  '홍',
+  '고',
+  '문',
+  '양',
+  '손',
+  '배',
+] as const;
+
+const GIVEN_NAMES = [
+  '도현',
+  '서준',
+  '하윤',
+  '지우',
+  '예준',
+  '수아',
+  '민재',
+  '서연',
+  '준호',
+  '다은',
+  '태윤',
+  '채원',
+  '현우',
+  '유진',
+  '건우',
+  '소율',
+  '지훈',
+  '나윤',
+  '성민',
+  '아린',
+  '재원',
+  '시은',
+  '동하',
+  '예린',
+  '우진',
+] as const;
+
+/**
+ * 성과 이름을 서로 다른 보폭으로 골라 이름을 만듭니다.
+ * 보폭 7은 목록 길이 25와 서로소라 25명까지 이름이 겹치지 않습니다.
+ * offset으로 기사님/일반 유저의 이름 목록을 어긋나게 둡니다.
+ */
+const seedName = (index: number, offset = 0) =>
+  `${SURNAMES[(index + offset) % SURNAMES.length]}${
+    GIVEN_NAMES[((index + offset) * 7) % GIVEN_NAMES.length]
+  }`;
 
 /** 시드로 생성되는 모든 로컬 계정의 공통 비밀번호 — 실제 /auth/login으로 로그인 가능합니다. */
 const SEED_PASSWORD = 'test1234!';
@@ -53,12 +128,38 @@ const getSeedPasswordHash = () => {
 // 고정 ID — 데이터 간 참조를 위해 UUID를 하드코딩합니다.
 // ---------------------------------------------------------------------------
 
+/** 고정 UUID 순번 생성 — seqId('30000000-0000-4000-8000-', 15) → ...-000000000015 */
+const seqId = (prefix: string, sequence: number) =>
+  `${prefix}${String(sequence).padStart(12, '0')}`;
+
+/** 아래 상수들과 페이지네이션용 생성 데이터가 함께 쓰는 UUID 접두사 */
+const MOVER_ID_PREFIX = '10000000-0000-4000-8000-';
+const RECEIVED_CUSTOMER_ID_PREFIX = '21000000-0000-4000-8000-';
+const REQUEST_ID_PREFIX = '30000000-0000-4000-8000-';
+const RECEIVED_REQUEST_ID_PREFIX = '31000000-0000-4000-8000-';
+const ESTIMATE_ID_PREFIX = '40000000-0000-4000-8000-';
+
 const MOVER = {
   minjae: '10000000-0000-4000-8000-000000000001',
   seojun: '10000000-0000-4000-8000-000000000002',
   jihoon: '10000000-0000-4000-8000-000000000003',
   yuri: '10000000-0000-4000-8000-000000000004',
   haneul: '10000000-0000-4000-8000-000000000005',
+} as const;
+
+/**
+ * 발표 시연용 계정 — 목록이 이미 채워져 있어야 하므로 분량용 데이터(4-3, 6, 7)의
+ * 주인을 이 두 계정으로 둡니다. 순번 900번대는 생성 데이터와 겹치지 않습니다.
+ */
+const DEMO = {
+  mover: '10000000-0000-4000-8000-000000000900',
+  customer: '20000000-0000-4000-8000-000000000900',
+  /** 시연용 일반회원의 진행 중(PENDING) 견적 요청 */
+  request: '30000000-0000-4000-8000-000000000900',
+  designatedEstimate: '40000000-0000-4000-8000-000000000901',
+  proposedEstimate1: '40000000-0000-4000-8000-000000000902',
+  proposedEstimate2: '40000000-0000-4000-8000-000000000903',
+  rejectedEstimate: '40000000-0000-4000-8000-000000000904',
 } as const;
 
 const CUSTOMER = {
@@ -240,8 +341,101 @@ const movers = [
   },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// 2-1. 기사님 찾기(GET /mover) 페이지네이션 확인용 — 기본 size가 10이라
+//      고정 기사님 5명만으로는 nextCursor가 내려오지 않습니다. 25명을 더 만듭니다.
+//      경력·서비스·지역을 한 칸씩 밀어가며 배정해 정렬·필터도 함께 확인됩니다.
+//      지역 필터를 걸어도 한 페이지가 넘도록 수도권에 절반 이상을 배치합니다.
+// ---------------------------------------------------------------------------
+
+/** 추가로 만들 기사님 수 — 이름 생성기(seedName) 특성상 25명까지 이름이 겹치지 않습니다. */
+const EXTRA_MOVER_COUNT = 25;
+
+const extraMoverServiceTypes = [
+  ['SMALL_MOVE'],
+  ['HOME_MOVE'],
+  ['OFFICE_MOVE'],
+  ['SMALL_MOVE', 'HOME_MOVE'],
+  ['HOME_MOVE', 'OFFICE_MOVE'],
+] as const;
+
+// 앞 4개(수도권)를 더 자주 돌게 두어 SEOUL 필터만으로도 10명이 넘습니다.
+const extraMoverServiceRegions = [
+  ['SEOUL', 'GYEONGGI'],
+  ['SEOUL', 'INCHEON'],
+  ['SEOUL', 'GYEONGGI', 'INCHEON'],
+  ['SEOUL'],
+  ['GYEONGGI', 'INCHEON'],
+  ['BUSAN', 'GYEONGNAM'],
+  ['DAEJEON', 'CHUNGNAM', 'SEJONG'],
+  ['GWANGJU', 'JEONNAM'],
+  ['DAEGU', 'GYEONGBUK'],
+] as const;
+
+const extraMoverIntros = [
+  '견적서에 적힌 금액 그대로, 추가 요금 없이 진행합니다.',
+  '포장자재부터 정리까지 한 팀이 끝까지 책임집니다.',
+  '주말·공휴일 이사도 추가금 없이 가능합니다.',
+  '이사 전날 최종 확인 전화를 꼭 드립니다.',
+  '좁은 골목·엘리베이터 없는 건물 작업 경험이 많습니다.',
+] as const;
+
+/** 고정 기사님 5명이 쓴 마지막 순번 — 추가 기사님은 여기서 이어 붙입니다. */
+const LAST_MOVER_SEQUENCE = 5;
+
+const paginationMovers = Array.from(
+  { length: EXTRA_MOVER_COUNT },
+  (_unusedMover, index) => {
+    const sequence = LAST_MOVER_SEQUENCE + index + 1;
+    const name = seedName(index);
+    // 경력이 7개월씩 벌어져 sortBy=career 결과 순서가 눈에 보입니다.
+    const careerMonths = 14 + index * 7;
+
+    return {
+      id: seqId(MOVER_ID_PREFIX, sequence),
+      name,
+      email: `mover${sequence}@moving.kr`,
+      phoneNumber: `0102346${String(sequence).padStart(4, '0')}`,
+      // 별명은 이름(성 제외) + 업체명 — 최대 10자 제한을 넘지 않습니다.
+      nickname: `${name.slice(1)} 이사센터`,
+      careerMonths,
+      shortIntro: extraMoverIntros[index % extraMoverIntros.length],
+      description: `${name} 기사입니다. ${Math.floor(careerMonths / 12)}년간 이사를 진행했습니다. 사전 확인 후 견적을 드리고, 작업 당일에는 사진으로 기록을 남겨 드립니다.`,
+      imgUrl: `https://picsum.photos/seed/mover-extra-${sequence}/240/240`,
+      serviceTypes:
+        extraMoverServiceTypes[index % extraMoverServiceTypes.length],
+      serviceRegions:
+        extraMoverServiceRegions[index % extraMoverServiceRegions.length],
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// 2-2. 발표 시연용 기사회원
+//      수도권 전역 + 3개 서비스를 모두 맡아 "받은 요청" 목록이 비지 않습니다.
+//      확정 견적과 리뷰는 4-3 블록이 이 기사님 앞으로 만들어 줍니다.
+// ---------------------------------------------------------------------------
+
+const demoMover = {
+  id: DEMO.mover,
+  name: '나기사',
+  email: 'mover@demo.kr',
+  phoneNumber: '01099990001',
+  nickname: '데모 프리미엄이사',
+  careerMonths: 132,
+  shortIntro: '11년째 수도권에서 이사만 해온 팀입니다.',
+  description:
+    '소형·가정·사무실 이사를 모두 진행합니다. 사전 방문 확인 후 견적을 드리고, 작업 전 과정을 사진으로 남겨 드립니다. 파손이 생기면 전액 보상합니다.',
+  imgUrl: 'https://picsum.photos/seed/mover-demo/240/240',
+  serviceTypes: ['SMALL_MOVE', 'HOME_MOVE', 'OFFICE_MOVE'],
+  serviceRegions: ['SEOUL', 'GYEONGGI', 'INCHEON'],
+} as const;
+
+/** 고정 기사님 + 페이지네이션용 기사님 + 시연용 기사님 */
+const allMovers = [...movers, ...paginationMovers, demoMover];
+
 async function seedMovers() {
-  for (const mover of movers) {
+  for (const mover of allMovers) {
     await prisma.user.create({
       data: {
         id: mover.id,
@@ -346,8 +540,93 @@ const customers = [
   },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// 3-1. 분량용 일반 유저 — 고정 6명만으로는 기사님 한 분에게 붙는 리뷰가
+//      전부 같은 작성자가 되어 버립니다. 20명을 더 만들어 4-4에서 완료된
+//      이사 1건씩을 붙이고, 리뷰·찜을 기사님들에게 흩뿌립니다.
+//      소셜 로그인 계정도 섞어 provider별 표시를 함께 확인할 수 있습니다.
+// ---------------------------------------------------------------------------
+
+const EXTRA_CUSTOMER_COUNT = 20;
+
+/** 고정 일반 유저 6명이 쓴 마지막 순번 — 추가 유저는 여기서 이어 붙입니다. */
+const LAST_CUSTOMER_SEQUENCE = 6;
+
+const CUSTOMER_ID_PREFIX = '20000000-0000-4000-8000-';
+
+const extraCustomerRegions = [
+  'SEOUL',
+  'GYEONGGI',
+  'INCHEON',
+  'BUSAN',
+  'DAEJEON',
+  'DAEGU',
+  'GWANGJU',
+] as const;
+
+const extraCustomerServiceTypes = [
+  ['SMALL_MOVE'],
+  ['HOME_MOVE'],
+  ['OFFICE_MOVE'],
+  ['SMALL_MOVE', 'HOME_MOVE'],
+] as const;
+
+const extraCustomerProviders = ['LOCAL', 'GOOGLE', 'KAKAO', 'NAVER'] as const;
+
+const paginationCustomers = Array.from(
+  { length: EXTRA_CUSTOMER_COUNT },
+  (_unusedCustomer, index) => {
+    const sequence = LAST_CUSTOMER_SEQUENCE + index + 1;
+    // 기사님과 이름 목록이 겹치지 않도록 성·이름 시작점을 어긋나게 둡니다.
+    const name = seedName(index, 11);
+    const provider =
+      extraCustomerProviders[index % extraCustomerProviders.length];
+
+    return {
+      id: seqId(CUSTOMER_ID_PREFIX, sequence),
+      name,
+      email: `customer${sequence}@example.com`,
+      phoneNumber: `0109876${String(sequence).padStart(4, '0')}`,
+      provider,
+      // 소셜 계정은 제공자가 발급한 고유 ID가 있어야 합니다.
+      providerId:
+        provider === 'LOCAL'
+          ? null
+          : `${provider.toLowerCase()}-seed-${sequence}`,
+      region: extraCustomerRegions[index % extraCustomerRegions.length],
+      // 3명 중 1명은 프로필 이미지가 없는 상태로 둡니다.
+      imgUrl:
+        index % 3 === 0
+          ? null
+          : `https://picsum.photos/seed/customer-extra-${sequence}/160/160`,
+      serviceTypes:
+        extraCustomerServiceTypes[index % extraCustomerServiceTypes.length],
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// 3-2. 발표 시연용 일반회원
+//      진행 중 견적 요청(4-5)과 이사 내역·리뷰·찜·알림(4-3, 6, 7)을 모두 갖습니다.
+// ---------------------------------------------------------------------------
+
+const demoCustomer = {
+  id: DEMO.customer,
+  name: '나고객',
+  email: 'customer@demo.kr',
+  phoneNumber: '01099990002',
+  provider: 'LOCAL',
+  providerId: null,
+  region: 'SEOUL',
+  imgUrl: 'https://picsum.photos/seed/customer-demo/160/160',
+  serviceTypes: ['SMALL_MOVE', 'HOME_MOVE'],
+} as const;
+
+/** 고정 일반 유저 + 분량용 일반 유저 + 시연용 일반회원 */
+const allCustomers = [...customers, ...paginationCustomers, demoCustomer];
+
 async function seedCustomers() {
-  for (const customer of customers) {
+  for (const customer of allCustomers) {
     await prisma.user.create({
       data: {
         id: customer.id,
@@ -824,8 +1103,350 @@ const estimateRequests = [
   },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// 4-2. 커서 페이지네이션 확인용 — 마감된 견적 요청 + 기사님 견적 (한지민)
+//    GET /estimates?status=closed 의 기본 size가 10건이라, 마감된 요청이 10건을
+//    넘어야 nextCursor가 내려오고 프론트 무한 스크롤 2페이지째를 확인할 수 있습니다.
+//    위 고정 픽스처만으로는 한지민의 마감 요청이 6건뿐이라 10건을 더 만듭니다.
+//    내용 차이가 거의 없는 분량용 데이터라 하드코딩 대신 생성합니다.
+// ---------------------------------------------------------------------------
+
+/** 위 REQUEST / ESTIMATE 상수가 쓴 마지막 순번 — 새 데이터는 여기서 이어 붙입니다. */
+const LAST_REQUEST_SEQUENCE = 14;
+const LAST_ESTIMATE_SEQUENCE = 23;
+
+/** 요청마다 돌려 쓰는 출발지/도착지 */
+const paginationRoutes = [
+  {
+    serviceType: 'SMALL_MOVE',
+    departureZipCode: '04524',
+    departureAddress: '서울특별시 중구 퇴계로 100 502호',
+    arrivalZipCode: '06236',
+    arrivalAddress: '서울특별시 강남구 테헤란로 152 1201호',
+  },
+  {
+    serviceType: 'HOME_MOVE',
+    departureZipCode: '03722',
+    departureAddress: '서울특별시 서대문구 연세로 50 301호',
+    arrivalZipCode: '07222',
+    arrivalAddress: '서울특별시 영등포구 여의대로 108 1802호',
+  },
+  {
+    serviceType: 'OFFICE_MOVE',
+    departureZipCode: '06035',
+    departureAddress: '서울특별시 강남구 가로수길 43 2층',
+    arrivalZipCode: '04539',
+    arrivalAddress: '서울특별시 중구 남대문로 63 8층',
+  },
+  {
+    serviceType: 'HOME_MOVE',
+    departureZipCode: '13529',
+    departureAddress: '경기도 성남시 분당구 판교로 255 104동 902호',
+    arrivalZipCode: '16489',
+    arrivalAddress: '경기도 수원시 영통구 월드컵로 206 201동 1103호',
+  },
+  {
+    serviceType: 'SMALL_MOVE',
+    departureZipCode: '22382',
+    departureAddress: '인천광역시 중구 영종대로 106 508호',
+    arrivalZipCode: '21999',
+    arrivalAddress: '인천광역시 연수구 송도과학로 32 1504호',
+  },
+] as const;
+
+const paginationComments = [
+  '원룸 기준 2.5톤 차량 1대로 진행합니다. 엘리베이터가 있어 사다리차는 필요 없습니다.',
+  '포장자재와 정리 인력 1명이 포함된 금액입니다. 당일 사진 기록을 남겨 드립니다.',
+  '사무실 집기 분해·조립까지 포함해서 안내드립니다.',
+  '가전제품은 별도 완충 포장 후 마지막에 싣습니다.',
+  '주말 이사라 작업자 1명을 더 배치해 오전 중에 마무리합니다.',
+  '엘리베이터 사용 예약만 미리 해주시면 사다리차 비용이 빠집니다.',
+] as const;
+
+/** 요청 1건에 견적 3건 — 기사님 5명을 한 칸씩 밀어가며 배정해 중복을 피합니다. */
+const paginationMoverIds = [
+  MOVER.minjae,
+  MOVER.seojun,
+  MOVER.jihoon,
+  MOVER.yuri,
+  MOVER.haneul,
+] as const;
+
+const PAGINATION_REQUEST_COUNT = 10;
+const ESTIMATES_PER_PAGINATION_REQUEST = 3;
+
+const paginationRequests = Array.from(
+  { length: PAGINATION_REQUEST_COUNT },
+  (_unusedRequest, index) => {
+    const route = paginationRoutes[index % paginationRoutes.length];
+    // 짝수는 확정까지 간 요청(확정견적 1 + 탈락 2), 홀수는 확정 없이 만료된 요청입니다.
+    const isCompleted = index % 2 === 0;
+
+    return {
+      id: seqId(REQUEST_ID_PREFIX, LAST_REQUEST_SEQUENCE + index + 1),
+      customerId: CUSTOMER.jimin,
+      serviceType: route.serviceType,
+      moveDate: days(-31 - index * 5),
+      // createdAt이 겹치면 커서 정렬이 흔들리므로 요청마다 5일씩 벌립니다.
+      createdAt: days(-45 - index * 5),
+      status: (isCompleted ? 'COMPLETED' : 'EXPIRED') as EstimateRequestStatus,
+      departureZipCode: route.departureZipCode,
+      departureAddress: route.departureAddress,
+      arrivalZipCode: route.arrivalZipCode,
+      arrivalAddress: route.arrivalAddress,
+      estimates: Array.from(
+        { length: ESTIMATES_PER_PAGINATION_REQUEST },
+        (_unusedEstimate, position) => ({
+          id: seqId(
+            ESTIMATE_ID_PREFIX,
+            LAST_ESTIMATE_SEQUENCE +
+              index * ESTIMATES_PER_PAGINATION_REQUEST +
+              position +
+              1
+          ),
+          moverId:
+            paginationMoverIds[(index + position) % paginationMoverIds.length],
+          price: 240000 + index * 20000 + position * 30000,
+          comment:
+            paginationComments[(index + position) % paginationComments.length],
+          // 세 요청에 한 번꼴로 첫 견적만 지정 견적으로 시작한 건입니다.
+          isDesignated: position === 0 && index % 3 === 0,
+          status: (isCompleted
+            ? position === 0
+              ? 'ACCEPTED'
+              : 'NOT_SELECTED'
+            : 'EXPIRED') as EstimateStatus,
+          rejectReason: null,
+          createdAt: days(-44 - index * 5),
+        })
+      ),
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// 4-3. 리뷰 페이지네이션 확인용 — 완료된 이사 내역 (시연용 일반회원 ↔ 시연용 기사회원)
+//    GET /review/me 는 hasReview=true(작성 완료) / false(작성 대기) 목록이 따로 있고
+//    GET /review/mover/:moverId 도 pageSize가 10이라, 한 기사님에게 리뷰가 11건 넘게
+//    쌓여야 2페이지를 확인할 수 있습니다.
+//    확정 견적을 시연용 기사회원에게 몰아주면 두 목록을 한 벌의 데이터로 채울 수 있고,
+//    시연 계정으로 로그인했을 때 이사 내역·리뷰 화면이 비어 있지 않습니다.
+//    (기사님 리뷰 목록 응답에는 작성자 정보가 없어 작성자가 한 명이어도 무방합니다.)
+// ---------------------------------------------------------------------------
+
+/** 리뷰 목록 페이지네이션용 완료 요청 수 — 절반만 리뷰를 달아 두 탭을 모두 채웁니다. */
+const REVIEW_PAGINATION_REQUEST_COUNT = 24;
+
+/** 확정 견적을 몰아줄 기사님 — 이 기사님의 리뷰 목록이 2페이지 이상이 됩니다. */
+const REVIEW_PAGINATION_MOVER_ID = DEMO.mover;
+
+/** 위 완료 내역·찜·알림의 주인 — 시연 계정 하나로 모든 목록이 채워집니다. */
+const REVIEW_PAGINATION_CUSTOMER_ID = DEMO.customer;
+
+/** 4-2 블록이 쓴 마지막 순번 뒤에서 이어 붙입니다. */
+const REVIEW_REQUEST_START_SEQUENCE =
+  LAST_REQUEST_SEQUENCE + PAGINATION_REQUEST_COUNT;
+const REVIEW_ESTIMATE_START_SEQUENCE =
+  LAST_ESTIMATE_SEQUENCE +
+  PAGINATION_REQUEST_COUNT * ESTIMATES_PER_PAGINATION_REQUEST;
+
+const reviewContents = [
+  '약속한 시간보다 먼저 도착해 준비해 주셨어요. 짐 정리까지 도와주셔서 편했습니다.',
+  '견적서 금액 그대로 받으셨습니다. 추가 요금 이야기가 전혀 없어 좋았어요.',
+  '엘리베이터가 없는 건물이었는데도 불평 없이 끝까지 해주셨습니다.',
+  '가전 포장을 꼼꼼히 해주셔서 흠집 하나 없었어요. 다음에도 부탁드릴게요.',
+  '작업자분들이 친절하셨고 마무리 청소까지 해주셨습니다.',
+  '비 오는 날이었는데 바닥 보양을 미리 해주셔서 집이 깨끗했어요.',
+] as const;
+
+const reviewPaginationRequests = Array.from(
+  { length: REVIEW_PAGINATION_REQUEST_COUNT },
+  (_unusedRequest, index) => {
+    const route = paginationRoutes[index % paginationRoutes.length];
+
+    return {
+      id: seqId(REQUEST_ID_PREFIX, REVIEW_REQUEST_START_SEQUENCE + index + 1),
+      customerId: REVIEW_PAGINATION_CUSTOMER_ID,
+      serviceType: route.serviceType,
+      // 4-2 블록(-31일 ~ -76일)과 겹치지 않도록 더 과거에 배치합니다.
+      moveDate: days(-200 - index * 3),
+      createdAt: days(-215 - index * 3),
+      status: 'COMPLETED' as EstimateRequestStatus,
+      departureZipCode: route.departureZipCode,
+      departureAddress: route.departureAddress,
+      arrivalZipCode: route.arrivalZipCode,
+      arrivalAddress: route.arrivalAddress,
+      estimates: [
+        {
+          id: seqId(
+            ESTIMATE_ID_PREFIX,
+            REVIEW_ESTIMATE_START_SEQUENCE + index + 1
+          ),
+          moverId: REVIEW_PAGINATION_MOVER_ID,
+          price: 300000 + index * 10000,
+          comment: paginationComments[index % paginationComments.length],
+          isDesignated: false,
+          status: 'ACCEPTED' as EstimateStatus,
+          rejectReason: null,
+          createdAt: days(-214 - index * 3),
+        },
+      ],
+    };
+  }
+);
+
+/** 짝수 번째 요청에만 리뷰를 답니다 — 작성 완료 12건 / 작성 대기 12건. */
+const reviewPaginationReviews = reviewPaginationRequests
+  .filter((_unusedRequest, index) => index % 2 === 0)
+  .map((request, position) => ({
+    estimateId: request.estimates[0].id,
+    customerId: REVIEW_PAGINATION_CUSTOMER_ID,
+    moverId: REVIEW_PAGINATION_MOVER_ID,
+    // 평점 3~5를 돌려 써서 기사님 상세의 평점 분포도 함께 확인됩니다.
+    rating: 3 + (position % 3),
+    content: reviewContents[position % reviewContents.length],
+    createdAt: days(-210 - position * 6),
+  }));
+
+// ---------------------------------------------------------------------------
+// 4-4. 3-1에서 만든 일반 유저의 완료된 이사 — 유저 1명당 확정 견적 1건입니다.
+//    확정 기사님을 한 칸씩 밀어 배정해 리뷰·평점이 여러 기사님에게 흩어집니다.
+//    이게 없으면 신규 기사님 전원이 리뷰 0건이라 sortBy=reviewCount / rating
+//    결과가 전부 동률로 나옵니다.
+// ---------------------------------------------------------------------------
+
+/** 4-3 블록이 쓴 마지막 순번 뒤에서 이어 붙입니다. */
+const CUSTOMER_REQUEST_START_SEQUENCE =
+  REVIEW_REQUEST_START_SEQUENCE + REVIEW_PAGINATION_REQUEST_COUNT;
+const CUSTOMER_ESTIMATE_START_SEQUENCE =
+  REVIEW_ESTIMATE_START_SEQUENCE + REVIEW_PAGINATION_REQUEST_COUNT;
+
+const customerPaginationRequests = paginationCustomers.map(
+  (customer, index) => {
+    const route = paginationRoutes[index % paginationRoutes.length];
+    // 고정 기사님 5명에게 쏠리지 않도록 allMovers 전체를 돌며 배정합니다.
+    const mover = allMovers[(index + 1) % allMovers.length];
+
+    return {
+      id: seqId(REQUEST_ID_PREFIX, CUSTOMER_REQUEST_START_SEQUENCE + index + 1),
+      customerId: customer.id,
+      serviceType: route.serviceType,
+      moveDate: days(-40 - index * 4),
+      createdAt: days(-55 - index * 4),
+      status: 'COMPLETED' as EstimateRequestStatus,
+      departureZipCode: route.departureZipCode,
+      departureAddress: route.departureAddress,
+      arrivalZipCode: route.arrivalZipCode,
+      arrivalAddress: route.arrivalAddress,
+      estimates: [
+        {
+          id: seqId(
+            ESTIMATE_ID_PREFIX,
+            CUSTOMER_ESTIMATE_START_SEQUENCE + index + 1
+          ),
+          moverId: mover.id,
+          price: 280000 + index * 15000,
+          comment: paginationComments[index % paginationComments.length],
+          isDesignated: false,
+          status: 'ACCEPTED' as EstimateStatus,
+          rejectReason: null,
+          createdAt: days(-54 - index * 4),
+        },
+      ],
+    };
+  }
+);
+
+/** 4명 중 3명이 리뷰를 남긴 상태 — 기사님별 리뷰 수·평점이 서로 달라집니다. */
+const customerPaginationReviews = customerPaginationRequests
+  .filter((_unusedRequest, index) => index % 4 !== 3)
+  .map((request, position) => ({
+    estimateId: request.estimates[0].id,
+    customerId: request.customerId,
+    moverId: request.estimates[0].moverId,
+    rating: 3 + (position % 3),
+    content: reviewContents[position % reviewContents.length],
+    createdAt: days(-35 - position * 2),
+  }));
+
+// ---------------------------------------------------------------------------
+// 4-5. 시연용 일반회원의 진행 중 견적 요청
+//    "대기 중인 견적" 화면에 네 가지 상태가 한 번에 보이도록 구성합니다.
+//    - DESIGNATED : 시연용 기사회원에게 보낸 지정 요청 (기사님 응답 전)
+//                   → 시연용 기사회원의 "받은 요청"에도 지정 건으로 뜹니다.
+//    - PROPOSED 2 : 확정 버튼을 눌러 볼 수 있는 견적
+//    - REJECTED   : 기사님이 반려한 지정 요청
+// ---------------------------------------------------------------------------
+
+const demoActiveRequest = {
+  id: DEMO.request,
+  customerId: DEMO.customer,
+  serviceType: 'SMALL_MOVE' as const,
+  moveDate: days(9),
+  createdAt: days(-2),
+  status: 'PENDING' as EstimateRequestStatus,
+  departureZipCode: '04524',
+  departureAddress: '서울특별시 중구 세종대로 110 1203호',
+  arrivalZipCode: '13529',
+  arrivalAddress: '경기도 성남시 분당구 판교역로 235 102동 1503호',
+  estimates: [
+    {
+      id: DEMO.designatedEstimate,
+      moverId: DEMO.mover,
+      price: null,
+      comment: null,
+      isDesignated: true,
+      status: 'DESIGNATED' as EstimateStatus,
+      rejectReason: null,
+      createdAt: days(-2),
+    },
+    {
+      id: DEMO.proposedEstimate1,
+      moverId: MOVER.minjae,
+      price: 390000,
+      comment:
+        '2.5톤 차량 1대에 작업자 2명으로 진행합니다. 엘리베이터가 있어 사다리차는 필요 없습니다.',
+      isDesignated: false,
+      status: 'PROPOSED' as EstimateStatus,
+      rejectReason: null,
+      createdAt: days(-1),
+    },
+    {
+      id: DEMO.proposedEstimate2,
+      moverId: MOVER.haneul,
+      price: 445000,
+      comment:
+        '포장자재와 정리 인력 1명이 포함된 금액입니다. 전 과정을 사진으로 남겨 드립니다.',
+      isDesignated: false,
+      status: 'PROPOSED' as EstimateStatus,
+      rejectReason: null,
+      createdAt: days(-1),
+    },
+    {
+      id: DEMO.rejectedEstimate,
+      moverId: MOVER.seojun,
+      price: null,
+      comment: null,
+      isDesignated: true,
+      status: 'REJECTED' as EstimateStatus,
+      rejectReason:
+        '요청하신 날짜에 이미 예약된 일정이 있어 부득이하게 반려합니다. 다른 날짜는 상담 가능합니다.',
+      createdAt: days(-2),
+    },
+  ],
+};
+
+/** 위 고정 픽스처 + 페이지네이션용 데이터 + 시연용 데이터 */
+const allEstimateRequests = [
+  ...estimateRequests,
+  ...paginationRequests,
+  ...reviewPaginationRequests,
+  ...customerPaginationRequests,
+  demoActiveRequest,
+];
+
 async function seedEstimateRequests() {
-  for (const request of estimateRequests) {
+  for (const request of allEstimateRequests) {
     await prisma.estimateRequest.create({
       data: {
         id: request.id,
@@ -856,6 +1477,7 @@ async function seedEstimateRequests() {
 
   // 진행 중(PENDING / CONFIRMED)인 요청을 고객의 활성 견적요청으로 연결합니다.
   const activePairs = [
+    { customerId: DEMO.customer, requestId: DEMO.request },
     { customerId: CUSTOMER.jimin, requestId: REQUEST.jiminActive },
     { customerId: CUSTOMER.sehun, requestId: REQUEST.sehunConfirmed },
     { customerId: CUSTOMER.jinwoo, requestId: REQUEST.jinwooActive },
@@ -1006,8 +1628,72 @@ const receivedFixtures = [
   },
 ] as const;
 
+// ---------------------------------------------------------------------------
+// 4-1-1. 받은 요청 목록 페이지네이션 확인용 — 기본 size가 10이라 고정 8건으로는
+//    nextCursor가 내려오지 않습니다. 수도권 요청 8건을 더 만듭니다.
+//    진행 중(PENDING) 요청은 고객당 1건만 가능해 요청 수만큼 고객도 함께 만듭니다.
+//    주소·서비스는 4-2의 paginationRoutes를 그대로 재사용합니다.
+// ---------------------------------------------------------------------------
+
+/** 고정 픽스처가 쓴 마지막 순번 — 추가 고객/요청은 여기서 이어 붙입니다. */
+const LAST_RECEIVED_SEQUENCE = 8;
+
+const EXTRA_RECEIVED_COUNT = 8;
+
+/** keyword 검색 확인을 위해 성씨를 섞습니다. */
+const extraReceivedNames = [
+  '김하준',
+  '이서아',
+  '박도윤',
+  '최지우',
+  '김민석',
+  '이예린',
+  '박시원',
+  '최나현',
+] as const;
+
+/** paginationRoutes의 주소가 속한 지역 — 요청 지역과 주소를 맞춥니다. */
+const paginationRouteRegions = [
+  'SEOUL',
+  'SEOUL',
+  'SEOUL',
+  'GYEONGGI',
+  'INCHEON',
+] as const;
+
+const paginationReceivedFixtures = Array.from(
+  { length: EXTRA_RECEIVED_COUNT },
+  (_unusedFixture, index) => {
+    const sequence = LAST_RECEIVED_SEQUENCE + index + 1;
+    const routeIndex = index % paginationRoutes.length;
+    const route = paginationRoutes[routeIndex];
+
+    return {
+      customerId: seqId(RECEIVED_CUSTOMER_ID_PREFIX, sequence),
+      requestId: seqId(RECEIVED_REQUEST_ID_PREFIX, sequence),
+      name: extraReceivedNames[index],
+      email: `received${sequence}@example.com`,
+      phoneNumber: `0107778${String(sequence).padStart(4, '0')}`,
+      region: paginationRouteRegions[routeIndex],
+      serviceType: route.serviceType,
+      // 이사일과 요청일 순서를 엇갈리게 둬서 sortBy 두 값의 결과가 달라집니다.
+      moveDate: days(30 + index * 2),
+      createdAt: days(-10 - (EXTRA_RECEIVED_COUNT - index)),
+      departureAddress: route.departureAddress,
+      arrivalAddress: route.arrivalAddress,
+      designatedTo: null,
+    };
+  }
+);
+
+/** 고정 픽스처 + 페이지네이션용 데이터 */
+const allReceivedFixtures = [
+  ...receivedFixtures,
+  ...paginationReceivedFixtures,
+];
+
 async function seedReceivedFixtures() {
-  for (const fixture of receivedFixtures) {
+  for (const fixture of allReceivedFixtures) {
     await prisma.user.create({
       data: {
         id: fixture.customerId,
@@ -1125,8 +1811,15 @@ const reviews = [
   },
 ] as const;
 
+/** 고정 리뷰 + 4-3(한 기사님 몰아주기) + 4-4(여러 기사님에게 분산) */
+const allReviews = [
+  ...reviews,
+  ...reviewPaginationReviews,
+  ...customerPaginationReviews,
+];
+
 async function seedReviews() {
-  await prisma.review.createMany({ data: [...reviews] });
+  await prisma.review.createMany({ data: allReviews });
 }
 
 // ---------------------------------------------------------------------------
@@ -1144,8 +1837,42 @@ const likes = [
   { customerId: CUSTOMER.jinwoo, moverId: MOVER.haneul },
 ] as const;
 
+/**
+ * 찜한 기사님 목록(GET /like/me) 페이지네이션 확인용 — 기본 size가 10이라
+ * 시연용 일반회원이 분량용 기사님 전원을 찜해 한 페이지를 넘깁니다.
+ */
+const paginationLikes = paginationMovers.map((mover) => ({
+  customerId: DEMO.customer,
+  moverId: mover.id,
+}));
+
+/** 시연용 일반회원은 시연용 기사회원도 찜해 둡니다. */
+const demoLikes = [
+  { customerId: DEMO.customer, moverId: DEMO.mover },
+  { customerId: DEMO.customer, moverId: MOVER.minjae },
+  { customerId: DEMO.customer, moverId: MOVER.haneul },
+];
+
+/**
+ * 3-1의 일반 유저가 남기는 찜 — 유저 1명당 기사님 2명을 찜합니다.
+ * 두 명을 이웃한 순번으로 골라야 (customerId, moverId) 유니크 제약에 걸리지 않습니다.
+ * 보폭을 주면 기사님 수에 따라 두 값이 같아지는 지점이 생깁니다.
+ */
+const customerLikes = paginationCustomers.flatMap((customer, index) => [
+  {
+    customerId: customer.id,
+    moverId: allMovers[(index * 2) % allMovers.length].id,
+  },
+  {
+    customerId: customer.id,
+    moverId: allMovers[(index * 2 + 1) % allMovers.length].id,
+  },
+]);
+
+const allLikes = [...likes, ...paginationLikes, ...customerLikes, ...demoLikes];
+
 async function seedLikes() {
-  await prisma.like.createMany({ data: [...likes] });
+  await prisma.like.createMany({ data: allLikes });
 }
 
 // ---------------------------------------------------------------------------
@@ -1246,8 +1973,54 @@ const notifications = [
   },
 ] as const;
 
+/**
+ * 알림 목록(GET /notifications) 페이지네이션 확인용 — 기본 size가 10이라
+ * 시연용 일반회원 앞으로 12건을 더 만듭니다. 4-3의 확정 견적을 targetPath로 걸어
+ * 알림을 눌렀을 때 실제로 존재하는 견적으로 이동합니다.
+ */
+const paginationNotifications = reviewPaginationRequests
+  .slice(0, 12)
+  .map((request, index) => ({
+    userId: DEMO.customer,
+    type: 'NEW_ESTIMATE' as NotificationType,
+    content: notificationMessage.newEstimate(
+      demoMover.name,
+      request.serviceType
+    ),
+    targetPath: request.estimates[0].id,
+    // 3건 중 1건만 읽음 — 안 읽은 알림 뱃지 개수도 같이 확인됩니다.
+    isRead: index % 3 === 0,
+    createdAt: days(-10 - index),
+  }));
+
+/** 시연용 두 계정이 로그인 직후 바로 보게 되는 안 읽은 알림 */
+const demoNotifications = [
+  {
+    userId: DEMO.customer,
+    type: 'NEW_ESTIMATE' as NotificationType,
+    content: notificationMessage.newEstimate('김민재', 'SMALL_MOVE'),
+    targetPath: DEMO.proposedEstimate1,
+    isRead: false,
+    createdAt: days(-1),
+  },
+  {
+    userId: DEMO.mover,
+    type: 'NEW_REQUEST' as NotificationType,
+    content: notificationMessage.newRequest(demoCustomer.name, 'SMALL_MOVE'),
+    targetPath: DEMO.designatedEstimate,
+    isRead: false,
+    createdAt: days(-2),
+  },
+];
+
+const allNotifications = [
+  ...notifications,
+  ...paginationNotifications,
+  ...demoNotifications,
+];
+
 async function seedNotifications() {
-  await prisma.notification.createMany({ data: [...notifications] });
+  await prisma.notification.createMany({ data: allNotifications });
 }
 
 // ---------------------------------------------------------------------------
@@ -1282,19 +2055,27 @@ async function main() {
   console.log('알림 생성 중...');
   await seedNotifications();
 
-  const estimateCount = estimateRequests.reduce(
+  const estimateCount = allEstimateRequests.reduce(
     (sum, request) => sum + request.estimates.length,
     0
   );
 
+  const designatedCount = allReceivedFixtures.filter(
+    (fixture) => fixture.designatedTo
+  ).length;
+
   console.log(
     [
       '시드 완료',
-      `- 기사님 ${movers.length}명 / 일반 유저 ${customers.length + receivedFixtures.length}명`,
-      `- 견적 요청 ${estimateRequests.length + receivedFixtures.length}건 / 견적 ${estimateCount + receivedFixtures.filter((f) => f.designatedTo).length}건`,
-      `- 받은 요청 목록용 PENDING ${receivedFixtures.length}건 (지정 ${receivedFixtures.filter((f) => f.designatedTo).length}건)`,
-      `- 리뷰 ${reviews.length}건 / 찜 ${likes.length}건 / 알림 ${notifications.length}건`,
+      `- 기사님 ${allMovers.length}명 / 일반 유저 ${allCustomers.length + allReceivedFixtures.length}명`,
+      `- 견적 요청 ${allEstimateRequests.length + allReceivedFixtures.length}건 / 견적 ${estimateCount + designatedCount}건`,
+      `- 받은 요청 목록용 PENDING ${allReceivedFixtures.length}건 (지정 ${designatedCount}건)`,
+      `- 리뷰 ${allReviews.length}건 / 찜 ${allLikes.length}건 / 알림 ${allNotifications.length}건`,
       `- 로컬 계정 공통 비밀번호: ${SEED_PASSWORD}`,
+      '',
+      '[발표 시연용 계정]',
+      `- 일반회원  ${demoCustomer.email} / ${SEED_PASSWORD}  (${demoCustomer.name})`,
+      `- 기사회원  ${demoMover.email} / ${SEED_PASSWORD}  (${demoMover.name} · ${demoMover.nickname})`,
     ].join('\n')
   );
 }

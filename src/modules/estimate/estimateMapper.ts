@@ -1,5 +1,6 @@
 import { estimateRequestRepository } from './estimateRequestRepository';
 import { estimateRepository } from './estimateRepository';
+import { EMPTY_MOVER_STATS, MoverStats } from './moverStatsRepository';
 
 type EstimateRequestWithEstimates = Awaited<
   ReturnType<typeof estimateRequestRepository.findManyWithEstimates>
@@ -37,7 +38,15 @@ const toEstimateRequestSummary = (
 });
 
 export const estimateMapper = {
-  toEstimateListItem: (estimateRequest: EstimateRequestWithEstimates) => ({
+  /*
+  @ moverStatsByMoverId
+  - 별점·리뷰수·확정건수·찜은 MoverProfile 컬럼이 아니라 집계값이라
+    service에서 페이지 단위로 한 번에 구해 넘겨줍니다 (moverStatsRepository)
+  */
+  toEstimateListItem: (
+    estimateRequest: EstimateRequestWithEstimates,
+    moverStatsByMoverId: Map<string, MoverStats>
+  ) => ({
     estimateRequest: toEstimateRequestSummary(estimateRequest),
     estimates: estimateRequest.estimates.map((estimate) => ({
       estimateId: estimate.id,
@@ -52,6 +61,8 @@ export const estimateMapper = {
         nickname: estimate.mover.nickname,
         imgUrl: estimate.mover.imgUrl,
         careerMonths: estimate.mover.careerMonths,
+        ...(moverStatsByMoverId.get(estimate.mover.userId) ??
+          EMPTY_MOVER_STATS),
       },
     })),
     totalCount: estimateRequest.estimates.length,
