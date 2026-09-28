@@ -324,7 +324,7 @@ GET {{baseUrl}}/estimate-requests/active
 #   둘 다 해제              : (파라미터 없음)                   전체 요청 (서비스·지역 무관)
 #   지정 견적 요청만        : isDesignated=true                 나에게 온 지정 견적
 #   서비스 가능 지역만      : isServiceArea=true                서비스·지역이 맞는 요청
-#   둘 다 체크              : isDesignated=true&isServiceArea=true  지정 견적 + 서비스·지역 요청
+#   둘 다 체크              : isDesignated=true&isServiceArea=true  지정 견적 중 서비스·지역이 맞는 요청 (교집합)
 # 오픈 견적 5건이 다 찬 요청은 지정받은 기사님에게만 보입니다.
 
 ### [R-0] 기사님 로그인 (정하늘 — 수도권 3곳, 서비스 3종 전부)
@@ -380,7 +380,7 @@ GET {{baseUrl}}/estimate-requests/received?regions=BUSAN
 GET {{baseUrl}}/estimate-requests/received?isServiceArea=true
 
 ### [R-9-c] 지정 견적 요청 + 서비스 가능 지역 둘 다 체크
-# 나에게 온 지정 견적(지역 밖 박부산* 포함) + 서비스·지역이 맞는 요청. 박대전만 빠집니다.
+# 나에게 온 지정 견적 중 서비스·지역이 맞는 것만 (교집합). 기대: 김경기* (지역 밖 박부산*은 빠짐)
 GET {{baseUrl}}/estimate-requests/received?isDesignated=true&isServiceArea=true
 
 ### [R-10] 고객 이름 검색 — 성씨

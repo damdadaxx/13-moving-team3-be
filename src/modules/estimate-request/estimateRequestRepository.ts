@@ -334,7 +334,7 @@ export const estimateRequestRepository = {
   - 둘 다 해제          : 전체 (서비스·지역 무관)
   - 지정 견적 요청만    : isDesignated=true  → 나에게 온 지정 견적
   - 서비스 가능 지역만  : isServiceArea=true → 서비스·지역이 맞는 요청만
-  - 둘 다 체크          : 나에게 온 지정 견적 + 서비스·지역이 맞는 요청 (합집합)
+  - 둘 다 체크          : 나에게 온 지정 견적 중 서비스·지역이 맞는 요청 (교집합)
   - isDesignated=false 는 기존대로 "나에게 지정되지 않은 요청만"이다.
 
   @ 지역 매칭
@@ -392,11 +392,6 @@ export const estimateRequestRepository = {
       estimates: { none: { moverId, isDesignated: true } },
     };
 
-    // 오픈 견적으로 보낼 수 있는 요청. 서비스 가능 지역 필터가 켜졌을 때만 서비스·지역을 건다.
-    const openRequest: Prisma.EstimateRequestWhereInput = isServiceArea
-      ? { AND: [hasOpenSlot, matchesServiceArea] }
-      : hasOpenSlot;
-
     /*
     @ 조건은 반드시 AND 배열로 합친다
 
@@ -431,16 +426,17 @@ export const estimateRequestRepository = {
     }
 
     if (isDesignated === true) {
-      // 지정 견적 체크 — 서비스 가능 지역도 체크했다면 지역이 맞는 요청을 합친다
-      conditions.push(
-        isServiceArea ? { OR: [designatedToMe, openRequest] } : designatedToMe
-      );
+      conditions.push(designatedToMe);
     } else if (isDesignated === false) {
       // 지정이 아닌 요청만
-      conditions.push(notDesignatedToMe, openRequest);
+      conditions.push(notDesignatedToMe, hasOpenSlot);
     } else {
       conditions.push({ OR: [designatedToMe, hasOpenSlot] });
-      if (isServiceArea) conditions.push(matchesServiceArea);
+    }
+
+    // 서비스 가능 지역 체크 — 지정 견적 체크와 함께면 교집합이 된다.
+    if (isServiceArea) {
+      conditions.push(matchesServiceArea);
     }
 
     return {

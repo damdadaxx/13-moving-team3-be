@@ -471,7 +471,7 @@
  *       | ☐ | ☐ | (없음) | 전체 요청 (서비스·지역 무관) |
  *       | ☑ | ☐ | `isDesignated=true` | 나에게 온 지정 견적 |
  *       | ☐ | ☑ | `isServiceArea=true` | 내 제공 서비스·서비스 지역에 맞는 요청 |
- *       | ☑ | ☑ | `isDesignated=true&isServiceArea=true` | 지정 견적 + 서비스·지역이 맞는 요청 (합집합) |
+ *       | ☑ | ☑ | `isDesignated=true&isServiceArea=true` | 나에게 온 지정 견적 중 서비스·지역이 맞는 요청 (교집합) |
  *
  *       ### 필터
  *       - `serviceTypes`/`regions`/`keyword` 는 지정 견적을 포함해 **모든 결과에 걸린다.**
@@ -530,7 +530,7 @@
  *         description: |
  *           `true` 면 나에게 온 지정 견적 요청만, `false` 면 지정이 아닌 요청만.
  *           생략하면 둘 다 조회한다.
- *           `isServiceArea=true` 와 같이 보내면 지정 견적 + 서비스·지역이 맞는 요청(합집합)이다.
+ *           `isServiceArea=true` 와 같이 보내면 지정 견적 중 서비스·지역이 맞는 요청만(교집합) 조회한다.
  *         schema:
  *           type: string
  *           enum: ['true', 'false']
