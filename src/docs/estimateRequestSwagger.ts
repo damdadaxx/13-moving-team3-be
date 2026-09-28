@@ -422,7 +422,9 @@
  *           description: 고객이 견적을 요청한 시각(createdAt).
  *         isDesignated:
  *           type: boolean
- *           description: 로그인한 기사님에게 온 지정 견적 요청인지 여부.
+ *           description: >
+ *             로그인한 기사님에게 온 지정 견적 요청인지 여부.
+ *             다른 기사님에게 지정된 요청은 false 로 내려간다.
  *         customer:
  *           $ref: '#/components/schemas/ReceivedRequestCustomer'
  *     ReceivedRequestList:
@@ -455,14 +457,25 @@
  *       - `status = PENDING` 이고 이사일이 아직 지나지 않은 요청
  *       - 내가 아직 응답하지 않은 요청 (PROPOSED/REJECTED 로 답하면 목록에서 사라진다)
  *       - 그리고 아래 둘 중 하나
- *         - **자격**: 요청의 serviceType 이 내 제공 서비스에 있고, 고객 지역이 내 서비스 지역에 있다
- *         - **지정**: 나에게 온 지정 견적이다 (자격과 무관하게 보인다)
+ *         - **지정**: 나에게 온 지정 견적이다
+ *         - **오픈**: 오픈 견적(지정이 아닌 견적)이 아직 5건 미만이다.
+ *           다른 기사님에게 지정된 요청이어도 보이며, 이때 `isDesignated` 는 false 다.
  *
- *       ### 자격과 필터의 차이
- *       - 자격은 기사님 프로필에서 나온다. "지정이 아닌 요청"을 볼 수 있는 범위를 정한다.
- *       - 필터(`serviceTypes`/`regions`/`keyword`)는 지정 견적을 포함해 **모든 결과에 걸린다.**
- *       - 프로필 밖의 값을 필터로 보내도 지정이 아닌 요청은 자격에서 걸리므로
- *         서비스 범위를 넘겨볼 수 없다. 나에게 온 지정 견적만 보이는 것은 정상이다.
+ *       ### 견적 상한
+ *       요청 1건당 지정 견적 최대 3건 + 오픈 견적 최대 5건(지정된 기사님 제외) = 최대 8건.
+ *       오픈 견적 5건이 다 찬 요청은 지정받은 기사님에게만 보인다.
+ *
+ *       ### 화면 체크박스 → 쿼리
+ *       | 지정 견적 요청 | 서비스 가능 지역 | 쿼리 | 결과 |
+ *       |---|---|---|---|
+ *       | ☐ | ☐ | (없음) | 전체 요청 (서비스·지역 무관) |
+ *       | ☑ | ☐ | `isDesignated=true` | 나에게 온 지정 견적 |
+ *       | ☐ | ☑ | `isServiceArea=true` | 내 제공 서비스·서비스 지역에 맞는 요청 |
+ *       | ☑ | ☑ | `isDesignated=true&isServiceArea=true` | 지정 견적 + 서비스·지역이 맞는 요청 (합집합) |
+ *
+ *       ### 필터
+ *       - `serviceTypes`/`regions`/`keyword` 는 지정 견적을 포함해 **모든 결과에 걸린다.**
+ *       - 기사님 프로필의 서비스·지역 매칭은 `isServiceArea=true` 일 때만 적용된다.
  *
  *       ### 커서 사용법
  *       첫 요청은 `cursor` 없이 보내고, 응답의 `nextCursor` 를 다음 요청의 `cursor` 로 넘긴다.
@@ -517,6 +530,17 @@
  *         description: |
  *           `true` 면 나에게 온 지정 견적 요청만, `false` 면 지정이 아닌 요청만.
  *           생략하면 둘 다 조회한다.
+ *           `isServiceArea=true` 와 같이 보내면 지정 견적 + 서비스·지역이 맞는 요청(합집합)이다.
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *       - in: query
+ *         name: isServiceArea
+ *         required: false
+ *         description: |
+ *           "서비스 가능 지역" 체크박스. `true` 면 내 제공 서비스·서비스 지역에 맞는 요청만 조회한다.
+ *           생략하거나 `false` 면 서비스·지역과 무관하게 전체 요청을 조회한다.
+ *           지역 매칭은 이사 출발/도착지가 아니라 고객 프로필의 지역 기준이다.
  *         schema:
  *           type: string
  *           enum: ['true', 'false']
