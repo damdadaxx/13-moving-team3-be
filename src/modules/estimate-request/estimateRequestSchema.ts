@@ -79,8 +79,7 @@ export const receivedSortBySchema = z
 
 - 목록을 좁히는 필터다. 지정 견적을 포함해 모든 결과에 걸린다.
 - 쿼리스트링은 `?regions=SEOUL,GYEONGGI` 와 `?regions=SEOUL&regions=GYEONGGI` 둘 다 받는다.
-- 프로필 밖의 값을 넣어도 지정이 아닌 요청은 자격(서비스·지역 매칭)에서 걸리므로
-  서비스 범위를 넘겨볼 수 없다. 나에게 온 지정 견적만 보이는 것은 정상이다.
+- 기사님 프로필의 서비스·지역 매칭은 이 필터가 아니라 isServiceArea 가 담당한다.
 */
 const splitCsv = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.flatMap((v) => String(v).split(','));
@@ -133,6 +132,14 @@ export const receivedRequestsQuerySchema = z.object({
   isDesignated: z
     .enum(['true', 'false'], {
       error: 'isDesignated는 true 또는 false여야 합니다.',
+    })
+    .transform((value) => value === 'true')
+    .optional(),
+  // 서비스 가능 지역 체크박스. true 일 때만 기사님 프로필의 서비스·지역으로 거른다.
+  // 생략하거나 false 면 서비스·지역과 무관하게 전체 요청을 보여준다.
+  isServiceArea: z
+    .enum(['true', 'false'], {
+      error: 'isServiceArea는 true 또는 false여야 합니다.',
     })
     .transform((value) => value === 'true')
     .optional(),

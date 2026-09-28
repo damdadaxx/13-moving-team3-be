@@ -248,12 +248,15 @@ export const estimateRequestService = {
   @ getReceivedRequests — 기사님이 받은 요청 목록
 
   - 기사님 프로필이 없으면 조회할 범위 자체가 없으므로 404 로 안내한다.
-  - 프로필 값(자격)과 쿼리 필터는 역할이 달라 섞지 않고 각각 repository 로 넘긴다.
-    자격은 "지정이 아닌 요청을 볼 수 있는가", 필터는 "지금 무엇을 보고 싶은가"다.
+  - 프로필 값과 쿼리 필터는 역할이 달라 섞지 않고 각각 repository 로 넘긴다.
+    프로필 값은 "서비스 가능 지역" 체크(isServiceArea) 때만 쓰이고,
+    필터는 "지금 무엇을 보고 싶은가"다.
   */
   async getReceivedRequests(moverId: string, query: ReceivedRequestsQuery) {
-    const scope =
-      await estimateRequestRepository.findMoverServiceScope(moverId);
+    const [scope, openFullRequestIds] = await Promise.all([
+      estimateRequestRepository.findMoverServiceScope(moverId),
+      estimateRequestRepository.findOpenFullRequestIds(),
+    ]);
 
     if (!scope) {
       throw new NotFoundError('기사님 프로필을 먼저 등록해 주세요.');
@@ -262,7 +265,7 @@ export const estimateRequestService = {
     /*
     @ 프로필 값과 쿼리 필터를 섞지 않는다
 
-    - 프로필 값(자격)은 그대로 넘긴다. 교집합을 내지 않는다.
+    - 프로필 값은 그대로 넘긴다. 교집합을 내지 않는다.
       교집합을 내면 필터 값에 따라 배열이 비고, 그때만 결과가 통째로 달라져
       같은 필터가 값에 따라 다르게 동작하게 된다.
     - 쿼리 필터는 repository 가 AND 로 붙인다. 지정 견적에도 똑같이 걸린다.
@@ -273,9 +276,11 @@ export const estimateRequestService = {
       moverId,
       profileServiceTypes: scope.serviceTypes.map((row) => row.serviceType),
       profileRegions: scope.serviceRegions.map((row) => row.region),
+      openFullRequestIds,
       filterServiceTypes: query.serviceTypes,
       filterRegions: query.regions,
       isDesignated: query.isDesignated,
+      isServiceArea: query.isServiceArea,
       keyword: query.keyword,
     });
 
