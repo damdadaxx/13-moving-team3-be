@@ -5,6 +5,7 @@ import { validate } from '../../middlewares/validation';
 import { getClientIp } from '../../utils/clientIp';
 import authController, { redirectSocialError } from './authController';
 import {
+  checkEmailSchema,
   loginSchema,
   signupSchema,
   socialStartQuerySchema,
@@ -80,6 +81,21 @@ const passwordRateLimit = createRateLimit(TEN_MINUTES_MS, 10, (req) =>
 
 // 회원가입 — 대량 계정 생성 방어
 const signupRateLimit = createRateLimit(ONE_HOUR_MS, 5, ipKey);
+
+// 이메일 중복 확인 — 한 IP 에서 이메일을 바꿔가며 가입 여부를 수집하는 것 방지
+const checkEmailRateLimit = createRateLimit(TEN_MINUTES_MS, 30, ipKey);
+
+/*
+@ 이메일 중복 확인
+- 회원가입 화면의 중복 확인 버튼이 사용한다. 가입 전 요청이라 authenticate 를 걸지 않는다.
+- POST 인 이유: 이메일이 쿼리스트링·접근 로그에 남지 않게 한다.
+*/
+router.post(
+  '/check-email',
+  checkEmailRateLimit,
+  validate(checkEmailSchema),
+  authController.checkEmail
+);
 
 router.post(
   '/signUp',

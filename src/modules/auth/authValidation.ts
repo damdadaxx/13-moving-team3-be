@@ -77,6 +77,19 @@ export const updatePasswordSchema = z.object(
   { error: '요청 본문이 올바르지 않습니다.' }
 );
 
+/*
+@ 이메일 중복 확인 (회원가입 화면의 중복 확인 버튼)
+- 같은 이메일이라도 role 이 다르면 가입할 수 있으므로 role 과 함께 확인한다
+- 회원가입 스키마와 같은 email/role 규칙을 재사용해 화면과 판정 기준을 맞춘다
+*/
+export const checkEmailSchema = z.object(
+  {
+    email: emailSchema,
+    role: roleSchema,
+  },
+  { error: '이메일과 role 이 필요합니다.' }
+);
+
 export const providerParamSchema = z.object({
   provider: z.enum(SOCIAL_PROVIDERS, {
     error: 'provider는 google, kakao, naver 중 하나여야 합니다.',
@@ -106,6 +119,7 @@ export const oauthStateSchema = z.object({
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
+export type CheckEmailInput = z.infer<typeof checkEmailSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;

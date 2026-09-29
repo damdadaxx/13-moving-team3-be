@@ -19,6 +19,7 @@ import {
 import { SocialProfile } from './authPassport';
 import authRepository, { PublicUser } from './authRepository';
 import {
+  CheckEmailInput,
   LoginInput,
   SignupInput,
   UpdateMeInput,
@@ -131,6 +132,19 @@ const isUniqueConflict = (error: unknown) =>
 // ────────────────────────────────────────────────
 
 const authService = {
+  /*
+  @ 이메일 사용 가능 여부 확인
+  - 회원가입 화면의 중복 확인 버튼이 사용한다.
+  - 가입 자체는 여전히 signUp 에서 다시 확인하므로, 확인과 가입 사이의 동시 가입도 막힌다.
+  */
+  async isEmailAvailable(input: CheckEmailInput): Promise<boolean> {
+    const existing = await authRepository.findByEmailAndRole(
+      input.email,
+      input.role
+    );
+    return existing === null;
+  },
+
   async signUp(input: SignupInput): Promise<AuthResult> {
     const existing = await authRepository.findByEmailAndRole(
       input.email,
