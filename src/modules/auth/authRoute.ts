@@ -1,9 +1,8 @@
-import { Request, Response, Router } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
-import { getClientIp } from '../../utils/clientIp';
 import authController, { redirectSocialError } from './authController';
+import { createRateLimit, ipKey, loginRateLimit } from './authRateLimit';
 import {
   checkEmailSchema,
   loginSchema,
@@ -15,38 +14,7 @@ import {
 
 const router = Router();
 
-// express-rate-limit 은 errorHandler를 거치지 않고 자체 429 응답한다.
-const rateLimitMessage = {
-  success: false,
-  error: {
-    code: 'TOO_MANY_REQUESTS',
-    message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
-  },
-};
-
 const TEN_MINUTES_MS = 10 * 60 * 1000;
-
-const createRateLimit = (
-  windowMs: number,
-  limit: number,
-  keyGenerator: (req: Request) => string,
-  handler?: (req: Request, res: Response) => void
-) =>
-  rateLimit({
-    windowMs,
-    limit,
-    keyGenerator,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: rateLimitMessage,
-    ...(handler && { handler }),
-  });
-
-/*
-@ 키
-- IP 는 프록시가 보낸 실제 사용자 IP (utils/clientIp.ts). ipKeyGenerator 는 IPv6 를 /56 단위로 묶는다
-*/
-const ipKey = (req: Request) => ipKeyGenerator(getClientIp(req));
 
 // 소셜 로그인 시작 — IP 단위. 브라우저 이동 흐름이라 429 JSON 대신 프론트 안내 페이지로 보낸다
 const socialRateLimit = createRateLimit(
@@ -80,10 +48,15 @@ router.post('/signUp', validate(signupSchema), authController.signUp);
 
 /*
 @ 로그인 시도 제한
-- IP 기반 제한은 없다. 비밀번호를 틀린 횟수는 계정(User.failedLoginAttempts)에 쌓이고,
-  10회를 넘기면 authService.login이 TooManyRequestsError(429)로 막는다 (계정당 잠금).
+- 계정(이메일+role) 단위다. IP 를 바꿔가며 시도해도 같은 계정이면 함께 센다 (authRateLimit.ts)
+- 30분 창에 비밀번호 10회 오류 → 429. 성공하면 컨트롤러가 카운트를 지운다
 */
-router.post('/login', validate(loginSchema), authController.login);
+router.post(
+  '/login',
+  loginRateLimit,
+  validate(loginSchema),
+  authController.login
+);
 
 // authenticate를 걸지 않는다: access 토큰이 만료돼도 로그아웃은 항상 성공해야 하며,
 // 서버 refreshToken 정리는 refresh 쿠키(+해시 일치)로 인가한다.

@@ -10,6 +10,7 @@ import {
 } from '../../utils/error';
 import { isSameSecret } from '../../utils/hash';
 import { isSocialConfigured, SocialProfile } from './authPassport';
+import { resetLoginRateLimit } from './authRateLimit';
 import authService from './authService';
 import {
   ACCESS_TOKEN_COOKIE,
@@ -164,6 +165,8 @@ const authController = {
   login: async (req: Request, res: Response) => {
     const input = getValidated<LoginInput>(req);
     const { user, accessToken, refreshToken } = await authService.login(input);
+    // 성공했으므로 그동안 쌓인 비밀번호 오류 횟수를 지운다 ("연속 실패 10회" 기준)
+    resetLoginRateLimit(req);
     setAuthCookies(res, accessToken, refreshToken);
     success(res, user);
   },

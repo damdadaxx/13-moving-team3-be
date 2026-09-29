@@ -93,35 +93,6 @@ const authRepository = {
       data: { password },
     });
   },
-
-  /*
-  @ 로그인 비밀번호 잠금
-  - registerFailedLogin: 이번 실패까지 포함한 시도 횟수를 반환한다. 임계값 도달 여부는 서비스가 판단한다.
-  - lockUntil: 임계값에 도달했을 때만 호출한다. 다음 창을 위해 카운트를 0으로 되돌린다.
-  - resetLoginLock: 로그인에 성공했을 때 호출한다.
-  */
-  async registerFailedLogin(id: string): Promise<number> {
-    const user = await prisma.user.update({
-      where: { id },
-      data: { failedLoginAttempts: { increment: 1 } },
-      select: { failedLoginAttempts: true },
-    });
-    return user.failedLoginAttempts;
-  },
-
-  lockUntil(id: string, until: Date) {
-    return prisma.user.update({
-      where: { id },
-      data: { failedLoginAttempts: 0, lockedUntil: until },
-    });
-  },
-
-  resetLoginLock(id: string) {
-    return prisma.user.update({
-      where: { id },
-      data: { failedLoginAttempts: 0, lockedUntil: null },
-    });
-  },
 };
 
 export default authRepository;
