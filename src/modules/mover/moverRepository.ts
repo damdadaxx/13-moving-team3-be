@@ -90,6 +90,7 @@ interface MoverListRow {
   nickname: string;
   careerMonths: number;
   shortIntro: string;
+  description: string;
   serviceTypes: ServiceType[];
   serviceRegions: Region[];
   averageRating: number;
@@ -396,6 +397,7 @@ const moverRepository = {
         mover."nickname",
         mover."careerMonths",
         mover."shortIntro",
+        mover."description",
 
         ARRAY(
           SELECT mover_service."serviceType"::text

@@ -51,12 +51,14 @@ const socialConfigs: Record<SocialProvider, ProviderConfig> = {
     authorizationParams: { prompt: 'select_account' },
   },
   // 카카오·네이버 동의 항목(이메일 등)은 각 콘솔에서 설정한다
+  // 인가 파라미터: 서비스 로그아웃 후에도 프로바이더 세션이 남아 바로 로그인되는 것을 막는다
   kakao: {
     authorizationUrl: 'https://kauth.kakao.com/oauth/authorize',
     tokenUrl: 'https://kauth.kakao.com/oauth/token',
     userInfoUrl: 'https://kapi.kakao.com/v2/user/me',
-    clientId: ENV.KAKAO_CLIENT_ID,
+    clientId: ENV.KAKAO_REST_API_KEY,
     clientSecret: ENV.KAKAO_CLIENT_SECRET,
+    authorizationParams: { prompt: 'select_account' },
   },
   naver: {
     authorizationUrl: 'https://nid.naver.com/oauth2.0/authorize',
@@ -64,6 +66,7 @@ const socialConfigs: Record<SocialProvider, ProviderConfig> = {
     userInfoUrl: 'https://openapi.naver.com/v1/nid/me',
     clientId: ENV.NAVER_CLIENT_ID,
     clientSecret: ENV.NAVER_CLIENT_SECRET,
+    authorizationParams: { auth_type: 'reauthenticate' },
   },
 };
 
