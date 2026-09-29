@@ -85,6 +85,10 @@ model User {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
+  // 로그인 비밀번호 잠금 (계정당). LOCAL 계정에만 의미가 있다
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
   customerProfile CustomerProfile?
   moverProfile    MoverProfile?
   notifications   Notification[]

@@ -5,6 +5,7 @@ import {
   BadRequestError,
   ConflictError,
   ForbiddenError,
+  TooManyRequestsError,
   UnauthorizedError,
 } from '../../utils/error';
 import {
@@ -14,6 +15,8 @@ import {
 } from '../../utils/hash';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
+  LOGIN_LOCK_DURATION_MS,
+  MAX_FAILED_LOGIN_ATTEMPTS,
   REFRESH_TOKEN_EXPIRES_IN,
 } from './authConstants';
 import { SocialProfile } from './authPassport';
@@ -186,9 +189,36 @@ const authService = {
       throw new UnauthorizedError('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
 
+    /*
+    @ 계정 잠금 (비밀번호 10회 오류)
+    - IP 를 바꿔가며 시도해도 같은 계정이면 막히도록 DB 에 저장된 값으로 판단한다.
+    - 잠긴 동안은 비밀번호를 검사조차 하지 않는다. 맞는 비밀번호를 우연히 넣어 뚫는 것도 막기 위함이다.
+    */
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      throw new TooManyRequestsError(
+        '비밀번호를 너무 많이 틀려 계정이 잠겼습니다. 잠시 후 다시 시도해 주세요.'
+      );
+    }
+
     const matches = await comparePassword(input.password, user.password);
     if (!matches) {
+      const attempts = await authRepository.registerFailedLogin(user.id);
+
+      if (attempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+        await authRepository.lockUntil(
+          user.id,
+          new Date(Date.now() + LOGIN_LOCK_DURATION_MS)
+        );
+        throw new TooManyRequestsError(
+          '비밀번호를 너무 많이 틀려 계정이 잠겼습니다. 잠시 후 다시 시도해 주세요.'
+        );
+      }
+
       throw new UnauthorizedError('이메일 또는 비밀번호가 올바르지 않습니다.');
+    }
+
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await authRepository.resetLoginLock(user.id);
     }
 
     return issueTokens(toPublicUser(user));

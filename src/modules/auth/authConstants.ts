@@ -18,3 +18,13 @@ export const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const OAUTH_STATE_COOKIE = 'oauthState';
 export const OAUTH_STATE_COOKIE_PATH = '/auth';
 export const OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
+
+/*
+@ 로그인 비밀번호 시도 제한 (계정당)
+- IP 가 바뀌어도 같은 계정이면 계속 세어야 하므로 DB(User.failedLoginAttempts)에 저장한다
+- 10회 연속으로 틀리면 30분 동안 그 계정으로는 비밀번호를 다시 확인하지 않고 즉시 막는다
+  (잠긴 동안은 맞는 비밀번호를 넣어도 풀리지 않는다 — 무차별 대입 중에 우연히 맞히는 것도 막기 위함)
+- 로그인에 성공하면 카운트를 0으로 되돌린다
+*/
+export const MAX_FAILED_LOGIN_ATTEMPTS = 10;
+export const LOGIN_LOCK_DURATION_MS = 30 * 60 * 1000;

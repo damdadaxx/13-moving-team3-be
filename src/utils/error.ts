@@ -84,3 +84,14 @@ export class BadRequestError extends AppError {
     this.name = 'BadRequestError';
   }
 }
+
+/**
+ * 429 - 요청이 너무 많거나(rate limit), 계정이 잠겼을 때
+ *  throw new TooManyRequestsError("비밀번호를 너무 많이 틀려 계정이 잠겼습니다.");
+ */
+export class TooManyRequestsError extends AppError {
+  constructor(message = '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.') {
+    super(message, 429);
+    this.name = 'TooManyRequestsError';
+  }
+}
