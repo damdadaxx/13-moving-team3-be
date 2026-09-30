@@ -3,9 +3,9 @@
 # 쿠키는 클라이언트가 쿠키 jar로 자동 관리한다(로그인 후 이어지는 요청에 자동 첨부).
 # VS Code REST Client는 setting `rest-client.rememberCookiesForSubsequentRequests: true`(기본값) 필요.
 
-@host = http://localhost:3000
-@email = tester@example.com
-@password = password123!
+@host = http://localhost:3001
+@email = customer@demo.kr
+@password = test1234!
 @role = CUSTOMER
 
 
