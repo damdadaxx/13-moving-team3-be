@@ -14,6 +14,7 @@ const reviewRepository = {
         select: {
           id: true,
           price: true,
+          isDesignated: true,
           mover: {
             select: {
               userId: true,

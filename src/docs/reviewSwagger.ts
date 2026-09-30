@@ -78,6 +78,10 @@
  *           type: integer
  *           nullable: true
  *           example: 310000
+ *         isDesignated:
+ *           type: boolean
+ *           description: 지정 견적 여부. true면 고객이 기사님을 지정해 요청한 견적이다.
+ *           example: true
  *         mover:
  *           $ref: '#/components/schemas/ReviewMoverSummary'
  *         estimateRequest:
@@ -109,9 +113,10 @@
  *     tags: [Review]
  *     summary: 내 완료 견적 목록 조회 (리뷰 작성/미작성)
  *     description: |
- *       로그인한 고객의 이사 완료(COMPLETED) 견적만 조회합니다.
+ *       로그인한 고객의 이사 완료(COMPLETED) 요청 중, 확정(ACCEPTED) 견적만 조회합니다.
  *       hasReview=true 이면 리뷰를 이미 작성한 견적만,
  *       false 이거나 생략하면 아직 리뷰를 쓰지 않은 견적만 반환합니다.
+ *       각 행의 isDesignated로 지정 견적 여부를 구분합니다.
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -183,6 +188,10 @@
  *         data:
  *           type: object
  *           properties:
+ *             moverNickname:
+ *               type: string
+ *               description: 기사님 닉네임
+ *               example: 김코드
  *             list:
  *               type: array
  *               items:

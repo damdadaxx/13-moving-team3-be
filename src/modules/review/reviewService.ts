@@ -5,6 +5,7 @@ import {
   NotFoundError,
 } from '../../utils/error';
 import { estimateRepository } from '../estimate/estimateRepository';
+import moverRepository from '../mover/moverRepository';
 import reviewRepository from './reviewRepository';
 import {
   CreateReviewInput,
@@ -41,7 +42,11 @@ const reviewService = {
   },
   getMoverReviews: async ({ moverId, page, pageSize }: GetMoverReviewsData) => {
     const where: Prisma.ReviewWhereInput = { moverId };
-
+    const mover = await moverRepository.findByUserId(moverId);
+    if (!mover) {
+      throw new NotFoundError('기사님을 찾을 수 없습니다.');
+    }
+    const moverNickname = mover.nickname;
     const [reviews, distribution, ratingInfo] = await Promise.all([
       reviewRepository.getMoverReviews({
         moverId,
@@ -61,6 +66,7 @@ const reviewService = {
 
     const totalPages = Math.ceil(reviewCount / pageSize);
     return {
+      moverNickname,
       list: reviews,
       ratingDistribution,
       ratingAvg,
