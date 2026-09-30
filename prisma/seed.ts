@@ -162,6 +162,11 @@ const DEMO = {
   rejectedEstimate: '40000000-0000-4000-8000-000000000904',
 } as const;
 
+/** 시연 기사님 지정/반려 전용 UUID 접두사 — 받은 요청 픽스처(1~16)와 겹치지 않습니다. */
+const DEMO_CUSTOMER_ID_PREFIX = '24000000-0000-4000-8000-';
+const DEMO_REQUEST_ID_PREFIX = '34000000-0000-4000-8000-';
+const DEMO_ESTIMATE_ID_PREFIX = '44000000-0000-4000-8000-';
+
 const CUSTOMER = {
   jimin: '20000000-0000-4000-8000-000000000001',
   sehun: '20000000-0000-4000-8000-000000000002',
@@ -1285,7 +1290,9 @@ const reviewPaginationRequests = Array.from(
           moverId: REVIEW_PAGINATION_MOVER_ID,
           price: 300000 + index * 10000,
           comment: paginationComments[index % paginationComments.length],
-          isDesignated: false,
+          // 작성 가능한 리뷰에서 지정 견적 태그를 보려면 리뷰 없는 건 1개가 필요하다.
+          // index 1은 리뷰를 달지 않는 홀수라, 목록 맨 앞에 지정 요청으로 나온다.
+          isDesignated: index === 1,
           status: 'ACCEPTED' as EstimateStatus,
           rejectReason: null,
           createdAt: days(-214 - index * 3),
@@ -1371,11 +1378,14 @@ const customerPaginationReviews = customerPaginationRequests
 
 // ---------------------------------------------------------------------------
 // 4-5. 시연용 일반회원의 진행 중 견적 요청
-//    "대기 중인 견적" 화면에 네 가지 상태가 한 번에 보이도록 구성합니다.
-//    - DESIGNATED : 시연용 기사회원에게 보낸 지정 요청 (기사님 응답 전)
-//                   → 시연용 기사회원의 "받은 요청"에도 지정 건으로 뜹니다.
-//    - PROPOSED 2 : 확정 버튼을 눌러 볼 수 있는 견적
-//    - REJECTED   : 기사님이 반려한 지정 요청
+//    "대기 중인 견적" 화면에 상태가 한 번에 보이도록 구성합니다.
+//    - DESIGNATED        : 시연용 기사회원에게 보낸 지정 요청 (기사님 응답 전)
+//                          → 시연용 기사회원의 "받은 요청"에도 지정 건으로 뜹니다.
+//    - PROPOSED + 지정   : 지정 요청에 기사님이 금액을 보낸 견적 (확정 가능)
+//    - PROPOSED          : 지정 없이 도착한 견적 (확정 가능)
+//    - REJECTED          : 기사님이 반려한 지정 요청
+//    지정 견적은 요청당 3건이라 이 요청은 상한까지 차 있습니다.
+//    여기서 지정 견적을 한 건 더 보내면 409가 납니다.
 // ---------------------------------------------------------------------------
 
 const demoActiveRequest = {
@@ -1405,8 +1415,8 @@ const demoActiveRequest = {
       moverId: MOVER.minjae,
       price: 390000,
       comment:
-        '2.5톤 차량 1대에 작업자 2명으로 진행합니다. 엘리베이터가 있어 사다리차는 필요 없습니다.',
-      isDesignated: false,
+        '지정 요청 기준으로 2.5톤 차량 1대, 작업자 2명입니다. 엘리베이터가 있어 사다리차는 필요 없습니다.',
+      isDesignated: true,
       status: 'PROPOSED' as EstimateStatus,
       rejectReason: null,
       createdAt: days(-1),
@@ -1436,12 +1446,107 @@ const demoActiveRequest = {
   ],
 };
 
+/*
+@ 시연 일반회원 이사 내역 — 만료
+- GET /estimate-requests/history 와 GET /estimates?status=closed 는
+  COMPLETED뿐 아니라 EXPIRED도 보여 준다. 4-3은 완료만 있어 만료 카드가 없었다.
+- 견적은 시연 기사님 앞으로 둬서 GET /estimates?status=EXPIRED 도 비지 않는다.
+*/
+const DEMO_EXPIRED_REQUEST_COUNT = 3;
+
+const DEMO_CLOSED_REQUEST_START_SEQUENCE =
+  CUSTOMER_REQUEST_START_SEQUENCE + EXTRA_CUSTOMER_COUNT;
+const DEMO_CLOSED_ESTIMATE_START_SEQUENCE =
+  CUSTOMER_ESTIMATE_START_SEQUENCE + EXTRA_CUSTOMER_COUNT;
+
+const demoExpiredRequests = Array.from(
+  { length: DEMO_EXPIRED_REQUEST_COUNT },
+  (_unusedRequest, index) => {
+    const route = paginationRoutes[index % paginationRoutes.length];
+
+    return {
+      id: seqId(
+        REQUEST_ID_PREFIX,
+        DEMO_CLOSED_REQUEST_START_SEQUENCE + index + 1
+      ),
+      customerId: DEMO.customer,
+      serviceType: route.serviceType,
+      moveDate: days(-6 - index * 5),
+      createdAt: days(-12 - index * 5),
+      status: 'EXPIRED' as EstimateRequestStatus,
+      departureZipCode: route.departureZipCode,
+      departureAddress: route.departureAddress,
+      arrivalZipCode: route.arrivalZipCode,
+      arrivalAddress: route.arrivalAddress,
+      estimates: [
+        {
+          id: seqId(
+            ESTIMATE_ID_PREFIX,
+            DEMO_CLOSED_ESTIMATE_START_SEQUENCE + index + 1
+          ),
+          moverId: DEMO.mover,
+          price: 330000 + index * 20000,
+          comment: paginationComments[index % paginationComments.length],
+          isDesignated: index === 0,
+          status: 'EXPIRED' as EstimateStatus,
+          rejectReason: null,
+          createdAt: days(-11 - index * 5),
+        },
+        ...(index === 0
+          ? [
+              {
+                id: seqId(
+                  ESTIMATE_ID_PREFIX,
+                  DEMO_CLOSED_ESTIMATE_START_SEQUENCE +
+                    DEMO_EXPIRED_REQUEST_COUNT +
+                    1
+                ),
+                moverId: MOVER.minjae,
+                price: 360000,
+                comment: paginationComments[1],
+                isDesignated: false,
+                status: 'EXPIRED' as EstimateStatus,
+                rejectReason: null,
+                createdAt: days(-11),
+              },
+            ]
+          : []),
+      ],
+    };
+  }
+);
+
+/** 완료 내역 3건에 탈락 견적을 붙여 받았던 견적에 NOT_SELECTED가 보이게 한다. */
+const lostMoverIds = [MOVER.minjae, MOVER.haneul, MOVER.seojun] as const;
+
+reviewPaginationRequests
+  .slice(0, lostMoverIds.length)
+  .forEach((request, index) => {
+    request.estimates.push({
+      id: seqId(
+        ESTIMATE_ID_PREFIX,
+        DEMO_CLOSED_ESTIMATE_START_SEQUENCE +
+          DEMO_EXPIRED_REQUEST_COUNT +
+          2 +
+          index
+      ),
+      moverId: lostMoverIds[index],
+      price: request.estimates[0].price + 50000,
+      comment: paginationComments[(index + 1) % paginationComments.length],
+      isDesignated: false,
+      status: 'NOT_SELECTED' as EstimateStatus,
+      rejectReason: null,
+      createdAt: request.estimates[0].createdAt,
+    });
+  });
+
 /** 위 고정 픽스처 + 페이지네이션용 데이터 + 시연용 데이터 */
 const allEstimateRequests = [
   ...estimateRequests,
   ...paginationRequests,
   ...reviewPaginationRequests,
   ...customerPaginationRequests,
+  ...demoExpiredRequests,
   demoActiveRequest,
 ];
 
@@ -1686,10 +1791,187 @@ const paginationReceivedFixtures = Array.from(
   }
 );
 
-/** 고정 픽스처 + 페이지네이션용 데이터 */
+/*
+@ 시연 기사님(mover@demo.kr) 지정 견적
+- 받은 요청 화면 기본 필터가 "지정 견적 요청만"이고 기본 size가 10이라,
+  시연 고객이 보낸 1건과 합쳐 11건이 넘어야 다음 페이지가 생깁니다.
+- 수도권 건은 기본 화면(지정 + 서비스 가능 지역)에 바로 보입니다.
+- 부산 1건은 서비스 지역 밖 지정 — "서비스 가능 지역" 체크를 끄면 나타납니다.
+*/
+const demoDesignatedFixtures = [
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 1),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 1),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 1),
+    name: '윤서아',
+    email: 'demo.designated1@example.com',
+    phoneNumber: '01066660001',
+    region: 'SEOUL',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(5),
+    createdAt: days(-1),
+    departureAddress: '서울특별시 강남구 테헤란로 152 1601호',
+    arrivalAddress: '서울특별시 마포구 월드컵북로 396 802호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 2),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 2),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 2),
+    name: '한지우',
+    email: 'demo.designated2@example.com',
+    phoneNumber: '01066660002',
+    region: 'GYEONGGI',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(10),
+    createdAt: days(-4),
+    departureAddress: '경기도 성남시 분당구 판교역로 166 101동 1203호',
+    arrivalAddress: '경기도 용인시 수지구 죽전로 152 203동 501호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 3),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 3),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 3),
+    name: '오세린',
+    email: 'demo.designated3@example.com',
+    phoneNumber: '01066660003',
+    region: 'INCHEON',
+    serviceType: 'OFFICE_MOVE',
+    moveDate: days(15),
+    createdAt: days(-3),
+    departureAddress: '인천광역시 연수구 컨벤시아대로 165 7층',
+    arrivalAddress: '인천광역시 서구 청라커낼로 250 4층',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 4),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 4),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 4),
+    name: '장도윤',
+    email: 'demo.designated4@example.com',
+    phoneNumber: '01066660004',
+    region: 'SEOUL',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(21),
+    createdAt: days(-6),
+    departureAddress: '서울특별시 송파구 올림픽로 300 21층',
+    arrivalAddress: '서울특별시 노원구 동일로 1234 505동 802호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    // 시연 기사님 서비스 지역(수도권) 밖 지정 — 지역 필터를 끄면 보입니다.
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 5),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 5),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 5),
+    name: '신태양',
+    email: 'demo.designated5@example.com',
+    phoneNumber: '01066660005',
+    region: 'BUSAN',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(8),
+    createdAt: days(-2),
+    departureAddress: '부산광역시 해운대구 해운대해변로 264 1203호',
+    arrivalAddress: '부산광역시 수영구 광안해변로 219 1801호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 6),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 6),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 6),
+    name: '권하준',
+    email: 'demo.designated6@example.com',
+    phoneNumber: '01066660006',
+    region: 'SEOUL',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(3),
+    createdAt: days(-11),
+    departureAddress: '서울특별시 마포구 양화로 45 302호',
+    arrivalAddress: '서울특별시 성동구 왕십리로 222 1104호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 7),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 7),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 7),
+    name: '황서윤',
+    email: 'demo.designated7@example.com',
+    phoneNumber: '01066660007',
+    region: 'GYEONGGI',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(13),
+    createdAt: days(-12),
+    departureAddress: '경기도 용인시 수지구 풍덕천로 100 203동 501호',
+    arrivalAddress: '경기도 화성시 동탄대로 500 105동 1203호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 8),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 8),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 8),
+    name: '안지호',
+    email: 'demo.designated8@example.com',
+    phoneNumber: '01066660008',
+    region: 'INCHEON',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(17),
+    createdAt: days(-13),
+    departureAddress: '인천광역시 부평구 부평대로 168 1502호',
+    arrivalAddress: '인천광역시 미추홀구 인하로 100 301호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 9),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 9),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 9),
+    name: '송예나',
+    email: 'demo.designated9@example.com',
+    phoneNumber: '01066660009',
+    region: 'SEOUL',
+    serviceType: 'OFFICE_MOVE',
+    moveDate: days(20),
+    createdAt: days(-14),
+    departureAddress: '서울특별시 중구 남대문로 63 8층',
+    arrivalAddress: '서울특별시 강남구 가로수길 43 2층',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 10),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 10),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 10),
+    name: '전민재',
+    email: 'demo.designated10@example.com',
+    phoneNumber: '01066660010',
+    region: 'GYEONGGI',
+    serviceType: 'SMALL_MOVE',
+    moveDate: days(26),
+    createdAt: days(-15),
+    departureAddress: '경기도 고양시 일산동구 중앙로 1275 401호',
+    arrivalAddress: '경기도 파주시 심학산로 300 102동 703호',
+    designatedTo: DEMO.mover,
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 15),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 15),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 15),
+    name: '홍수빈',
+    email: 'demo.designated11@example.com',
+    phoneNumber: '01066660011',
+    region: 'INCHEON',
+    serviceType: 'HOME_MOVE',
+    moveDate: days(28),
+    createdAt: days(-16),
+    departureAddress: '인천광역시 남동구 예술로 149 201동 1102호',
+    arrivalAddress: '인천광역시 중구 영종대로 106 508호',
+    designatedTo: DEMO.mover,
+  },
+] as const;
+
+/** 고정 픽스처 + 페이지네이션용 데이터 + 시연 기사님 지정 견적 */
 const allReceivedFixtures = [
   ...receivedFixtures,
   ...paginationReceivedFixtures,
+  ...demoDesignatedFixtures,
 ];
 
 async function seedReceivedFixtures() {
@@ -1730,6 +2012,9 @@ async function seedReceivedFixtures() {
               estimates: {
                 create: [
                   {
+                    ...('estimateId' in fixture
+                      ? { id: fixture.estimateId }
+                      : {}),
                     moverId: fixture.designatedTo,
                     isDesignated: true,
                     status: 'DESIGNATED',
@@ -1743,6 +2028,288 @@ async function seedReceivedFixtures() {
     });
 
     // PENDING 요청은 고객의 활성 요청으로 연결합니다.
+    await prisma.customerProfile.update({
+      where: { userId: fixture.customerId },
+      data: { activeEstimateRequestId: fixture.requestId },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4-1-2. 시연 기사님 반려 요청 (GET /estimates?status=REJECTED)
+//    같은 요청에 DESIGNATED와 REJECTED를 같이 달 수 없어(견적 unique:
+//    estimateRequestId + moverId) 고객을 따로 만듭니다.
+// ---------------------------------------------------------------------------
+
+const demoRejectedFixtures = [
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 11),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 11),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 11),
+    name: '문가은',
+    email: 'demo.rejected1@example.com',
+    phoneNumber: '01055550001',
+    region: 'SEOUL',
+    serviceType: 'SMALL_MOVE' as const,
+    moveDate: days(7),
+    createdAt: days(-5),
+    departureAddress: '서울특별시 중구 세종대로 110 3층',
+    arrivalAddress: '서울특별시 강남구 가로수길 5 201호',
+    rejectReason: '해당 날짜에 이미 확정된 이사 일정이 있어 어렵습니다.',
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 12),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 12),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 12),
+    name: '배진아',
+    email: 'demo.rejected2@example.com',
+    phoneNumber: '01055550002',
+    region: 'GYEONGGI',
+    serviceType: 'HOME_MOVE' as const,
+    moveDate: days(12),
+    createdAt: days(-8),
+    departureAddress: '경기도 고양시 일산동구 중앙로 1275 401호',
+    arrivalAddress: '경기도 파주시 심학산로 300 102동 703호',
+    rejectReason: '출발지 주정차가 어려워 이번 건은 진행이 어렵습니다.',
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 13),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 13),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 13),
+    name: '서하린',
+    email: 'demo.rejected3@example.com',
+    phoneNumber: '01055550003',
+    region: 'INCHEON',
+    serviceType: 'OFFICE_MOVE' as const,
+    moveDate: days(18),
+    createdAt: days(-3),
+    departureAddress: '인천광역시 남동구 예술로 149 8층',
+    arrivalAddress: '인천광역시 연수구 송도과학로 32 12층',
+    rejectReason: '사무실 이전 인력 일정이 겹쳐 요청하신 날짜는 어렵습니다.',
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 14),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 14),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 14),
+    name: '최나현',
+    email: 'demo.rejected4@example.com',
+    phoneNumber: '01055550004',
+    region: 'SEOUL',
+    serviceType: 'HOME_MOVE' as const,
+    moveDate: days(24),
+    createdAt: days(-6),
+    departureAddress: '서울특별시 서대문구 연희로 25 401호',
+    arrivalAddress: '서울특별시 성동구 왕십리로 222 1104호',
+    rejectReason: '고층 사다리차 예약이 어려워 해당 일정은 진행할 수 없습니다.',
+  },
+] as const;
+
+async function seedDemoRejectedFixtures() {
+  for (const fixture of demoRejectedFixtures) {
+    await prisma.user.create({
+      data: {
+        id: fixture.customerId,
+        name: fixture.name,
+        email: fixture.email,
+        phoneNumber: fixture.phoneNumber,
+        password: getSeedPasswordHash(),
+        role: 'CUSTOMER',
+        provider: 'LOCAL',
+        customerProfile: {
+          create: {
+            region: fixture.region,
+            serviceTypes: { create: [{ serviceType: fixture.serviceType }] },
+          },
+        },
+      },
+    });
+
+    await prisma.estimateRequest.create({
+      data: {
+        id: fixture.requestId,
+        customerId: fixture.customerId,
+        serviceType: fixture.serviceType,
+        moveDate: fixture.moveDate,
+        createdAt: fixture.createdAt,
+        status: 'PENDING',
+        departureZipCode: '06236',
+        departureAddress: fixture.departureAddress,
+        arrivalZipCode: '03923',
+        arrivalAddress: fixture.arrivalAddress,
+        estimates: {
+          create: [
+            {
+              id: fixture.estimateId,
+              moverId: DEMO.mover,
+              isDesignated: true,
+              status: 'REJECTED',
+              rejectReason: fixture.rejectReason,
+              createdAt: fixture.createdAt,
+            },
+          ],
+        },
+      },
+    });
+
+    await prisma.customerProfile.update({
+      where: { userId: fixture.customerId },
+      data: { activeEstimateRequestId: fixture.requestId },
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 4-1-4. 시연 기사님 보낸 견적 — 이사 완료가 아닌 건
+//    GET /estimates?status=PROPOSED,ACCEPTED,NOT_SELECTED
+//    4-3 블록은 전부 과거 이사(COMPLETED)라 보낸 견적 조회에 완료 카드만 보입니다.
+//    PENDING / CONFIRMED 는 고객당 1건이라 고객을 따로 만듭니다.
+//    이사일은 오늘 이후여야 마감 잡이 COMPLETED / EXPIRED 로 바꾸지 않습니다.
+// ---------------------------------------------------------------------------
+
+const demoSentFixtures = [
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 21),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 21),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 21),
+    name: '강민서',
+    email: 'demo.sent1@example.com',
+    phoneNumber: '01044440001',
+    region: 'SEOUL' as const,
+    serviceType: 'SMALL_MOVE' as const,
+    moveDate: days(6),
+    createdAt: days(-1),
+    departureAddress: '서울특별시 중구 세종대로 110 3층',
+    arrivalAddress: '서울특별시 강남구 가로수길 5 201호',
+    requestStatus: 'PENDING' as const,
+    estimateStatus: 'PROPOSED' as const,
+    isDesignated: false,
+    price: 320000,
+    comment:
+      '원룸 기준 2.5톤 차량 1대로 진행합니다. 엘리베이터가 있어 사다리차는 필요 없습니다.',
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 22),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 22),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 22),
+    name: '노유진',
+    email: 'demo.sent2@example.com',
+    phoneNumber: '01044440002',
+    region: 'GYEONGGI' as const,
+    serviceType: 'HOME_MOVE' as const,
+    moveDate: days(11),
+    createdAt: days(-2),
+    departureAddress: '경기도 성남시 분당구 판교역로 235 102동 1503호',
+    arrivalAddress: '경기도 수원시 영통구 광교중앙로 145 305동 802호',
+    requestStatus: 'PENDING' as const,
+    estimateStatus: 'PROPOSED' as const,
+    isDesignated: true,
+    price: 780000,
+    comment: '지정 요청 기준으로 쓰리룸, 작업자 3명으로 진행합니다.',
+  },
+  {
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 23),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 23),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 23),
+    name: '임하늘',
+    email: 'demo.sent3@example.com',
+    phoneNumber: '01044440003',
+    region: 'INCHEON' as const,
+    serviceType: 'OFFICE_MOVE' as const,
+    // 내일이어야 시연 기사님 MOVE_DAY 알림 문구(내일)와 이사일이 맞습니다.
+    moveDate: days(1),
+    createdAt: days(-4),
+    departureAddress: '인천광역시 연수구 컨벤시아대로 165 7층',
+    arrivalAddress: '인천광역시 서구 청라커낼로 250 4층',
+    requestStatus: 'CONFIRMED' as const,
+    estimateStatus: 'ACCEPTED' as const,
+    isDesignated: false,
+    price: 1450000,
+    comment: '사무실 집기 분해·조립까지 포함한 금액입니다.',
+  },
+  {
+    // 다른 기사님 견적이 확정되어 탈락. 이사일이 남아서 완료 오버레이 대상이 아닙니다.
+    customerId: seqId(DEMO_CUSTOMER_ID_PREFIX, 24),
+    requestId: seqId(DEMO_REQUEST_ID_PREFIX, 24),
+    estimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 24),
+    winnerEstimateId: seqId(DEMO_ESTIMATE_ID_PREFIX, 25),
+    name: '조시우',
+    email: 'demo.sent4@example.com',
+    phoneNumber: '01044440004',
+    region: 'SEOUL' as const,
+    serviceType: 'HOME_MOVE' as const,
+    moveDate: days(22),
+    createdAt: days(-3),
+    departureAddress: '서울특별시 송파구 올림픽로 300 21층',
+    arrivalAddress: '서울특별시 노원구 동일로 1234 505동 802호',
+    requestStatus: 'CONFIRMED' as const,
+    estimateStatus: 'NOT_SELECTED' as const,
+    isDesignated: false,
+    price: 860000,
+    comment: '가전 포장 포함, 작업자 3명 기준입니다.',
+  },
+] as const;
+
+async function seedDemoSentEstimates() {
+  for (const fixture of demoSentFixtures) {
+    await prisma.user.create({
+      data: {
+        id: fixture.customerId,
+        name: fixture.name,
+        email: fixture.email,
+        phoneNumber: fixture.phoneNumber,
+        password: getSeedPasswordHash(),
+        role: 'CUSTOMER',
+        provider: 'LOCAL',
+        customerProfile: {
+          create: {
+            region: fixture.region,
+            serviceTypes: { create: [{ serviceType: fixture.serviceType }] },
+          },
+        },
+      },
+    });
+
+    await prisma.estimateRequest.create({
+      data: {
+        id: fixture.requestId,
+        customerId: fixture.customerId,
+        serviceType: fixture.serviceType,
+        moveDate: fixture.moveDate,
+        createdAt: fixture.createdAt,
+        status: fixture.requestStatus,
+        departureZipCode: '04524',
+        departureAddress: fixture.departureAddress,
+        arrivalZipCode: '06236',
+        arrivalAddress: fixture.arrivalAddress,
+        estimates: {
+          create: [
+            {
+              id: fixture.estimateId,
+              moverId: DEMO.mover,
+              price: fixture.price,
+              comment: fixture.comment,
+              isDesignated: fixture.isDesignated,
+              status: fixture.estimateStatus,
+              createdAt: fixture.createdAt,
+            },
+            ...('winnerEstimateId' in fixture
+              ? [
+                  {
+                    id: fixture.winnerEstimateId,
+                    moverId: MOVER.minjae,
+                    price: fixture.price - 40000,
+                    comment: '같은 일정으로 진행 가능합니다.',
+                    isDesignated: false,
+                    status: 'ACCEPTED' as const,
+                    createdAt: fixture.createdAt,
+                  },
+                ]
+              : []),
+          ],
+        },
+      },
+    });
+
     await prisma.customerProfile.update({
       where: { userId: fixture.customerId },
       data: { activeEstimateRequestId: fixture.requestId },
@@ -2004,6 +2571,22 @@ const demoNotifications = [
     createdAt: days(-1),
   },
   {
+    userId: DEMO.customer,
+    type: 'ESTIMATE_CONFIRMED' as NotificationType,
+    content: notificationMessage.estimateConfirmed(demoMover.name, 'mover'),
+    targetPath: reviewPaginationRequests[0].estimates[0].id,
+    isRead: false,
+    createdAt: days(-3),
+  },
+  {
+    userId: DEMO.customer,
+    type: 'ESTIMATE_CONFIRMED' as NotificationType,
+    content: notificationMessage.estimateConfirmed(demoMover.name, 'mover'),
+    targetPath: reviewPaginationRequests[2].estimates[0].id,
+    isRead: true,
+    createdAt: days(-40),
+  },
+  {
     userId: DEMO.mover,
     type: 'NEW_REQUEST' as NotificationType,
     content: notificationMessage.newRequest(demoCustomer.name, 'SMALL_MOVE'),
@@ -2011,12 +2594,58 @@ const demoNotifications = [
     isRead: false,
     createdAt: days(-2),
   },
+  {
+    userId: DEMO.mover,
+    type: 'ESTIMATE_CONFIRMED' as NotificationType,
+    content: notificationMessage.estimateConfirmed('임하늘', 'customer'),
+    targetPath: seqId(DEMO_ESTIMATE_ID_PREFIX, 23),
+    isRead: false,
+    createdAt: days(-3),
+  },
+  {
+    userId: DEMO.mover,
+    type: 'ESTIMATE_CONFIRMED' as NotificationType,
+    content: notificationMessage.estimateConfirmed(
+      demoCustomer.name,
+      'customer'
+    ),
+    targetPath: reviewPaginationRequests[0].estimates[0].id,
+    isRead: true,
+    createdAt: days(-200),
+  },
+  {
+    userId: DEMO.mover,
+    type: 'MOVE_DAY' as NotificationType,
+    content: notificationMessage.moveDay(
+      '내일',
+      notificationMessage.toMoveDayPlace(
+        '인천광역시 연수구 컨벤시아대로 165 7층'
+      ),
+      notificationMessage.toMoveDayPlace('인천광역시 서구 청라커낼로 250 4층')
+    ),
+    targetPath: seqId(DEMO_ESTIMATE_ID_PREFIX, 23),
+    isRead: false,
+    createdAt: days(0),
+  },
 ];
+
+/** 지정 견적 요청마다 기사님 NEW_REQUEST — 알림 목록이 한 페이지(10건)를 넘기게 합니다. */
+const demoMoverRequestNotifications = demoDesignatedFixtures.map(
+  (fixture, index) => ({
+    userId: DEMO.mover,
+    type: 'NEW_REQUEST' as NotificationType,
+    content: notificationMessage.newRequest(fixture.name, fixture.serviceType),
+    targetPath: fixture.estimateId,
+    isRead: index % 4 === 0,
+    createdAt: fixture.createdAt,
+  })
+);
 
 const allNotifications = [
   ...notifications,
   ...paginationNotifications,
   ...demoNotifications,
+  ...demoMoverRequestNotifications,
 ];
 
 async function seedNotifications() {
@@ -2046,6 +2675,12 @@ async function main() {
   console.log('받은 요청 목록용 데이터 생성 중...');
   await seedReceivedFixtures();
 
+  console.log('시연 기사님 반려 요청 생성 중...');
+  await seedDemoRejectedFixtures();
+
+  console.log('시연 기사님 보낸 견적(이사 전) 생성 중...');
+  await seedDemoSentEstimates();
+
   console.log('리뷰 생성 중...');
   await seedReviews();
 
@@ -2067,9 +2702,10 @@ async function main() {
   console.log(
     [
       '시드 완료',
-      `- 기사님 ${allMovers.length}명 / 일반 유저 ${allCustomers.length + allReceivedFixtures.length}명`,
-      `- 견적 요청 ${allEstimateRequests.length + allReceivedFixtures.length}건 / 견적 ${estimateCount + designatedCount}건`,
+      `- 기사님 ${allMovers.length}명 / 일반 유저 ${allCustomers.length + allReceivedFixtures.length + demoRejectedFixtures.length + demoSentFixtures.length}명`,
+      `- 견적 요청 ${allEstimateRequests.length + allReceivedFixtures.length + demoRejectedFixtures.length + demoSentFixtures.length}건 / 견적 ${estimateCount + designatedCount + demoRejectedFixtures.length + demoSentFixtures.length + 1}건`,
       `- 받은 요청 목록용 PENDING ${allReceivedFixtures.length}건 (지정 ${designatedCount}건)`,
+      `- 시연 기사님 지정 견적 ${demoDesignatedFixtures.length + 1}건 / 반려 요청 ${demoRejectedFixtures.length}건 / 보낸 견적(이사 전) ${demoSentFixtures.length}건`,
       `- 리뷰 ${allReviews.length}건 / 찜 ${allLikes.length}건 / 알림 ${allNotifications.length}건`,
       `- 로컬 계정 공통 비밀번호: ${SEED_PASSWORD}`,
       '',

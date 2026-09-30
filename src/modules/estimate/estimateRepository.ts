@@ -54,14 +54,12 @@ export const estimateRepository = {
   // 상한 초과 시 ConflictError를 던져 생성을 롤백하려고 count와 create를 트랜잭션으로 묶는다.
   // 같은 요청에 이미 견적이 있으면(지정 포함) @@unique([estimateRequestId, moverId])에 걸려
   // P2002가 발생한다. -> service에서 409로 변환
-  createGeneral: ({
-    estimateRequestId,
-    moverId,
-    price,
-    comment,
-  }: CreateGeneralEstimateInput) => {
-    return prisma.$transaction(async (tx) => {
-      const generalCount = await tx.estimate.count({
+  createGeneral: (
+    { estimateRequestId, moverId, price, comment }: CreateGeneralEstimateInput,
+    tx?: Prisma.TransactionClient
+  ) => {
+    const run = async (client: Prisma.TransactionClient) => {
+      const generalCount = await client.estimate.count({
         where: { estimateRequestId, isDesignated: false },
       });
 
@@ -71,7 +69,7 @@ export const estimateRepository = {
         );
       }
 
-      return tx.estimate.create({
+      return client.estimate.create({
         data: {
           estimateRequestId,
           moverId,
@@ -80,8 +78,18 @@ export const estimateRepository = {
           isDesignated: false,
           status: 'PROPOSED',
         },
+        include: {
+          mover: {
+            select: {
+              user: { select: { name: true } },
+            },
+          },
+        },
       });
-    });
+    };
+
+    if (tx) return run(tx);
+    return prisma.$transaction((client) => run(client));
   },
 
   // 견적 확정: 해당 견적은 ACCEPTED, 같은 요청의 나머지 PROPOSED 견적은 NOT_SELECTED,

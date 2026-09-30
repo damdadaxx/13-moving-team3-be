@@ -128,12 +128,31 @@ export const estimateService = {
     }
 
     try {
-      const estimate = await estimateRepository.createGeneral({
-        estimateRequestId,
-        moverId,
-        price,
-        comment,
-      });
+      const { estimate, notifications } = await prisma.$transaction(
+        async (tx) => {
+          const estimate = await estimateRepository.createGeneral(
+            { estimateRequestId, moverId, price, comment },
+            tx
+          );
+
+          const notification = await notificationService.create(
+            {
+              userId: estimateRequest.customerId,
+              type: 'NEW_ESTIMATE',
+              content: notificationMessage.newEstimate(
+                estimate.mover.user.name,
+                estimateRequest.serviceType
+              ),
+              targetPath: estimate.id,
+            },
+            tx
+          );
+
+          return { estimate, notifications: [notification] };
+        }
+      );
+
+      await notificationService.publishCreated(notifications);
 
       return {
         estimateId: estimate.id,
