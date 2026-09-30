@@ -135,17 +135,12 @@ export const estimateService = {
             tx
           );
 
-          const mover = await tx.user.findUniqueOrThrow({
-            where: { id: moverId },
-            select: { name: true },
-          });
-
           const notification = await notificationService.create(
             {
               userId: estimateRequest.customerId,
               type: 'NEW_ESTIMATE',
               content: notificationMessage.newEstimate(
-                mover.name,
+                estimate.mover.user.name,
                 estimateRequest.serviceType
               ),
               targetPath: estimate.id,

@@ -77,6 +77,13 @@ export const estimateRepository = {
           isDesignated: false,
           status: 'PROPOSED',
         },
+        include: {
+          mover: {
+            select: {
+              user: { select: { name: true } },
+            },
+          },
+        },
       });
     };
 
