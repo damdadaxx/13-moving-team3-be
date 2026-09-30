@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import { Prisma, Region, ServiceType } from '../../generated/prisma/client';
 import { ConflictError } from '../../utils/error';
 import { buildCursorArgs } from '../../utils/cursorPagination';
+import { GENERAL_LIMIT } from '../estimate/estimateRepository';
 import type { ReceivedRequestsQuery } from './estimateRequestSchema';
 
 /** 커서 페이지네이션 기본 페이지 크기 */
@@ -323,8 +324,18 @@ export const estimateRequestRepository = {
     (DESIGNATED 는 "요청받았지만 아직 응답 전" 이므로 남는다)
 
   노출 조건 — 아래 둘 중 하나
-  - 서비스·지역이 맞는 요청 : serviceType 이 제공 서비스에 있고, 고객 지역이 서비스 지역에 있다
-  - 나에게 온 지정 견적     : 고객이 콕 집어 요청한 것이므로 서비스·지역 밖이어도 보여준다
+  - 나에게 온 지정 견적 (designatedToMe)
+    오픈 견적 상한과 무관하다 (지정 3건 + 오픈 5건 = 요청당 최대 8건)
+  - 오픈 견적 자리가 남은 요청 (hasOpenSlot)
+    다른 기사님에게 지정된 요청이어도 보여준다. 오픈 견적(isDesignated=false)이
+    GENERAL_LIMIT 건 다 찬 요청은 더 보낼 수 없으므로 뺀다 (openFullRequestIds)
+
+  @ 화면 체크박스 → 쿼리
+  - 둘 다 해제          : 전체 (서비스·지역 무관)
+  - 지정 견적 요청만    : isDesignated=true  → 나에게 온 지정 견적
+  - 서비스 가능 지역만  : isServiceArea=true → 서비스·지역이 맞는 요청만
+  - 둘 다 체크          : 나에게 온 지정 견적 + 서비스·지역이 맞는 요청 (합집합)
+  - isDesignated=false 는 기존대로 "나에게 지정되지 않은 요청만"이다.
 
   @ 지역 매칭
   - EstimateRequest 에는 지역 컬럼이 없어 customer.region(고객 프로필 지역)으로 매칭한다.
@@ -336,33 +347,33 @@ export const estimateRequestRepository = {
     profileRegions,
     filterServiceTypes,
     filterRegions,
+    openFullRequestIds,
     isDesignated,
+    isServiceArea,
     keyword,
     now = new Date(),
   }: {
     moverId: string;
-    /** 자격 — 기사님 프로필의 제공 서비스·서비스 지역 */
+    /** 기사님 프로필의 제공 서비스·서비스 지역 (isServiceArea 일 때만 쓴다) */
     profileServiceTypes: ServiceType[];
     profileRegions: Region[];
+    /** 오픈 견적이 상한까지 찬 요청 id (findOpenFullRequestIds) */
+    openFullRequestIds: string[];
     /** 필터 — 기사님이 쿼리로 고른 값 */
     filterServiceTypes?: ServiceType[];
     filterRegions?: Region[];
     isDesignated?: boolean;
+    isServiceArea?: boolean;
     keyword?: string;
     now?: Date;
   }): Prisma.EstimateRequestWhereInput {
-    /*
-    @ 자격(matchesServiceArea)과 필터를 분리하는 이유
-
-    - 자격은 "지정이 아닌 요청을 볼 수 있는가"라 OR 의 한쪽 팔에만 들어간다.
-    - 필터를 여기에 같이 넣으면 OR 의 다른 팔(designatedToMe)로 통과하는
-      지정 견적이 필터를 통째로 우회한다. 필터는 AND 로 뺀다.
-    - 자격에는 프로필 값만 쓴다. 필터로 프로필 밖 값을 보내도 지정이 아닌 요청은
-      여기서 걸리므로 서비스 범위를 넘겨볼 수 없다.
-    */
     const matchesServiceArea: Prisma.EstimateRequestWhereInput = {
       serviceType: { in: profileServiceTypes },
       customer: { region: { in: profileRegions } },
+    };
+
+    const hasOpenSlot: Prisma.EstimateRequestWhereInput = {
+      id: { notIn: openFullRequestIds },
     };
 
     const designatedToMe: Prisma.EstimateRequestWhereInput = {
@@ -381,10 +392,10 @@ export const estimateRequestRepository = {
       estimates: { none: { moverId, isDesignated: true } },
     };
 
-    const base: Prisma.EstimateRequestWhereInput = {
-      status: 'PENDING',
-      moveDate: { gt: now },
-    };
+    // 오픈 견적으로 보낼 수 있는 요청. 서비스 가능 지역 필터가 켜졌을 때만 서비스·지역을 건다.
+    const openRequest: Prisma.EstimateRequestWhereInput = isServiceArea
+      ? { AND: [hasOpenSlot, matchesServiceArea] }
+      : hasOpenSlot;
 
     /*
     @ 조건은 반드시 AND 배열로 합친다
@@ -420,24 +431,43 @@ export const estimateRequestRepository = {
     }
 
     if (isDesignated === true) {
-      // 지정 견적만 — 서비스·지역과 무관하게 나에게 지정된 것
-      return { ...base, AND: [...conditions, designatedToMe] };
-    }
-
-    if (isDesignated === false) {
+      // 지정 견적 체크 — 서비스 가능 지역도 체크했다면 지역이 맞는 요청을 합친다
+      conditions.push(
+        isServiceArea ? { OR: [designatedToMe, openRequest] } : designatedToMe
+      );
+    } else if (isDesignated === false) {
       // 지정이 아닌 요청만
-      return {
-        ...base,
-        ...matchesServiceArea,
-        AND: [...conditions, notDesignatedToMe],
-      };
+      conditions.push(notDesignatedToMe, openRequest);
+    } else {
+      conditions.push({ OR: [designatedToMe, hasOpenSlot] });
+      if (isServiceArea) conditions.push(matchesServiceArea);
     }
 
     return {
-      ...base,
+      status: 'PENDING',
+      moveDate: { gt: now },
       AND: conditions,
-      OR: [matchesServiceArea, designatedToMe],
     };
+  },
+
+  /*
+  @ findOpenFullRequestIds
+
+  - 오픈 견적(isDesignated=false)이 GENERAL_LIMIT 건 이상 들어온, 아직 열려 있는 요청 id.
+  - 관계 개수로는 where 를 걸 수 없어 groupBy + having 으로 먼저 구한다.
+  - 지정 견적은 세지 않는다. 지정 기사님은 이 목록과 무관하게 designatedToMe 로 본다.
+  */
+  async findOpenFullRequestIds(now = new Date()) {
+    const rows = await prisma.estimate.groupBy({
+      by: ['estimateRequestId'],
+      where: {
+        isDesignated: false,
+        estimateRequest: { status: 'PENDING', moveDate: { gt: now } },
+      },
+      having: { estimateRequestId: { _count: { gte: GENERAL_LIMIT } } },
+    });
+
+    return rows.map((row) => row.estimateRequestId);
   },
 
   /*

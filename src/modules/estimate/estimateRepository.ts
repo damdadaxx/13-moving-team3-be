@@ -4,7 +4,8 @@ import { ConflictError } from '../../utils/error';
 
 // 견적 요청 1건당 지정 없이(일반) 보낼 수 있는 견적 수 상한.
 // 지정 견적(DESIGNATED) 상한은 estimate-request/estimateRequestRepository.ts의 DESIGNATED_LIMIT.
-const GENERAL_LIMIT = 5;
+// 받은 요청 목록에서 오픈 견적이 다 찬 요청을 숨길 때도 같은 값을 쓴다.
+export const GENERAL_LIMIT = 5;
 
 export type CreateGeneralEstimateInput = Pick<
   Prisma.EstimateUncheckedCreateInput,
