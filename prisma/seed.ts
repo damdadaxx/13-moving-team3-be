@@ -1290,7 +1290,9 @@ const reviewPaginationRequests = Array.from(
           moverId: REVIEW_PAGINATION_MOVER_ID,
           price: 300000 + index * 10000,
           comment: paginationComments[index % paginationComments.length],
-          isDesignated: false,
+          // 작성 가능한 리뷰에서 지정 견적 태그를 보려면 리뷰 없는 건 1개가 필요하다.
+          // index 1은 리뷰를 달지 않는 홀수라, 목록 맨 앞에 지정 요청으로 나온다.
+          isDesignated: index === 1,
           status: 'ACCEPTED' as EstimateStatus,
           rejectReason: null,
           createdAt: days(-214 - index * 3),
