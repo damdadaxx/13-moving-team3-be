@@ -75,3 +75,34 @@ export const loginRateLimit = createRateLimit(
 export const resetLoginRateLimit = (req: Request) => {
   loginRateLimit.resetKey(getLoginRateLimitKey(req));
 };
+
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+
+/*
+@ 이메일 인증 요청 제한 키 (계정당)
+- IP 가 아니라 이메일+role 로 센다. 인증번호 발송·확인 모두 같은 기준을 쓴다
+*/
+const getEmailVerificationRateLimitKey = (req: Request) => {
+  const { email, role } = (req.body ?? {}) as Record<string, unknown>;
+  const normalizedEmail =
+    typeof email === 'string' ? email.trim().toLowerCase().slice(0, 100) : '';
+  const normalizedRole = typeof role === 'string' ? role : '';
+  return `email-verification:${normalizedRole}:${normalizedEmail}`;
+};
+
+// 이메일 인증번호 발송 — 메일 비용·스팸 방지
+export const emailVerificationRateLimit = createRateLimit(
+  TEN_MINUTES_MS,
+  5,
+  getEmailVerificationRateLimitKey
+);
+
+/*
+@ 인증번호 확인 — 서명 토큰 방식이라 서버가 시도 횟수를 세지 못한다.
+   6자리를 찍어 맞히는 것을 막는 방어는 이 rate limit 이 전담한다.
+*/
+export const confirmEmailRateLimit = createRateLimit(
+  TEN_MINUTES_MS,
+  10,
+  getEmailVerificationRateLimitKey
+);

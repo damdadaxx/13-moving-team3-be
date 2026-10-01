@@ -23,11 +23,12 @@ import {
   REFRESH_TOKEN_MAX_AGE_MS,
 } from './authConstants';
 import {
-  CheckEmailInput,
+  ConfirmEmailInput,
   LoginInput,
   OAuthState,
   oauthStateSchema,
   providerParamSchema,
+  SendEmailCodeInput,
   SignupInput,
   SocialStartQuery,
   UpdateMeInput,
@@ -144,22 +145,31 @@ const getUserId = (req: Request) => {
 };
 
 const authController = {
-  /*
-  @ 이메일 중복 확인
-  - 회원가입 화면에서 제출 전에 사용 가능한 이메일인지 알려준다.
-  - 응답은 { isAvailable } 하나만 준다. 가입 여부 외의 사용자 정보는 노출하지 않는다.
-  */
-  checkEmail: async (req: Request, res: Response) => {
-    const input = getValidated<CheckEmailInput>(req);
-    const isAvailable = await authService.isEmailAvailable(input);
-    success(res, { isAvailable });
-  },
-
   signUp: async (req: Request, res: Response) => {
     const input = getValidated<SignupInput>(req);
     const { user, accessToken, refreshToken } = await authService.signUp(input);
     setAuthCookies(res, accessToken, refreshToken);
     success(res, user, 201);
+  },
+
+  /*
+  @ 이메일 인증번호 발송
+  - 인증번호는 메일로만 보내고, 응답에는 확인에 쓸 challenge 토큰만 담는다.
+  */
+  sendEmailVerification: async (req: Request, res: Response) => {
+    const input = getValidated<SendEmailCodeInput>(req);
+    const result = await authService.sendEmailVerification(input);
+    success(res, result);
+  },
+
+  /*
+  @ 이메일 인증번호 확인
+  - 성공하면 회원가입에 함께 보낼 verified 토큰을 준다.
+  */
+  confirmEmailVerification: async (req: Request, res: Response) => {
+    const input = getValidated<ConfirmEmailInput>(req);
+    const result = await authService.confirmEmailVerification(input);
+    success(res, result);
   },
 
   login: async (req: Request, res: Response) => {

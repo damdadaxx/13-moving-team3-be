@@ -38,6 +38,13 @@ export const ENV = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || undefined,
   PROXY_SECRET: process.env.PROXY_SECRET || undefined,
+  // 메일(회원가입 이메일 인증). 없으면 개발 환경에서 콘솔 출력으로 대체된다
+  SMTP_HOST: process.env.SMTP_HOST,
+  SMTP_PORT: Number(process.env.SMTP_PORT) || 587,
+  SMTP_USER: process.env.SMTP_USER,
+  SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+  SMTP_FROM: process.env.SMTP_FROM,
+
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   KAKAO_REST_API_KEY: process.env.KAKAO_REST_API_KEY,

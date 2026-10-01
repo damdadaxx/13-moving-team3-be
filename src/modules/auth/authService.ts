@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import jwt from 'jsonwebtoken';
 import { AuthProvider, Prisma, Role } from '../../generated/prisma/client';
 import { ENV } from '../../config/env';
@@ -11,16 +12,23 @@ import {
   comparePassword,
   hashPassword,
   hashRefreshToken,
+  isSameSecret,
 } from '../../utils/hash';
+import { sendMail } from '../../utils/mailer';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
+  EMAIL_CODE_EXPIRES_IN,
+  EMAIL_CODE_EXPIRES_MINUTES,
+  EMAIL_CODE_LENGTH,
+  EMAIL_VERIFIED_EXPIRES_IN,
   REFRESH_TOKEN_EXPIRES_IN,
 } from './authConstants';
 import { SocialProfile } from './authPassport';
 import authRepository, { PublicUser } from './authRepository';
 import {
-  CheckEmailInput,
+  ConfirmEmailInput,
   LoginInput,
+  SendEmailCodeInput,
   SignupInput,
   UpdateMeInput,
   UpdatePasswordInput,
@@ -127,24 +135,71 @@ const isUniqueConflict = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2002';
 
+/*
+@ 인증번호 생성
+- 예측이 어렵도록 crypto 난수를 쓴다. 앞자리 0 도 살린다.
+*/
+const createEmailVerificationCode = () => {
+  const max = 10 ** EMAIL_CODE_LENGTH;
+  const value = randomInt(0, max);
+  return String(value).padStart(EMAIL_CODE_LENGTH, '0');
+};
+
+/*
+@ 이메일 인증 토큰 (DB 없이 상태를 들고 다니는 방식)
+- challenge: 인증번호 해시를 담아 서명한다. 원본 인증번호는 메일로만 나간다.
+- verified: 인증을 마쳤다는 증명. 회원가입 요청에 함께 보낸다.
+- purpose 를 넣어 다른 용도의 토큰이 섞여 들어오는 것을 막는다.
+*/
+const EMAIL_CHALLENGE_PURPOSE = 'email_challenge';
+const EMAIL_VERIFIED_PURPOSE = 'email_verified';
+
+interface EmailTokenPayload {
+  purpose: string;
+  email: string;
+  role: Role;
+  codeHash?: string;
+}
+
+const signEmailToken = (payload: EmailTokenPayload, expiresIn: string) =>
+  jwt.sign(payload, ENV.JWT_ACCESS_SECRET, {
+    expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
+  });
+
+const verifyEmailToken = (
+  token: string,
+  purpose: string,
+  invalidMessage: string
+): EmailTokenPayload => {
+  let decoded: unknown;
+
+  try {
+    decoded = jwt.verify(token, ENV.JWT_ACCESS_SECRET);
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new BadRequestError('인증 시간이 만료되었습니다. 다시 받아주세요.');
+    }
+    throw new BadRequestError(invalidMessage);
+  }
+
+  const payload = decoded as Partial<EmailTokenPayload>;
+
+  if (
+    payload.purpose !== purpose ||
+    typeof payload.email !== 'string' ||
+    !isRole(payload.role)
+  ) {
+    throw new BadRequestError(invalidMessage);
+  }
+
+  return payload as EmailTokenPayload;
+};
+
 // ────────────────────────────────────────────────
 // authService (public API)
 // ────────────────────────────────────────────────
 
 const authService = {
-  /*
-  @ 이메일 사용 가능 여부 확인
-  - 회원가입 화면의 중복 확인 버튼이 사용한다.
-  - 가입 자체는 여전히 signUp 에서 다시 확인하므로, 확인과 가입 사이의 동시 가입도 막힌다.
-  */
-  async isEmailAvailable(input: CheckEmailInput): Promise<boolean> {
-    const existing = await authRepository.findByEmailAndRole(
-      input.email,
-      input.role
-    );
-    return existing === null;
-  },
-
   async signUp(input: SignupInput): Promise<AuthResult> {
     const existing = await authRepository.findByEmailAndRole(
       input.email,
@@ -152,6 +207,21 @@ const authService = {
     );
     if (existing) {
       throw new ConflictError('이미 사용 중인 이메일입니다.');
+    }
+
+    /*
+    @ 이메일 인증 확인
+    - 인증 확인 단계에서 받은 verified 토큰만 통과시킨다.
+    - 토큰이 만료됐으면(30분) 인증을 다시 받아야 한다.
+    */
+    const verified = verifyEmailToken(
+      input.emailVerificationToken,
+      EMAIL_VERIFIED_PURPOSE,
+      '이메일 인증을 먼저 완료해 주세요.'
+    );
+
+    if (verified.email !== input.email || verified.role !== input.role) {
+      throw new BadRequestError('이메일 인증을 먼저 완료해 주세요.');
     }
 
     const password = await hashPassword(input.password);
@@ -172,6 +242,79 @@ const authService = {
       }
       throw error;
     }
+  },
+
+  /*
+  @ 이메일 인증번호 발송
+  - 이미 가입된 이메일이면 보내지 않는다.
+  - 인증번호는 메일로만 보내고, 서버는 해시를 담은 challenge 토큰만 돌려준다.
+  */
+  async sendEmailVerification(
+    input: SendEmailCodeInput
+  ): Promise<{ token: string; expiresInMinutes: number }> {
+    const existing = await authRepository.findByEmailAndRole(
+      input.email,
+      input.role
+    );
+    if (existing) {
+      throw new ConflictError('이미 사용 중인 이메일입니다.');
+    }
+
+    const code = createEmailVerificationCode();
+    const token = signEmailToken(
+      {
+        purpose: EMAIL_CHALLENGE_PURPOSE,
+        email: input.email,
+        role: input.role,
+        codeHash: hashRefreshToken(code),
+      },
+      EMAIL_CODE_EXPIRES_IN
+    );
+
+    await sendMail({
+      to: input.email,
+      subject: '[무빙] 회원가입 인증번호',
+      text: `인증번호는 ${code} 입니다. ${EMAIL_CODE_EXPIRES_MINUTES}분 안에 입력해 주세요.`,
+    });
+
+    return { token, expiresInMinutes: EMAIL_CODE_EXPIRES_MINUTES };
+  },
+
+  /*
+  @ 이메일 인증번호 확인
+  - challenge 토큰의 이메일·역할이 요청과 같은지 확인한 뒤 인증번호 해시를 비교한다.
+  - 통과하면 회원가입에 쓸 verified 토큰을 돌려준다.
+  */
+  async confirmEmailVerification(
+    input: ConfirmEmailInput
+  ): Promise<{ token: string }> {
+    const payload = verifyEmailToken(
+      input.token,
+      EMAIL_CHALLENGE_PURPOSE,
+      '인증번호를 다시 받아주세요.'
+    );
+
+    if (payload.email !== input.email || payload.role !== input.role) {
+      throw new BadRequestError('인증번호를 다시 받아주세요.');
+    }
+
+    if (
+      !payload.codeHash ||
+      !isSameSecret(hashRefreshToken(input.code), payload.codeHash)
+    ) {
+      throw new BadRequestError('인증번호가 올바르지 않습니다.');
+    }
+
+    const token = signEmailToken(
+      {
+        purpose: EMAIL_VERIFIED_PURPOSE,
+        email: input.email,
+        role: input.role,
+      },
+      EMAIL_VERIFIED_EXPIRES_IN
+    );
+
+    return { token };
   },
 
   async login(input: LoginInput): Promise<AuthResult> {

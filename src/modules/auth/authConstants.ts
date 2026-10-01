@@ -28,3 +28,15 @@ export const OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 */
 export const MAX_FAILED_LOGIN_ATTEMPTS = 10;
 export const LOGIN_ATTEMPT_WINDOW_MS = 30 * 60 * 1000;
+
+/*
+@ 회원가입 이메일 인증번호 (서명 토큰 방식)
+- 서버에 인증번호를 저장하지 않는다. 대신 서명한 토큰에 담아 클라이언트가 들고 다닌다.
+- challenge 토큰: 인증번호 해시를 담고 5분간 유효. 인증번호 확인에 쓴다.
+- verified 토큰: 인증을 마쳤다는 증명. 30분 안에 회원가입을 끝내야 한다.
+- 시도 횟수는 서버에 상태가 없어 세지 못하므로, 라우터의 rate limit 이 방어를 맡는다.
+*/
+export const EMAIL_CODE_LENGTH = 6;
+export const EMAIL_CODE_EXPIRES_IN = '5m';
+export const EMAIL_CODE_EXPIRES_MINUTES = 5;
+export const EMAIL_VERIFIED_EXPIRES_IN = '30m';

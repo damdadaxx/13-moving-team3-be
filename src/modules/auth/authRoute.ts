@@ -2,10 +2,17 @@ import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
 import authController, { redirectSocialError } from './authController';
-import { createRateLimit, ipKey, loginRateLimit } from './authRateLimit';
 import {
-  checkEmailSchema,
+  confirmEmailRateLimit,
+  createRateLimit,
+  emailVerificationRateLimit,
+  ipKey,
+  loginRateLimit,
+} from './authRateLimit';
+import {
+  confirmEmailSchema,
   loginSchema,
+  sendEmailCodeSchema,
   signupSchema,
   socialStartQuerySchema,
   updateMeSchema,
@@ -29,22 +36,26 @@ const passwordRateLimit = createRateLimit(TEN_MINUTES_MS, 10, (req) =>
   req.auth?.sub ? `user:${req.auth.sub}` : ipKey(req)
 );
 
-// 이메일 중복 확인 — 한 IP 에서 이메일을 바꿔가며 가입 여부를 수집하는 것 방지
-const checkEmailRateLimit = createRateLimit(TEN_MINUTES_MS, 30, ipKey);
+router.post('/signUp', validate(signupSchema), authController.signUp);
 
 /*
-@ 이메일 중복 확인
-- 회원가입 화면의 중복 확인 버튼이 사용한다. 가입 전 요청이라 authenticate 를 걸지 않는다.
-- POST 인 이유: 이메일이 쿼리스트링·접근 로그에 남지 않게 한다.
+@ 회원가입 이메일 인증
+- 발송: 가입되지 않은 이메일에만 인증번호를 보낸다.
+- 확인: 인증에 성공하면 회원가입에서 그 기록을 확인한다.
 */
 router.post(
-  '/check-email',
-  checkEmailRateLimit,
-  validate(checkEmailSchema),
-  authController.checkEmail
+  '/email-verification',
+  emailVerificationRateLimit,
+  validate(sendEmailCodeSchema),
+  authController.sendEmailVerification
 );
 
-router.post('/signUp', validate(signupSchema), authController.signUp);
+router.post(
+  '/email-verification/confirm',
+  confirmEmailRateLimit,
+  validate(confirmEmailSchema),
+  authController.confirmEmailVerification
+);
 
 /*
 @ 로그인 시도 제한
