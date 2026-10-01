@@ -1,6 +1,7 @@
 import { ReactElement } from 'react';
 import { Resend } from 'resend';
 import { ENV } from '../config/env';
+import { ServiceUnavailableError } from './error';
 
 /*
 @ 메일 발송 (Resend)
@@ -51,7 +52,11 @@ export const sendMail = async ({ to, subject, text, react }: SendMailInput) => {
     ...(react && { react }),
   });
 
+  // 실패 원인(API 키·도메인 인증 등)은 서버 로그에만 남기고, 사용자에게는 안내 문구만 준다
   if (error) {
-    throw new Error(`[mailer] 메일 발송 실패: ${error.message}`);
+    console.error('[mailer] 메일 발송 실패', { to, subject, error });
+    throw new ServiceUnavailableError(
+      '메일을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    );
   }
 };
