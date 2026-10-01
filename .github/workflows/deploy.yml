@@ -3,12 +3,6 @@ name: Deploy To EC2
 # =================================================
 # 머지(배포)용 워크플로우
 # =================================================
-# @ 가이드
-# - main 에 머지(push)될 때만 돈다. dev 머지로는 배포하지 않는다.
-# - 린트·빌드가 실패하면 EC2 로 보내지 않는다. PR 검증은 ci.yml 이 담당한다.
-# @ 주의사항
-# - 배포할 때마다 prisma migrate deploy 가 운영 DB 에 적용된다.
-
 on:
   push:
     branches:
@@ -74,6 +68,11 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }} # EC2의 Key 파일의 내부 텍스트
           script_stop: true # 아래 script 중 실패하는 명령이 하나라도 있으면 실패로 처리
           script: |
+            # EC2 의 node / npm / pm2 는 nvm 으로 설치돼 있다.
+            # 비대화형 SSH 세션에서는 nvm 이 로드되지 않을 수 있어 직접 불러온다.
+            export NVM_DIR="$HOME/.nvm"
+            . "$NVM_DIR/nvm.sh"
+
             cd /home/ec2-user/13-moving-team3-be
             rm -rf dist prisma
             tar -xzf project.tar.gz
@@ -83,8 +82,11 @@ jobs:
 
             # 진입점은 dist/server.js (app.js 는 listen 하지 않는다)
             # NODE_ENV=production 이어야 쿠키 secure 등 운영 설정이 적용된다
-            pm2 delete backend-server || true
-            NODE_ENV=production pm2 start dist/server.js --name backend-server
+            # 프로세스 이름은 EC2 에서 이미 쓰고 있는 moving-be 를 그대로 쓴다.
+            # 이름이 다르면 기존 프로세스가 3000 포트를 계속 잡아 새 서버가 뜨지 못한다.
+            # pm2 save 는 재부팅 시 pm2-ec2-user.service 가 되살릴 목록을 갱신한다.
+            pm2 delete moving-be || true
+            NODE_ENV=production pm2 start dist/server.js --name moving-be
             pm2 save
 
             # 서버가 실제로 응답할 때까지 최대 30초 기다린다. 응답이 없으면 배포 실패로 처리한다.
@@ -96,6 +98,6 @@ jobs:
               fi
               sleep 2
             done
-            echo "서버가 응답하지 않습니다. pm2 logs backend-server 로 확인하세요."
-            pm2 logs backend-server --lines 50 --nostream
+            echo "서버가 응답하지 않습니다. pm2 logs moving-be 로 확인하세요."
+            pm2 logs moving-be --lines 50 --nostream
             exit 1
