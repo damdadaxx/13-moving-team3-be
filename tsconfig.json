@@ -5,6 +5,7 @@
     "outDir": "./dist", // 컴파일 결과물 경로
     "rootDir": "./src", // 타입스크립트 소스코드 루트
     "strict": true,
+    "jsx": "react-jsx", // 메일 템플릿(React Email, src/emails)
     "esModuleInterop": true, // CommonJS 모듈 호환성
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,

@@ -11,7 +11,7 @@
 
 ### ────────────────────────────────────────────────
 ### 이메일 인증번호 발송 (200) — 응답 token 은 인증번호 확인에 쓰는 challenge 토큰 (5분)
-# SMTP 미설정(개발)이면 인증번호가 서버 콘솔에 찍힌다
+# RESEND_API_KEY 미설정(개발)이면 인증번호가 서버 콘솔에 찍힌다
 # @name sendCode
 POST {{host}}/auth/email-verification
 Content-Type: application/json

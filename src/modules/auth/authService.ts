@@ -1,5 +1,6 @@
 import { randomInt } from 'crypto';
 import jwt from 'jsonwebtoken';
+import { createElement } from 'react';
 import { AuthProvider, Prisma, Role } from '../../generated/prisma/client';
 import { ENV } from '../../config/env';
 import {
@@ -14,6 +15,7 @@ import {
   hashRefreshToken,
   isSameSecret,
 } from '../../utils/hash';
+import VerificationCodeEmail from '../../emails/VerificationCodeEmail';
 import { sendMail } from '../../utils/mailer';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
@@ -275,6 +277,10 @@ const authService = {
       to: input.email,
       subject: '[무빙] 회원가입 인증번호',
       text: `인증번호는 ${code} 입니다. ${EMAIL_CODE_EXPIRES_MINUTES}분 안에 입력해 주세요.`,
+      react: createElement(VerificationCodeEmail, {
+        code,
+        expiresInMinutes: EMAIL_CODE_EXPIRES_MINUTES,
+      }),
     });
 
     return { token, expiresInMinutes: EMAIL_CODE_EXPIRES_MINUTES };
