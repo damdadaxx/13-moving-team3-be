@@ -52,4 +52,13 @@ Desktop.ini
 .cursor/
 
 # documentation
-docs/
+/src/generated
+/docs
+
+# claude
+.agents
+.windsurf
+.claude
+CLAUDE.md
+
+skills-lock.json

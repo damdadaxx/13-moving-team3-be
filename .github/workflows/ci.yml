@@ -1,0 +1,53 @@
+name: CI
+
+# =================================================
+# 검증용 워크플로우
+# =================================================
+# @ 가이드
+# - dev / main 으로 PR 을 열거나 커밋을 추가하면 배포 가능한 빌드인지 확인한다.
+# - 배포는 하지 않는다. 배포는 deploy.yml 이 main 머지(push) 때만 한다.
+# @ 주의사항
+# - "Verify 통과해야 머지"를 강제하려면 GitHub 저장소 설정에서 dev, main 브랜치 보호 규칙에
+#   Require status checks → `Verify` 를 필수로 지정해야 한다. (워크플로우 파일만으로는 막지 못한다)
+# - 잡 이름(Verify)을 바꾸면 브랜치 보호 규칙의 필수 체크도 함께 바꿔야 한다.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+
+# 같은 PR 에 새 커밋이 오면 이전 검증은 취소한다.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  Verify:
+    runs-on: ubuntu-latest # 깃헙액션 워크플로우가 실행되는 OS 환경. EC2 OS와 같은 필요 없음
+    env:
+      HUSKY: 0 # CI 에서는 git hook 설치를 건너뛴다
+      # prisma generate 는 DB 에 접속하지 않지만 prisma7.config.ts 가 값을 읽으므로 형식만 맞춘다
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - name: 깃헙 레포지토리 불러오기
+        uses: actions/checkout@v4
+
+      - name: Node 버전 고정 (EC2와 동일하게)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: 의존성 설치
+        run: npm ci
+
+      # src/generated 는 git 에 없으므로 빌드 전에 생성해야 한다
+      - name: Prisma Client 생성
+        run: npx prisma generate --config prisma7.config.ts
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 빌드 (tsc)
+        run: npm run build
