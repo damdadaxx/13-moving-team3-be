@@ -1,0 +1,103 @@
+name: Deploy To EC2
+
+# =================================================
+# 머지(배포)용 워크플로우
+# =================================================
+on:
+  push:
+    branches:
+      - main
+
+# 배포가 겹치면 뒤 배포는 앞 배포가 끝날 때까지 기다린다. 진행 중인 배포는 끊지 않는다.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest # 깃헙액션 워크플로우가 실행되는 OS 환경. EC2 OS와 같은 필요 없음
+    env:
+      HUSKY: 0 # CI 에서는 git hook 설치를 건너뛴다
+    steps:
+      - name: 깃헙 레포지토리 불러오기
+        uses: actions/checkout@v4
+
+      - name: Node 버전 고정 (EC2와 동일하게)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: 의존성 설치
+        run: npm ci
+
+      # 시크릿을 스크립트에 직접 끼워 넣으면 값 안의 " $ ` 가 셸에서 해석된다. 환경변수로 넘긴다.
+      - name: .env 파일 생성
+        env:
+          ENV_FILE: ${{ secrets.ENV }}
+        run: printf '%s\n' "$ENV_FILE" > .env
+
+      # src/generated 는 git 에 없으므로 빌드 전에 생성해야 한다
+      - name: Prisma Client 생성
+        run: npx prisma generate --config prisma7.config.ts
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 빌드
+        run: npm run build
+
+      # prisma/, prisma7.config.ts 는 EC2 에서 migrate deploy 를 돌리기 위해 함께 보낸다
+      - name: 빌드파일 압축하기
+        run: tar -czvf project.tar.gz dist prisma prisma7.config.ts .env package.json package-lock.json
+
+      - name: scp 사용하여 EC2에 빌드파일 전송하기
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          source: project.tar.gz
+          target: /home/ec2-user/13-moving-team3-be
+
+      - name: SSH로 EC2에 접속해 배포하기
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }} # EC2의 주소
+          username: ${{ secrets.EC2_USERNAME }} # EC2 접속 username
+          key: ${{ secrets.EC2_PRIVATE_KEY }} # EC2의 Key 파일의 내부 텍스트
+          script_stop: true # 아래 script 중 실패하는 명령이 하나라도 있으면 실패로 처리
+          script: |
+            # EC2 의 node / npm / pm2 는 nvm 으로 설치돼 있다.
+            # 비대화형 SSH 세션에서는 nvm 이 로드되지 않을 수 있어 직접 불러온다.
+            export NVM_DIR="$HOME/.nvm"
+            . "$NVM_DIR/nvm.sh"
+
+            cd /home/ec2-user/13-moving-team3-be
+            rm -rf dist prisma
+            tar -xzf project.tar.gz
+            rm -f project.tar.gz
+            HUSKY=0 npm ci
+            npx prisma migrate deploy --config prisma7.config.ts
+
+            # 진입점은 dist/server.js (app.js 는 listen 하지 않는다)
+            # NODE_ENV=production 이어야 쿠키 secure 등 운영 설정이 적용된다
+            # 프로세스 이름은 EC2 에서 이미 쓰고 있는 moving-be 를 그대로 쓴다.
+            # 이름이 다르면 기존 프로세스가 3000 포트를 계속 잡아 새 서버가 뜨지 못한다.
+            # pm2 save 는 재부팅 시 pm2-ec2-user.service 가 되살릴 목록을 갱신한다.
+            pm2 delete moving-be || true
+            NODE_ENV=production pm2 start dist/server.js --name moving-be
+            pm2 save
+
+            # 서버가 실제로 응답할 때까지 최대 30초 기다린다. 응답이 없으면 배포 실패로 처리한다.
+            PORT=$(grep -E '^PORT=' .env | cut -d= -f2 | tr -d '\r"')
+            for i in $(seq 1 15); do
+              if curl -fsS -o /dev/null "http://localhost:${PORT:-3000}/api-docs/"; then
+                echo "서버 응답 확인 (port ${PORT:-3000})"
+                exit 0
+              fi
+              sleep 2
+            done
+            echo "서버가 응답하지 않습니다. pm2 logs moving-be 로 확인하세요."
+            pm2 logs moving-be --lines 50 --nostream
+            exit 1
