@@ -10,7 +10,70 @@
 
 
 ### ────────────────────────────────────────────────
-### 회원가입 (201) — accessToken/refreshToken 쿠키 설정
+### 이메일 인증번호 발송 (200) — 응답 token 은 인증번호 확인에 쓰는 challenge 토큰 (5분)
+# RESEND_API_KEY 미설정(개발)이면 인증번호가 서버 콘솔에 찍힌다
+# @name sendCode
+POST {{host}}/auth/email-verification
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "role": "{{role}}"
+}
+
+
+### 이메일 인증번호 발송 - 이미 가입된 이메일 (409)
+POST {{host}}/auth/email-verification
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "role": "{{role}}"
+}
+
+
+### 이메일 인증번호 확인 (200) — 응답 token 은 회원가입에 쓰는 verified 토큰 (30분)
+# 서버 콘솔(또는 메일)로 받은 인증번호 6자리를 code 에 넣고 실행
+# @name confirmCode
+POST {{host}}/auth/email-verification/confirm
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "role": "{{role}}",
+  "code": "PASTE_CODE_HERE",
+  "token": "{{sendCode.response.body.data.token}}"
+}
+
+
+### 이메일 인증번호 확인 - 인증번호 불일치 (400)
+POST {{host}}/auth/email-verification/confirm
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "role": "{{role}}",
+  "code": "000000",
+  "token": "{{sendCode.response.body.data.token}}"
+}
+
+
+### ────────────────────────────────────────────────
+### 회원가입 (201) — accessToken/refreshToken 쿠키 설정. 이메일 인증 확인을 먼저 실행
+POST {{host}}/auth/signUp
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "name": "테스터",
+  "phoneNumber": "01012345678",
+  "role": "{{role}}",
+  "emailVerificationToken": "{{confirmCode.response.body.data.token}}"
+}
+
+
+### 회원가입 - 이메일 인증 토큰 누락 (400)
 POST {{host}}/auth/signUp
 Content-Type: application/json
 
@@ -32,7 +95,8 @@ Content-Type: application/json
   "password": "{{password}}",
   "name": "테스터",
   "phoneNumber": "01012345678",
-  "role": "{{role}}"
+  "role": "{{role}}",
+  "emailVerificationToken": "{{confirmCode.response.body.data.token}}"
 }
 
 

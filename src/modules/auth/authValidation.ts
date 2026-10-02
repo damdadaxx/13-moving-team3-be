@@ -43,6 +43,10 @@ export const signupSchema = z.object(
     name: nameSchema,
     phoneNumber: phoneNumberSchema,
     role: roleSchema,
+    // 이메일 인증 확인 응답으로 받은 verified 토큰
+    emailVerificationToken: z
+      .string('emailVerificationToken은 필수 값입니다.')
+      .min(1, '이메일 인증을 먼저 완료해 주세요.'),
   },
   { error: '요청 본문이 올바르지 않습니다.' }
 );
@@ -77,6 +81,36 @@ export const updatePasswordSchema = z.object(
   { error: '요청 본문이 올바르지 않습니다.' }
 );
 
+/*
+@ 이메일 인증번호 발송
+- 같은 이메일이라도 role 이 다르면 가입할 수 있으므로 role 과 함께 받는다.
+*/
+export const sendEmailCodeSchema = z.object(
+  {
+    email: emailSchema,
+    role: roleSchema,
+  },
+  { error: '이메일과 role 이 필요합니다.' }
+);
+
+/*
+@ 이메일 인증번호 확인
+- 인증번호는 6자리 숫자다.
+- token 은 발송 응답으로 받은 challenge 토큰이다. 서버는 이 토큰으로만 인증번호를 검증한다.
+*/
+export const confirmEmailSchema = z.object(
+  {
+    email: emailSchema,
+    role: roleSchema,
+    code: z
+      .string('code는 필수 값입니다.')
+      .trim()
+      .regex(/^\d{6}$/, '인증번호 6자리를 입력해주세요.'),
+    token: z.string('token은 필수 값입니다.').min(1, 'token은 필수 값입니다.'),
+  },
+  { error: '이메일과 인증번호가 필요합니다.' }
+);
+
 export const providerParamSchema = z.object({
   provider: z.enum(SOCIAL_PROVIDERS, {
     error: 'provider는 google, kakao, naver 중 하나여야 합니다.',
@@ -106,6 +140,8 @@ export const oauthStateSchema = z.object({
 });
 
 export type SignupInput = z.infer<typeof signupSchema>;
+export type SendEmailCodeInput = z.infer<typeof sendEmailCodeSchema>;
+export type ConfirmEmailInput = z.infer<typeof confirmEmailSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateMeInput = z.infer<typeof updateMeSchema>;
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;

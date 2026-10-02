@@ -10,6 +10,7 @@ import {
 } from '../../utils/error';
 import { isSameSecret } from '../../utils/hash';
 import { isSocialConfigured, SocialProfile } from './authPassport';
+import { resetLoginRateLimit } from './authRateLimit';
 import authService from './authService';
 import {
   ACCESS_TOKEN_COOKIE,
@@ -22,10 +23,12 @@ import {
   REFRESH_TOKEN_MAX_AGE_MS,
 } from './authConstants';
 import {
+  ConfirmEmailInput,
   LoginInput,
   OAuthState,
   oauthStateSchema,
   providerParamSchema,
+  SendEmailCodeInput,
   SignupInput,
   SocialStartQuery,
   UpdateMeInput,
@@ -149,9 +152,31 @@ const authController = {
     success(res, user, 201);
   },
 
+  /*
+  @ 이메일 인증번호 발송
+  - 인증번호는 메일로만 보내고, 응답에는 확인에 쓸 challenge 토큰만 담는다.
+  */
+  sendEmailVerification: async (req: Request, res: Response) => {
+    const input = getValidated<SendEmailCodeInput>(req);
+    const result = await authService.sendEmailVerification(input);
+    success(res, result);
+  },
+
+  /*
+  @ 이메일 인증번호 확인
+  - 성공하면 회원가입에 함께 보낼 verified 토큰을 준다.
+  */
+  confirmEmailVerification: async (req: Request, res: Response) => {
+    const input = getValidated<ConfirmEmailInput>(req);
+    const result = await authService.confirmEmailVerification(input);
+    success(res, result);
+  },
+
   login: async (req: Request, res: Response) => {
     const input = getValidated<LoginInput>(req);
     const { user, accessToken, refreshToken } = await authService.login(input);
+    // 성공했으므로 그동안 쌓인 비밀번호 오류 횟수를 지운다 ("연속 실패 10회" 기준)
+    resetLoginRateLimit(req);
     setAuthCookies(res, accessToken, refreshToken);
     success(res, user);
   },
