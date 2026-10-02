@@ -46,7 +46,6 @@ const reviewService = {
     if (!mover) {
       throw new NotFoundError('기사님을 찾을 수 없습니다.');
     }
-    const moverNickname = mover.nickname;
     const [reviews, distribution, ratingInfo] = await Promise.all([
       reviewRepository.getMoverReviews({
         moverId,
@@ -66,8 +65,10 @@ const reviewService = {
 
     const totalPages = Math.ceil(reviewCount / pageSize);
     return {
-      moverNickname,
-      list: reviews,
+      list: reviews.map(({ customer, ...review }) => ({
+        ...review,
+        user: { name: customer.user.name },
+      })),
       ratingDistribution,
       ratingAvg,
       reviewCount,

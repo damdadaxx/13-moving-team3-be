@@ -1,0 +1,181 @@
+name: Deploy To EC2
+
+# =================================================
+# 머지(배포)용 워크플로우
+# =================================================
+on:
+  push:
+    branches:
+      - main
+
+# 배포가 겹치면 뒤 배포는 앞 배포가 끝날 때까지 기다린다. 진행 중인 배포는 끊지 않는다.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest # 깃헙액션 워크플로우가 실행되는 OS 환경. EC2 OS와 같은 필요 없음
+    env:
+      HUSKY: 0 # CI 에서는 git hook 설치를 건너뛴다
+    steps:
+      - name: 깃헙 레포지토리 불러오기
+        uses: actions/checkout@v4
+
+      - name: Node 버전 고정 (EC2와 동일하게)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: 의존성 설치
+        run: npm ci
+
+      # 시크릿을 스크립트에 직접 끼워 넣으면 값 안의 " $ ` 가 셸에서 해석된다. 환경변수로 넘긴다.
+      - name: .env 파일 생성
+        env:
+          ENV_FILE: ${{ secrets.ENV }}
+        run: printf '%s\n' "$ENV_FILE" > .env
+
+      # src/generated 는 git 에 없으므로 빌드 전에 생성해야 한다
+      - name: Prisma Client 생성
+        run: npx prisma generate --config prisma7.config.ts
+
+      - name: 린트
+        run: npm run lint
+
+      - name: 빌드
+        run: npm run build
+
+      # EC2 에서 npm ci 를 돌리면 메모리가 부족해 10분 넘게 걸린다(타임아웃).
+      # 러너에서 운영 의존성만 남겨 node_modules 를 통째로 보낸다.
+      # 네이티브 모듈은 bcrypt 뿐이고 linux x64/arm64 prebuild 가 들어 있어 EC2 에서 그대로 동작한다.
+      - name: 운영 의존성만 남기기
+        run: npm prune --omit=dev
+
+      # prisma/, prisma7.config.ts 는 EC2 에서 migrate deploy 를 돌리기 위해 함께 보낸다
+      # src/docs 는 swagger-jsdoc 이 런타임에 원본 .ts 를 텍스트로 읽으므로 함께 보낸다 (src/config/swagger.ts)
+      - name: 빌드파일 압축하기
+        run: tar -czf project.tar.gz dist node_modules prisma prisma7.config.ts src/docs .env package.json package-lock.json
+
+      - name: scp 사용하여 EC2에 빌드파일 전송하기
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          source: project.tar.gz
+          target: /home/ec2-user/13-moving-team3-be
+
+      - name: SSH로 EC2에 접속해 배포하기
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }} # EC2의 주소
+          username: ${{ secrets.EC2_USERNAME }} # EC2 접속 username
+          key: ${{ secrets.EC2_PRIVATE_KEY }} # EC2의 Key 파일의 내부 텍스트
+          # 실패 처리는 아래 스크립트의 set -e 와 exit 코드로 한다.
+          # (script_stop 은 스크립트를 줄 단위로 가공해 for / if 같은 여러 줄 구문과 맞지 않을 수 있다)
+          script: |
+            # =================================================
+            # 실패하면 배포 전 상태를 유지한다
+            # =================================================
+            # @ 가이드
+            # - 새 버전은 STAGE 에 먼저 풀고, 마이그레이션까지 STAGE 에서 끝낸다.
+            #   여기까지 실패하면 운영 폴더는 손대지 않은 상태로 끝난다.
+            # - 운영 폴더의 기존 파일은 PREV 로 옮긴 뒤 새 파일로 교체한다.
+            # - 재시작 후 응답이 없으면 PREV 를 되돌리고 이전 버전으로 다시 띄운 뒤 실패 처리한다.
+            # @ 주의사항
+            # - DB 마이그레이션은 되돌리지 않는다. 이전 코드와 호환되도록(컬럼 추가 위주) 작성한다.
+            # - uploads/ 처럼 목록에 없는 파일은 건드리지 않는다.
+
+            # EC2 의 node / npm / pm2 는 nvm 으로 설치돼 있다.
+            # 비대화형 SSH 세션에서는 nvm 이 로드되지 않을 수 있어 직접 불러온다. (set -e 전에 불러온다)
+            export NVM_DIR="$HOME/.nvm"
+            . "$NVM_DIR/nvm.sh"
+            set -eo pipefail
+
+            APP=/home/ec2-user/13-moving-team3-be
+            STAGE="$HOME/.moving-deploy/new"
+            PREV="$HOME/.moving-deploy/prev"
+            ITEMS="dist node_modules prisma prisma7.config.ts src/docs .env package.json package-lock.json"
+            ENV_OVERRIDES=".env.development .env.production"
+
+            start_server() {
+              cd "$APP"
+              pm2 delete moving-be >/dev/null 2>&1 || true
+              # 진입점은 dist/server.js, NODE_ENV=production 이어야 쿠키 secure 등 운영 설정이 적용된다
+              NODE_ENV=production pm2 start dist/server.js --name moving-be
+              pm2 save
+            }
+
+            # 서버가 실제로 응답할 때까지 최대 30초 기다린다
+            is_healthy() {
+              local port
+              port=$(grep -E '^PORT=' "$APP/.env" | cut -d= -f2 | tr -d '\r"' || true)
+              for _ in $(seq 1 15); do
+                if curl -fsS -o /dev/null "http://localhost:${port:-3000}/api-docs/"; then
+                  echo "서버 응답 확인 (port ${port:-3000})"
+                  return 0
+                fi
+                sleep 2
+              done
+              return 1
+            }
+
+            echo "[1/5] 새 버전 준비"
+            rm -rf "$STAGE"
+            mkdir -p "$STAGE"
+            tar -xzf "$APP/project.tar.gz" -C "$STAGE"
+            rm -f "$APP/project.tar.gz"
+
+            # npx 는 패키지가 없으면 설치 여부를 물으며 멈출 수 있어 설치된 CLI 를 직접 실행한다
+            echo "[2/5] DB 마이그레이션 (실패하면 운영 폴더는 그대로)"
+            (cd "$STAGE" && ./node_modules/.bin/prisma migrate deploy --config prisma7.config.ts)
+
+            echo "[3/5] 파일 교체 (기존 파일은 $PREV 로 보관)"
+            rm -rf "$PREV"
+            mkdir -p "$PREV/src" "$APP/src"
+            for item in $ITEMS; do
+              if [ -e "$APP/$item" ]; then
+                mv "$APP/$item" "$PREV/$item"
+              fi
+              mv "$STAGE/$item" "$APP/$item"
+            done
+
+            # 운영 설정은 GitHub Secret(ENV)으로 만든 .env 하나만 쓴다.
+            # src/config/env.ts 는 .env.${NODE_ENV} 를 .env 보다 먼저 읽으므로,
+            # 남아 있는 .env.development / .env.production 이 있으면 .env 값을 덮어쓴다.
+            # ~/env-backup 에 복사본을 남기고, 롤백할 수 있게 PREV 로 옮긴다.
+            for f in $ENV_OVERRIDES; do
+              if [ -f "$APP/$f" ]; then
+                mkdir -p "$HOME/env-backup"
+                cp "$APP/$f" "$HOME/env-backup/${f#.}.$(date +%Y%m%d%H%M%S)"
+                mv "$APP/$f" "$PREV/$f"
+                echo "  $f → ~/env-backup 에 백업 후 제거"
+              fi
+            done
+
+            echo "[4/5] 서버 재시작"
+            start_server
+
+            echo "[5/5] 서버 응답 확인"
+            if is_healthy; then
+              echo "배포 성공"
+              exit 0
+            fi
+
+            echo "새 버전이 응답하지 않습니다. 이전 버전으로 되돌립니다."
+            pm2 logs moving-be --lines 50 --nostream || true
+            for item in $ITEMS $ENV_OVERRIDES; do
+              if [ -e "$PREV/$item" ]; then
+                rm -rf "${APP:?}/$item"
+                mv "$PREV/$item" "$APP/$item"
+              fi
+            done
+            start_server
+            if is_healthy; then
+              echo "이전 버전으로 복구했습니다. 배포는 실패로 처리합니다."
+            else
+              echo "이전 버전도 응답하지 않습니다. EC2 에서 pm2 logs moving-be 를 확인하세요."
+            fi
+            exit 1
