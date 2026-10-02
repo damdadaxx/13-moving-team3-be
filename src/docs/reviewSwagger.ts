@@ -170,6 +170,18 @@
  * @openapi
  * components:
  *   schemas:
+ *     MoverReviewItem:
+ *       allOf:
+ *         - $ref: '#/components/schemas/ReviewSummary'
+ *         - type: object
+ *           properties:
+ *             user:
+ *               type: object
+ *               properties:
+ *                 name:
+ *                   type: string
+ *                   description: 리뷰를 작성한 고객 이름
+ *                   example: 한지민
  *     RatingDistributionItem:
  *       type: object
  *       properties:
@@ -195,7 +207,7 @@
  *             list:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/ReviewSummary'
+ *                 $ref: '#/components/schemas/MoverReviewItem'
  *             ratingDistribution:
  *               type: array
  *               description: 점수별 리뷰 개수

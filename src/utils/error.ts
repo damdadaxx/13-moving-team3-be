@@ -84,3 +84,14 @@ export class BadRequestError extends AppError {
     this.name = 'BadRequestError';
   }
 }
+
+/**
+ * 503 - 외부 서비스(메일 발송 등) 문제로 요청을 처리하지 못했을 때
+ *  throw new ServiceUnavailableError("메일을 보내지 못했습니다.");
+ */
+export class ServiceUnavailableError extends AppError {
+  constructor(message = '일시적으로 요청을 처리할 수 없습니다.') {
+    super(message, 503);
+    this.name = 'ServiceUnavailableError';
+  }
+}

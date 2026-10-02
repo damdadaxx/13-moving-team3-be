@@ -9,7 +9,7 @@ import { validate } from '../../middlewares/validation';
 
 const notificationRouter = Router();
 
-// GET /notifications/stream SSE (GNB 실시간 뱃지·새 알림)
+// GET /notifications/stream SSE (GNB 실시간 뱃지·새 알림).
 notificationRouter.get(
   '/stream',
   authenticate,

@@ -50,6 +50,21 @@ const reviewRepository = {
   getMoverReviews: async ({ moverId, page, pageSize }: GetMoverReviewsData) => {
     const reviews = await prisma.review.findMany({
       where: { moverId },
+      select: {
+        id: true,
+        estimateId: true,
+        customerId: true,
+        moverId: true,
+        rating: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
+        customer: {
+          select: {
+            user: { select: { name: true } },
+          },
+        },
+      },
       // 최신 리뷰부터. id tie-break 로 페이지 간 중복·누락을 막는다.
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       skip: (page - 1) * pageSize,

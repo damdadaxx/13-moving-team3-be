@@ -38,6 +38,11 @@ export const ENV = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || undefined,
   PROXY_SECRET: process.env.PROXY_SECRET || undefined,
+  // 메일(Resend). 키가 없으면 개발 환경에서 콘솔 출력으로 대체된다
+  // MAIL_FROM 은 Resend 에서 인증한 도메인(moving-team3.xyz) 주소여야 한다
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+  MAIL_FROM: process.env.MAIL_FROM || '무빙 <no-reply@moving-team3.xyz>',
+
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   KAKAO_REST_API_KEY: process.env.KAKAO_REST_API_KEY,

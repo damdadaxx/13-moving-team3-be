@@ -1,11 +1,18 @@
-import { Request, Response, Router } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate';
 import { validate } from '../../middlewares/validation';
-import { getClientIp } from '../../utils/clientIp';
 import authController, { redirectSocialError } from './authController';
 import {
+  confirmEmailRateLimit,
+  createRateLimit,
+  emailVerificationRateLimit,
+  ipKey,
+  loginRateLimit,
+} from './authRateLimit';
+import {
+  confirmEmailSchema,
   loginSchema,
+  sendEmailCodeSchema,
   signupSchema,
   socialStartQuerySchema,
   updateMeSchema,
@@ -14,56 +21,7 @@ import {
 
 const router = Router();
 
-// express-rate-limit 은 errorHandler를 거치지 않고 자체 429 응답한다.
-const rateLimitMessage = {
-  success: false,
-  error: {
-    code: 'TOO_MANY_REQUESTS',
-    message: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
-  },
-};
-
 const TEN_MINUTES_MS = 10 * 60 * 1000;
-const ONE_HOUR_MS = 60 * 60 * 1000;
-
-const createRateLimit = (
-  windowMs: number,
-  limit: number,
-  keyGenerator: (req: Request) => string,
-  handler?: (req: Request, res: Response) => void
-) =>
-  rateLimit({
-    windowMs,
-    limit,
-    keyGenerator,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    message: rateLimitMessage,
-    ...(handler && { handler }),
-  });
-
-/*
-@ 키
-- IP 는 프록시가 보낸 실제 사용자 IP (utils/clientIp.ts). ipKeyGenerator 는 IPv6 를 /56 단위로 묶는다
-- 리미터는 validate 앞에서 돌아 body 가 검증 전이므로 email 은 방어적으로 정규화한다
-*/
-const ipKey = (req: Request) => ipKeyGenerator(getClientIp(req));
-
-const emailKey = (req: Request) => {
-  const email: unknown = req.body?.email;
-  return typeof email === 'string' ? email.trim().toLowerCase() : '';
-};
-
-// 로그인 — 이메일+IP 단위로 브루트포스 방어.
-// 공유 IP(회사/학교 NAT)에서 다른 계정 사용자까지 함께 잠기지 않는다.
-const loginEmailRateLimit = createRateLimit(
-  TEN_MINUTES_MS,
-  10,
-  (req) => `${ipKey(req)}:${emailKey(req)}`
-);
-
-// 로그인 — 한 IP 에서 이메일을 바꿔가며 시도하는 크리덴셜 스터핑 상한
-const loginIpRateLimit = createRateLimit(TEN_MINUTES_MS, 100, ipKey);
 
 // 소셜 로그인 시작 — IP 단위. 브라우저 이동 흐름이라 429 JSON 대신 프론트 안내 페이지로 보낸다
 const socialRateLimit = createRateLimit(
@@ -78,20 +36,35 @@ const passwordRateLimit = createRateLimit(TEN_MINUTES_MS, 10, (req) =>
   req.auth?.sub ? `user:${req.auth.sub}` : ipKey(req)
 );
 
-// 회원가입 — 대량 계정 생성 방어
-const signupRateLimit = createRateLimit(ONE_HOUR_MS, 5, ipKey);
+router.post('/signUp', validate(signupSchema), authController.signUp);
 
+/*
+@ 회원가입 이메일 인증
+- 발송: 가입되지 않은 이메일에만 인증번호를 보낸다.
+- 확인: 인증에 성공하면 회원가입에서 그 기록을 확인한다.
+*/
 router.post(
-  '/signUp',
-  signupRateLimit,
-  validate(signupSchema),
-  authController.signUp
+  '/email-verification',
+  emailVerificationRateLimit,
+  validate(sendEmailCodeSchema),
+  authController.sendEmailVerification
 );
 
 router.post(
+  '/email-verification/confirm',
+  confirmEmailRateLimit,
+  validate(confirmEmailSchema),
+  authController.confirmEmailVerification
+);
+
+/*
+@ 로그인 시도 제한
+- 계정(이메일+role) 단위다. IP 를 바꿔가며 시도해도 같은 계정이면 함께 센다 (authRateLimit.ts)
+- 30분 창에 비밀번호 10회 오류 → 429. 성공하면 컨트롤러가 카운트를 지운다
+*/
+router.post(
   '/login',
-  loginIpRateLimit,
-  loginEmailRateLimit,
+  loginRateLimit,
   validate(loginSchema),
   authController.login
 );
