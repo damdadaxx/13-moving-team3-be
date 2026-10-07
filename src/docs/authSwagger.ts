@@ -47,6 +47,108 @@
 
 /**
  * @swagger
+ * /auth/email-verification:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 회원가입 이메일 인증번호 발송
+ *     description: >
+ *       이미 가입된 이메일이면 보내지 않는다(409). 서버는 인증번호 자체를 저장하지 않고,
+ *       해시를 담아 서명한 challenge 토큰만 돌려준다 — 그 토큰을 확인(confirm) 요청에
+ *       그대로 실어야 한다. SMTP 설정이 비어 있으면(개발 환경) 메일 대신 서버 콘솔에 찍힌다.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, role]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               role: { type: string, enum: [CUSTOMER, MOVER] }
+ *     responses:
+ *       200:
+ *         description: 발송 성공. `{ success, data }` — data는 token, expiresInMinutes
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token: { type: string, description: "confirm 요청에 그대로 실어 보내는 challenge 토큰 (5분 유효)" }
+ *                     expiresInMinutes: { type: integer, example: 5 }
+ *       400:
+ *         description: 요청 값 검증 실패
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: 이미 사용 중인 이메일
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: 요청 횟수 초과 (IP 단위 또는 이메일+role 계정 단위)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *
+ * /auth/email-verification/confirm:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 회원가입 이메일 인증번호 확인
+ *     description: >
+ *       발송 응답으로 받은 challenge 토큰과 사용자가 입력한 6자리 인증번호를 함께 보낸다.
+ *       통과하면 회원가입(`POST /auth/signUp`)의 emailVerificationToken에 실어 보낼
+ *       verified 토큰을 돌려준다 — 30분 안에 가입을 끝내야 한다.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, role, code, token]
+ *             properties:
+ *               email: { type: string, format: email }
+ *               role: { type: string, enum: [CUSTOMER, MOVER] }
+ *               code: { type: string, pattern: '^\d{6}$', example: "123456" }
+ *               token: { type: string, description: "발송 응답으로 받은 challenge 토큰" }
+ *     responses:
+ *       200:
+ *         description: 인증 성공. `{ success, data }` — data.token은 회원가입에 쓰는 verified 토큰(30분 유효)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean, example: true }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token: { type: string }
+ *       400:
+ *         description: >
+ *           인증번호 불일치, challenge 토큰 불일치/만료, 또는 요청 값 검증 실패.
+ *           만료 시 "인증 시간이 만료되었습니다. 다시 받아주세요."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: 요청 횟수 초과 (이메일+role 계정 단위)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @swagger
  * /auth/login:
  *   post:
  *     tags: [Auth]
