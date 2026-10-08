@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate';
+import { cacheResponse } from '../../middlewares/cache';
 import { validate } from '../../middlewares/validation';
 import moverController from './moverController';
 import { uploadMoverProfileImage } from './moverUpload';
@@ -70,6 +71,7 @@ router.patch(
 router.get(
   '/',
   validate(getMoverListQuerySchema, 'query'),
+  cacheResponse(60),
   moverController.getMovers
 );
 
@@ -82,6 +84,7 @@ router.get(
 router.get(
   '/:id',
   validate(getMoverParamsSchema, 'params'),
+  cacheResponse(300),
   moverController.getMoverById
 );
 

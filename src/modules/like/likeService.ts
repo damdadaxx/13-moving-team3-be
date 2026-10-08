@@ -1,5 +1,6 @@
 import { Prisma } from '../../generated/prisma/client';
 import { Role } from '../../generated/prisma/enums';
+import { deleteCacheByPrefix } from '../../lib/redis';
 import { paginateByCursor } from '../../utils/cursorPagination';
 import { BadRequestError, ForbiddenError } from '../../utils/error';
 import likeRepository from './likeRepository';
@@ -112,6 +113,8 @@ const likeService = {
       throw new BadRequestError('이미 찜한 기사님 입니다.');
     }
     const like = await likeRepository.createLike(moverId, userId);
+    // 기사님 찜 수가 바뀌므로 기사님 조회 캐시 삭제
+    await deleteCacheByPrefix('cache:/mover');
     const likeCount = await likeRepository.getLikeCount(moverId);
 
     return { like, likeCount };
@@ -131,6 +134,7 @@ const likeService = {
     }
 
     await likeRepository.bulkDeleteLike(moverIds, userId);
+    await deleteCacheByPrefix('cache:/mover');
     const likeCountList = await likeRepository.getLikeCountList(moverIds);
 
     const result = likeInfoList.map((info) => {
@@ -165,6 +169,7 @@ const likeService = {
       throw new BadRequestError('찜을 먼저 해야 취소할 수 있습니다.');
     }
     await likeRepository.deleteLike(where);
+    await deleteCacheByPrefix('cache:/mover');
     const likeCount = await likeRepository.getLikeCount(likeInfo.moverId);
     return { likeCount };
   },

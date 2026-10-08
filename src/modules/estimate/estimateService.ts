@@ -1,5 +1,6 @@
 import { EstimateStatus, Prisma, Role } from '../../generated/prisma/client';
 import { prisma } from '../../lib/prisma';
+import { deleteCacheByPrefix } from '../../lib/redis';
 import {
   BadRequestError,
   ConflictError,
@@ -340,6 +341,8 @@ export const estimateService = {
         );
       });
 
+      // 기사님 확정 수(confirmedCount)가 바뀌므로 기사님 조회 캐시 삭제
+      await deleteCacheByPrefix('cache:/mover');
       await notificationService.publishCreated(notifications);
     }
 

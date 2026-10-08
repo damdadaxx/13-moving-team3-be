@@ -6,6 +6,7 @@ import {
   NotFoundError,
 } from '../../utils/error';
 import { paginateByCursor } from '../../utils/cursorPagination';
+import { deleteCacheByPrefix } from '../../lib/redis';
 import { deleteMoverImage, saveMoverImage } from './moverImage';
 import moverMapper from './moverMapper';
 import moverRepository from './moverRepository';
@@ -88,6 +89,9 @@ const moverService = {
         serviceTypes: input.serviceTypes,
         serviceRegions: input.serviceRegions,
       });
+
+      // 새 기사님이 목록에 보이도록 기사님 조회 캐시 삭제
+      await deleteCacheByPrefix('cache:/mover');
 
       return moverMapper.toProfile(profile);
     } catch (error: unknown) {
@@ -232,6 +236,9 @@ const moverService = {
     if (nextImageUrl !== undefined && existingProfile.imgUrl !== nextImageUrl) {
       await deleteMoverImage(existingProfile.imgUrl);
     }
+
+    // 수정된 프로필이 목록·상세에 바로 보이도록 기사님 조회 캐시 삭제
+    await deleteCacheByPrefix('cache:/mover');
 
     return moverMapper.toProfile(updatedProfile);
   },

@@ -50,6 +50,9 @@ export const ENV = {
   NAVER_CLIENT_ID: process.env.NAVER_CLIENT_ID,
   NAVER_CLIENT_SECRET: process.env.NAVER_CLIENT_SECRET,
 
+  // Redis 캐시 (src/lib/redis.ts). 없으면 캐시 없이 동작한다
+  REDIS_URL: process.env.REDIS_URL || undefined,
+
   // 스케줄러 (src/scheduler) — 셋 다 선택값이고 기본값으로 동작한다.
   // 서버리스/다중 인스턴스 배포에서 인프로세스 배치를 끄려면 false.
   SCHEDULER_ENABLED: toBoolean(process.env.SCHEDULER_ENABLED, true),
