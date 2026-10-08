@@ -52,8 +52,15 @@ type AuthResult = {
 const isRole = (value: unknown): value is Role =>
   value === 'CUSTOMER' || value === 'MOVER';
 
+/*
+ * access 토큰은 FE가 Supabase 클라이언트(Realtime 등)에도 그대로 붙인다.
+ * Supabase/PostgREST는 role claim을 SET ROLE 대상으로 예약해 쓰므로, 여기에 우리
+ * 비즈니스 role(CUSTOMER/MOVER)을 넣으면 Postgres에 그런 role이 없어 요청이 깨진다.
+ * role은 'authenticated'로 고정하고, 비즈니스 role은 app_role claim에 따로 담는다
+ * (authenticate 미들웨어가 req.auth.role에 app_role을 덮어써서 백엔드 기존 코드는 그대로 둔다).
+ */
 const signAccessToken = (userId: string, role: Role) =>
-  jwt.sign({ role }, ENV.JWT_ACCESS_SECRET, {
+  jwt.sign({ role: 'authenticated', app_role: role }, ENV.JWT_ACCESS_SECRET, {
     subject: userId,
     expiresIn: ACCESS_TOKEN_EXPIRES_IN,
   });
