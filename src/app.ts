@@ -17,6 +17,7 @@ import customerRouter from './modules/customer/customerRoute';
 import likeRouter from './modules/like/likeRoute';
 import reviewRouter from './modules/review/reviewRoute';
 import notificationRouter from './modules/notification/notificationRoute';
+import chatRouter from './modules/chat/chatRoute';
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/customer', customerRouter);
 app.use('/likes', likeRouter);
 app.use('/reviews', reviewRouter);
 app.use('/notifications', notificationRouter);
+app.use('/chat/rooms', chatRouter);
 
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use(errorHandler);

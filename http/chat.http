@@ -1,0 +1,148 @@
+# 쿠키는 REST Client가 쿠키 jar로 자동 관리한다 (rest-client.rememberCookiesForSubsequentRequests, 기본값 true).
+# 시드 계정(prisma/seed.ts) 비밀번호는 전부 test1234! 이고 bcrypt로 해시돼 있어 실제 /auth/login으로 로그인된다.
+# 메시지는 Supabase(채팅 전용 DB)에 실제로 쌓인다 — 재실행하면 목록에 계속 누적된다.
+
+@baseUrl = http://localhost:3001
+@password = test1234!
+
+# ─────────────────────────────────────────────────────────────
+# ACCEPTED + CONFIRMED 방 (sehunConfirmed 요청, estimate.sehunMinjae)
+# 고객: 오세훈(oh.sehun@example.com) ↔ 기사: 김민재(kim.minjae@moving.kr)
+# 송수신 + 이미지 + 조회 전부 허용돼야 한다.
+# ─────────────────────────────────────────────────────────────
+
+### 로그인 (오세훈 / CUSTOMER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "oh.sehun@example.com",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### 메시지 목록 조회 (비어있거나 아래에서 보낸 메시지가 쌓여 있음)
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+
+### 메시지 목록 - 페이지 크기 지정 + 커서 페이지네이션 확인용
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages?size=1
+
+### 메시지 전송 (고객 -> 201, Supabase chat_messages에 실제 INSERT)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+Content-Type: application/json
+
+{ "content": "안녕하세요, 이사 관련 문의드립니다." }
+
+### 메시지 전송 - 400 VALIDATION_ERROR (content도 imageUrl도 없음)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+Content-Type: application/json
+
+{}
+
+### 이미지 업로드 presigned URL 발급 (응답의 path를 복사해서 아래 메시지 전송에 쓴다)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/image
+Content-Type: application/json
+
+{ "fileName": "room.png" }
+
+### 이미지 메시지 전송 — 위 응답의 path를 imagePath에 그대로 붙여넣기
+# (버킷이 private라 image_url엔 조회 시점에 새로 서명한 URL이 내려온다)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+Content-Type: application/json
+
+{ "imagePath": "<위 응답의 path 값으로 교체>" }
+
+### 이미지 메시지 전송 - 403 FORBIDDEN (업로드 안 한 가짜 path)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+Content-Type: application/json
+
+{ "imagePath": "40000000-0000-4000-8000-000000000005/no-such-file.png" }
+
+### 이미지 메시지 전송 - 403 FORBIDDEN (남의 방 path — estimateId 폴더가 다름)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+Content-Type: application/json
+
+{ "imagePath": "40000000-0000-4000-8000-000000000008/whatever.png" }
+
+### 미읽음 수 조회 (고객 본인이 보낸 메시지는 제외되므로 0)
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/unread-count
+
+### 로그인 (김민재 / MOVER) - 상대방 입장
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "kim.minjae@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### 미읽음 수 조회 (고객이 보낸 메시지가 안 읽혔으면 1 이상)
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/unread-count
+
+### 읽음 처리
+PATCH {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/read
+
+### 읽음 처리 후 미읽음 수 재조회 -> 0
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/unread-count
+
+### 기사도 메시지 전송 가능 (ACCEPTED+CONFIRMED면 양쪽 다 쓰기 허용)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+Content-Type: application/json
+
+{ "content": "네, 안녕하세요! 어떤 점이 궁금하신가요?" }
+
+### 타인의 채팅방 접근 -> 403 FORBIDDEN (본인의 채팅방이 아닙니다)
+# nayoungHaneul 방(000008)은 정하늘 기사님 소유, 김민재가 접근 시도
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000008/messages
+
+# ─────────────────────────────────────────────────────────────
+# ACCEPTED + COMPLETED 방 (nayoungDone 요청, estimate.nayoungHaneul)
+# 고객: 유나영(yoo.nayoung@example.com) ↔ 기사: 정하늘(jung.haneul@moving.kr)
+# 이사일이 지나 COMPLETED로 전환됨 -> 조회만 허용, 송신/이미지는 차단돼야 한다.
+# ─────────────────────────────────────────────────────────────
+
+### 로그인 (정하늘 / MOVER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jung.haneul@moving.kr",
+  "password": "{{password}}",
+  "role": "MOVER"
+}
+
+### 메시지 목록 조회 -> 200 (COMPLETED도 조회는 허용)
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000008/messages
+
+### 메시지 전송 시도 -> 403 FORBIDDEN (이사 완료 후에는 기록 조회만 가능합니다)
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000008/messages
+Content-Type: application/json
+
+{ "content": "이사 끝난 뒤에도 보낼 수 있나요?" }
+
+### 읽음 처리 -> 200 (새 메시지를 쓰는 게 아니라 상태 갱신이라 COMPLETED에서도 허용)
+PATCH {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000008/read
+
+### 이미지 업로드 시도 -> 403 FORBIDDEN
+POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000008/image
+Content-Type: application/json
+
+{ "fileName": "late.png" }
+
+### 미읽음 수 조회 -> 200 (조회성 동작이라 COMPLETED에서도 허용)
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000008/unread-count
+
+# ─────────────────────────────────────────────────────────────
+# 공통 에러 케이스
+# ─────────────────────────────────────────────────────────────
+
+### 쿠키 없이 요청 -> 401 UNAUTHORIZED
+# (쿠키 jar를 비운 새 세션에서 실행하거나, rest-client.cookies 캐시를 지우고 실행)
+GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
+
+### 존재하지 않는 견적 -> 404 NOT_FOUND
+GET {{baseUrl}}/chat/rooms/00000000-0000-4000-8000-000000000000/messages
+
+### estimateId가 uuid 아님 -> 400 VALIDATION_ERROR
+GET {{baseUrl}}/chat/rooms/not-a-uuid/messages
