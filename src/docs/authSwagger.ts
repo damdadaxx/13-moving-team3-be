@@ -166,7 +166,10 @@
  *               role: { type: string, enum: [CUSTOMER, MOVER] }
  *     responses:
  *       200:
- *         description: 로그인 성공. `{ success, data }` + accessToken/refreshToken HttpOnly 쿠키
+ *         description: >
+ *           로그인 성공. `{ success, data }` + accessToken/refreshToken HttpOnly 쿠키.
+ *           data는 유저 정보에 accessToken 필드가 같이 담겨 온다(Supabase Realtime
+ *           클라이언트 연결 등 FE JS가 토큰을 직접 써야 하는 경우용. 세션 인증은 쿠키로 계속 처리한다).
  *       400:
  *         description: 요청 값 검증 실패
  *         content:
@@ -208,7 +211,9 @@
  *     description: refreshToken 쿠키로 새 토큰 쌍을 발급합니다.
  *     responses:
  *       200:
- *         description: 재발급 성공. `{ success, data }` 유저 정보
+ *         description: >
+ *           재발급 성공. `{ success, data }` 유저 정보 + accessToken 필드(로그인과 동일하게
+ *           FE JS가 Realtime 연결 등에 쓸 수 있게 바디에도 내려준다).
  *       401:
  *         description: 리프레시 토큰 없음/만료/불일치
  *         content:
@@ -227,7 +232,9 @@
  *       - cookieAuth: []
  *     responses:
  *       200:
- *         description: 조회 성공. `{ success, data }` 이름/이메일/전화번호 등 기본정보
+ *         description: >
+ *           조회 성공. `{ success, data }` 이름/이메일/전화번호 등 기본정보 + accessToken 필드
+ *           (login/refresh와 동일, 쿠키에 있던 값을 그대로 돌려준다 — 새로고침 시 세션 하이드레이션용).
  *       401:
  *         description: 인증 필요. 만료 시 code는 TOKEN_EXPIRED
  *         content:
