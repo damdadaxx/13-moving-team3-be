@@ -31,6 +31,19 @@ const socialRateLimit = createRateLimit(
   (_req, res) => redirectSocialError(res, 'TOO_MANY_REQUESTS')
 );
 
+/*
+@ 이메일 인증번호 발송 — IP 단위 (emailVerificationRateLimit은 계정(이메일+role) 단위)
+- 계정 단위 제한만 있으면, 한 IP가 서로 다른 이메일 주소를 계속 바꿔가며 보내는 건 막지 못한다
+  (메일 발송 비용·스팸, 가입 여부 응답으로 이메일 존재를 훑는 것 모두 이 경로로 가능하다)
+- 두 제한은 서로 다른 것을 막으므로 한쪽으로 합치지 않고 라우트에 같이 건다(AND로 적용)
+  - 합쳤다면(예: `ip:email`) 이메일을 하나 바꿀 때마다 새 키가 생겨서,
+    계정 단위 제한을 IP 로테이션 없이도 이메일만 바꿔서 우회할 수 있게 된다
+- 로그인(loginRateLimit)은 계정 단위만 쓰고 IP 단위가 없다. 로그인은 틀려도 아무 일이
+  안 생기지만, 인증번호 발송은 성공하는 순간 메일이 나가 버려 되돌릴 수 없어서 IP
+  단위를 추가로 둔다
+*/
+const emailVerificationIpRateLimit = createRateLimit(TEN_MINUTES_MS, 20, ipKey);
+
 // 비밀번호 변경 — authenticate 뒤에 붙으므로 유저 단위
 const passwordRateLimit = createRateLimit(TEN_MINUTES_MS, 10, (req) =>
   req.auth?.sub ? `user:${req.auth.sub}` : ipKey(req)
@@ -45,6 +58,7 @@ router.post('/signUp', validate(signupSchema), authController.signUp);
 */
 router.post(
   '/email-verification',
+  emailVerificationIpRateLimit,
   emailVerificationRateLimit,
   validate(sendEmailCodeSchema),
   authController.sendEmailVerification
