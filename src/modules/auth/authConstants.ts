@@ -35,8 +35,13 @@ export const LOGIN_ATTEMPT_WINDOW_MS = 30 * 60 * 1000;
 - challenge 토큰: 인증번호 해시를 담고 5분간 유효. 인증번호 확인에 쓴다.
 - verified 토큰: 인증을 마쳤다는 증명. 30분 안에 회원가입을 끝내야 한다.
 - 시도 횟수는 서버에 상태가 없어 세지 못하므로, 라우터의 rate limit 이 방어를 맡는다.
+- EMAIL_CODE_EXPIRES_IN을 EMAIL_CODE_EXPIRES_MINUTES에서 계산해서 만든다. 전에는 둘이
+  따로("5m" 문자열 / 5 숫자) 떨어져 있어서, 숫자만 바꾸고 jwt.sign에 실제로 쓰이는
+  문자열 상수는 그대로 둔 채 테스트하면 "유효시간을 줄였는데도 인증이 된다"는
+  상황이 생겼다. 토큰 실제 수명과 사용자에게 보여주는 분(minutes) 값이 같은
+  값에서 나오게 해서 더 이상 둘이 따로 놀지 않게 한다.
 */
 export const EMAIL_CODE_LENGTH = 6;
-export const EMAIL_CODE_EXPIRES_IN = '5m';
 export const EMAIL_CODE_EXPIRES_MINUTES = 5;
+export const EMAIL_CODE_EXPIRES_IN = `${EMAIL_CODE_EXPIRES_MINUTES}m`;
 export const EMAIL_VERIFIED_EXPIRES_IN = '30m';

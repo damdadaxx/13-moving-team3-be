@@ -4,6 +4,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../../utils/error';
+import { deleteCacheByPrefix } from '../../lib/redis';
 import { estimateRepository } from '../estimate/estimateRepository';
 import moverRepository from '../mover/moverRepository';
 import reviewRepository from './reviewRepository';
@@ -111,6 +112,9 @@ const reviewService = {
       content,
       rating,
     });
+
+    // 기사님 평점 평균·리뷰 수가 바뀌므로 기사님 조회 캐시 삭제
+    await deleteCacheByPrefix('cache:/mover');
 
     return review;
   },
