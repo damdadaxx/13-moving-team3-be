@@ -6,7 +6,8 @@ import { BadRequestError } from '../../utils/error';
   기사님 프로필 이미지 업로드 설정
   =================================================*/
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+// 프론트엔드 제한과 동일하게 맞춰 요청 단계에서 큰 파일을 바로 거절합니다.
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   'image/jpeg',
@@ -17,9 +18,10 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
 const upload = multer({
   /*
     @ memoryStorage
-  
+
     - 업로드된 파일을 먼저 메모리의 Buffer로 받습니다.
-    - 현재는 로컬 파일로 저장하고 추후에는 같은 Buffer를 S3로 전송합니다.
+    - 요청 body 검증까지 성공한 뒤 Service에서 같은 Buffer를 S3로 전송합니다.
+    - 이렇게 하면 잘못된 body와 함께 온 파일이 S3에 먼저 남지 않습니다.
     */
   storage: multer.memoryStorage(),
 
@@ -61,7 +63,7 @@ export const uploadMoverProfileImage = (
       if (error.code === 'LIMIT_FILE_SIZE') {
         return next(
           new BadRequestError(
-            '프로필 이미지는 5MB 이하만 업로드할 수 있습니다.'
+            '프로필 이미지는 4MB 이하만 업로드할 수 있습니다.'
           )
         );
       }

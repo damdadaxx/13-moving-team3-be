@@ -53,7 +53,7 @@
  *         profileImage:
  *           type: string
  *           format: binary
- *           description: 선택 항목. JPEG, PNG, WEBP 형식의 5MB 이하 이미지 한 개
+ *           description: 선택 항목. JPEG, PNG, WEBP 형식의 4MB 이하 이미지 한 개
  *         nickname:
  *           type: string
  *           minLength: 2
@@ -138,7 +138,7 @@
  *         profileImage:
  *           type: string
  *           format: binary
- *           description: 교체할 JPEG, PNG, WEBP 형식의 5MB 이하 이미지 한 개
+ *           description: 교체할 JPEG, PNG, WEBP 형식의 4MB 이하 이미지 한 개
  *         nickname:
  *           type: string
  *           minLength: 2
@@ -200,7 +200,7 @@
  *           type: string
  *           nullable: true
  *           description: 프로필 이미지 URL. 이미지가 없으면 null입니다.
- *           example: /uploads/movers/550e8400-e29b-41d4-a716-446655440000.webp
+ *           example: https://d111111abcdef8.cloudfront.net/profiles/movers/550e8400-e29b-41d4-a716-446655440000.webp
  *         nickname:
  *           type: string
  *           example: 민재 이사센터
@@ -434,7 +434,8 @@
  *     summary: 기사님 프로필 등록
  *     description: |
  *       로그인한 MOVER 회원이 기사님 프로필을 최초 등록합니다.
- *       프로필 이미지는 선택 항목이며 JPEG, PNG, WEBP 형식의 5MB 이하 파일 한 개만 허용합니다.
+ *       프로필 이미지는 선택 항목이며 JPEG, PNG, WEBP 형식의 4MB 이하 파일 한 개만 허용합니다.
+ *       이미지는 비공개 S3 버킷에 저장하고 응답에는 CloudFront URL을 반환합니다.
  *       serviceTypes와 serviceRegions는 각각 한 개 이상의 중복되지 않은 값을 전달해야 합니다.
  *       이미 프로필을 등록한 회원이 다시 요청하면 409 응답을 반환합니다.
  *     security:
@@ -460,7 +461,7 @@
  *             schema:
  *               $ref: '#/components/schemas/MoverProfileResponse'
  *       400:
- *         description: 요청값 검증 실패, 지원하지 않는 이미지 형식 또는 5MB 초과
+ *         description: 요청값 검증 실패, 지원하지 않는 이미지 형식 또는 4MB 초과
  *         content:
  *           application/json:
  *             schema:
