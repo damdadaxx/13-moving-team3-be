@@ -91,16 +91,21 @@ export const chatService = {
 
     // 방마다 따로(병렬로) 조회한다 — 방 전체를 한 쿼리로 긁어 추리면 PostgREST 기본
     // 행 캡에 걸려 메시지/안읽음이 많은 유저는 조용히 틀어질 수 있다.
-    const unreadCountsPromise = Promise.all(
-      estimateIds.map((estimateId) =>
-        chatRepository.countUnread({ estimateId, readerId: userId })
-      )
-    );
+    // 두 Promise.all을 하나로 묶어서 기다린다 — 따로 두면 await 안 한 쪽이 이후 await보다
+    // 먼저 reject될 때 그 reject를 아무도 못 잡아 unhandledRejection으로 서버가 죽는다.
+    const [unreadCounts, lastMessages] = await Promise.all([
+      Promise.all(
+        estimateIds.map((estimateId) =>
+          chatRepository.countUnread({ estimateId, readerId: userId })
+        )
+      ),
+      Promise.all(
+        estimateIds.map((estimateId) =>
+          chatRepository.getLastMessage(estimateId)
+        )
+      ),
+    ]);
 
-    const lastMessages = await Promise.all(
-      estimateIds.map((estimateId) => chatRepository.getLastMessage(estimateId))
-    );
-    // unreadCountsPromise와는 무관하니, 그걸 기다리지 않고 바로 서명 시작한다.
     const nonNullMessages = lastMessages.filter(
       (row): row is ChatMessageRow => row !== null
     );
@@ -118,7 +123,6 @@ export const chatService = {
       }
     });
 
-    const unreadCounts = await unreadCountsPromise;
     const unreadCountByEstimateId = new Map(
       estimateIds.map((estimateId, index) => [estimateId, unreadCounts[index]])
     );
