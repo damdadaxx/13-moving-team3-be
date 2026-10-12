@@ -3,10 +3,13 @@
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^10.0.1",
+    "@swc/core": "^1.16.18",
+    "@swc/jest": "^0.2.39",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.2.0",
     "@types/node": "^26.4.0",
@@ -15,6 +18,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/supertest": "^7.2.1",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "cross-env": "^10.1.0",
@@ -22,8 +26,10 @@
     "eslint": "^10.9.1",
     "globals": "^17.11.0",
     "husky": "^9.1.7",
+    "jest": "^30.5.2",
     "lint-staged": "^17.4.1",
     "prettier": "^3.9.6",
+    "supertest": "^7.3.1",
     "tsx": "^4.23.12",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.68.0"
@@ -45,7 +51,11 @@
     "db:reset": "dotenv -e .env.development -- npx prisma migrate reset",
     "db:push": "dotenv -e .env.development -- npx prisma db push",
     "db:seed": "dotenv -e .env.development -- tsx prisma/seed.ts",
-    "db:studio": "dotenv -e .env.development -- npx prisma studio"
+    "db:studio": "dotenv -e .env.development -- npx prisma studio",
+    "test": "jest --runInBand",
+    "test:db": "docker run --name moving-test-db -e POSTGRES_PASSWORD=password -e POSTGRES_DB=moving_test -p 5433:5432 -d postgres:16",
+    "test:unit": "jest --selectProjects unit",
+    "test:integration": "jest --selectProjects integration --runInBand"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -72,10 +82,10 @@
     "passport": "^0.7.0",
     "passport-oauth2": "^1.8.0",
     "pg": "^8.23.0",
+    "prisma": "^7.10.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "resend": "^6.31.0",
-    "prisma": "^7.10.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.5.4"
