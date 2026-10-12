@@ -14,7 +14,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # CI: 테스트가 통과한 코드만 배포한다. 운영 .env 는 이 잡에 만들지 않는다 (Deploy 잡에서만 생성)
+  Test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: moving_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      HUSKY: 0
+      DATABASE_URL: postgresql://postgres:password@localhost:5433/moving_test
+    steps:
+      - name: 깃헙 레포지토리 불러오기
+        uses: actions/checkout@v4
+
+      - name: Node 버전 고정 (EC2와 동일하게)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: Prisma Client 생성
+        run: npx prisma generate --config prisma7.config.ts
+
+      - name: 테스트
+        run: npm test
+
+  # CD: Test 잡이 성공해야만 실행된다
   Deploy:
+    needs: Test
     runs-on: ubuntu-latest # 깃헙액션 워크플로우가 실행되는 OS 환경. EC2 OS와 같은 필요 없음
     env:
       HUSKY: 0 # CI 에서는 git hook 설치를 건너뛴다
