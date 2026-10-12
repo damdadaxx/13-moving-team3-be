@@ -1,16 +1,16 @@
-// 채팅 전용 DB (지금은 Supabase Cloud, 나중에 EC2 셀프호스팅으로 옮겨도 이 파일은 그대로 씀).
-// 런타임 조회/쓰기는 이 Prisma Client가 아니라 src/lib/supabase.ts(supabase-js, service_role)로 한다 —
-// 이 스키마는 "테이블/인덱스 구조를 migration으로 관리하기 위한 용도"일 뿐, 앱 코드가 import해서 쓰지 않는다.
+// 채팅 전용 DB (지금은 Supabase Cloud). 이 파일은 100% 읽기 전용 거울이다 — 절대 손으로
+// 고치지 말 것. 런타임 조회/쓰기도 이 Prisma Client가 아니라 src/lib/supabase.ts(supabase-js,
+// service_role)로 한다. 앱 코드는 이 스키마를 import하지 않는다.
 //
-// 이 파일(테이블/인덱스)과 supabase/migrations/*.sql(RLS/Realtime publication/Storage 버킷/
-// check 제약)은 완전히 분리된 별개 체계다 — 일부러 합치지 않았다. Prisma의 migrate dev/reset은
-// 내부적으로 shadow DB에 마이그레이션 전체를 재생해서 diff를 계산하는데, RLS/publication/버킷
-// 같은 Supabase 전용 SQL이 마이그레이션 파일에 섞여 있으면 바닐라 Postgres shadow DB에서
-// 재생이 깨질 수 있다. 그래서:
-//   - 테이블/인덱스 변경: 이 파일 고치고 `npx prisma migrate dev --config=prisma.chat.config.ts`
-//     그대로 돌리면 됨 (Prisma가 끝까지 처리, 수동 작업 없음)
-//   - check 제약/RLS/publication/버킷 변경: supabase/migrations/ 밑에 새 번호 파일 추가하고
-//     Supabase SQL Editor에서 수동 실행 (Prisma 마이그레이션과 독립적으로 관리)
+// 실제 변경은 전부 supabase/migrations/*.sql에서만 한다 (테이블/인덱스/RLS/Realtime
+// publication/Storage 버킷/check 제약 전부 포함) — RLS/publication/버킷 같은 Supabase 전용
+// 문법은 애초에 Prisma schema 언어로 표현이 안 돼서, 표현 가능한 테이블/인덱스까지 전부
+// SQL 쪽으로 몰아 이력을 하나로 유지한다.
+//
+// 절차: supabase/migrations/000N_xxx.sql 새로 작성 → Supabase SQL Editor에서 실행
+//      → `npm run db:chat:pull` (= prisma db pull) 로 이 파일을 실제 DB 구조에 맞게 자동 갱신.
+// 주의: db pull은 이 파일을 통째로 재생성해서 이 주석까지 날아간다 — pull 직후 이 헤더를
+// 다시 붙여 넣을 것.
 
 generator client {
   provider        = "prisma-client"
@@ -24,18 +24,16 @@ datasource db {
 
 model ChatMessage {
   id         BigInt   @id @default(autoincrement())
-  estimateId String   @map("estimate_id") @db.Uuid // 기존 메인 DB Estimate.id 참조 (채팅방 키)
-  customerId String   @map("customer_id") @db.Uuid // 기존 메인 DB CustomerProfile.userId (참여자, RLS용 비정규화)
-  moverId    String   @map("mover_id") @db.Uuid // 기존 메인 DB MoverProfile.userId (참여자, RLS용 비정규화)
-  senderId   String   @map("sender_id") @db.Uuid // 메시지 보낸 사람 (customerId 또는 moverId)
+  estimateId String   @map("estimate_id") @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  moverId    String   @map("mover_id") @db.Uuid
+  senderId   String   @map("sender_id") @db.Uuid
   content    String?
   imageUrl   String?  @map("image_url")
   isRead     Boolean  @default(false) @map("is_read")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  // 커서 페이지네이션 (estimateId 기준 최신순 조회)
   @@index([estimateId, createdAt(sort: Desc), id(sort: Desc)], map: "chat_messages_room_cursor_idx")
-  // 미읽음 수 집계용 (partial index — is_read = false인 행만)
-  @@index([estimateId, isRead], where: raw("\"is_read\" = false"), map: "chat_messages_unread_idx")
+  @@index([estimateId, isRead], map: "chat_messages_unread_idx", where: raw("(is_read = false)"))
   @@map("chat_messages")
 }
