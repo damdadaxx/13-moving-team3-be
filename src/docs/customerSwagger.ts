@@ -28,7 +28,7 @@
  *               profileImage:
  *                 type: string
  *                 format: binary
- *                 description: 프로필 이미지. jpeg/png/webp, 5MB 이하
+ *                 description: 프로필 이미지. jpeg/png/webp, 4MB 이하
  *         application/json:
  *           schema:
  *             type: object
@@ -99,7 +99,7 @@
  *   patch:
  *     tags: [Customer]
  *     summary: 내 프로필 수정
- *     description: region/serviceTypes 는 필수. serviceTypes 는 전체 교체. profileImage를 보내면 기존 로컬 파일을 교체한다. name/phoneNumber 는 PATCH /auth/me.
+ *     description: region/serviceTypes 는 필수. serviceTypes 는 전체 교체. profileImage를 보내면 기존 이미지를 S3 이미지로 교체하고 CloudFront URL을 반환한다. name/phoneNumber 는 PATCH /auth/me.
  *     security:
  *       - cookieAuth: []
  *     requestBody:
@@ -119,7 +119,7 @@
  *               profileImage:
  *                 type: string
  *                 format: binary
- *                 description: 보낼 때만 이미지를 교체한다
+ *                 description: 보낼 때만 이미지를 교체한다. jpeg/png/webp, 4MB 이하
  *         application/json:
  *           schema:
  *             type: object

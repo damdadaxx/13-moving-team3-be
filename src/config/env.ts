@@ -12,6 +12,11 @@ const required = [
   'DATABASE_URL',
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
+  'AWS_REGION',
+  'AWS_PRIVATE_BUCKET_NAME',
+  'CLOUDFRONT_DOMAIN',
+  'SUPABASE_URL',
+  'SUPABASE_SECRET_KEY',
 ] as const;
 
 for (const key of required) {
@@ -29,12 +34,51 @@ const toBoolean = (value: string | undefined, defaultValue: boolean) => {
   return value !== 'false' && value !== '0';
 };
 
+/*
+ * CloudFront 주소를 `https://도메인` 형태로 통일합니다.
+ * 뒤에 슬래시가 있거나 path/query가 섞이면 이미지 URL 조합과 삭제 대상 확인이
+ * 달라질 수 있으므로, 서버 시작 시 한 번 검증해서 잘못된 설정을 빨리 찾습니다.
+ */
+const toHttpsOrigin = (value: string, key: string) => {
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`환경변수 ${key}는 올바른 URL이어야 합니다.`);
+  }
+
+  if (
+    url.protocol !== 'https:' ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      `환경변수 ${key}는 path 없이 https://도메인 형식이어야 합니다.`
+    );
+  }
+
+  return url.origin;
+};
+
 export const ENV = {
   NODE_ENV: env,
   PORT: Number(process.env.PORT) || 3000,
   DATABASE_URL: process.env.DATABASE_URL!,
   JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET!,
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET!,
+  // S3에는 비공개 원본을 저장하고, 클라이언트에는 CloudFront URL만 반환합니다.
+  AWS_REGION: process.env.AWS_REGION!,
+  // 팀 환경변수 이름을 S3 저장 모듈에서 사용하는 내부 이름으로 연결합니다.
+  S3_BUCKET_NAME: process.env.AWS_PRIVATE_BUCKET_NAME!,
+  CLOUDFRONT_BASE_URL: toHttpsOrigin(
+    process.env.CLOUDFRONT_DOMAIN!,
+    'CLOUDFRONT_DOMAIN'
+  ),
+  // 채팅 DB (Supabase). service_role 성격의 secret key만 BE가 씀 — RLS 전부 우회.
+  SUPABASE_URL: process.env.SUPABASE_URL!,
+  SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY!,
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || undefined,
   PROXY_SECRET: process.env.PROXY_SECRET || undefined,
