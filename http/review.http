@@ -2,8 +2,9 @@
 @email = han.jimin@example.com
 @password = test1234!
 @role = CUSTOMER
+@estimateId = 210d2197-e9d2-42e7-849d-d0f4d3f968bd
 
-// 테스틀 위해 준비한 계정으로 우선 로그인을 합니다.
+// 테스트를 위해 준비한 계정으로 우선 로그인을 합니다.
 ###
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
@@ -25,8 +26,48 @@ POST {{baseUrl}}/reviews
 content-type: application/json
 
 {
-  "estimateId": "40000000-0000-4000-8000-000000000013",
+  "estimateId": "{{estimateId}}",
   "content": "기사님이 너무 친절하셨어요. 짐도 안전하게 잘 옮겨주셨습니다.",
   "rating": 5
+}
+
+### 리뷰 초안 - 한국어
+POST {{baseUrl}}/reviews/draft
+Content-Type: application/json
+
+{
+  "estimateId": "{{estimateId}}",
+  "rating": 5,
+  "locale": "ko"
+}
+
+### 리뷰 초안 - 영어
+POST {{baseUrl}}/reviews/draft
+Content-Type: application/json
+
+{
+  "estimateId": "{{estimateId}}",
+  "rating": 5,
+  "locale": "en"
+}
+
+### 리뷰 초안 - 중국어
+POST {{baseUrl}}/reviews/draft
+Content-Type: application/json
+
+{
+  "estimateId": "{{estimateId}}",
+  "rating": 3,
+  "locale": "zh"
+}
+
+### 리뷰 초안 - 일본어
+POST {{baseUrl}}/reviews/draft
+Content-Type: application/json
+
+{
+  "estimateId": "{{estimateId}}",
+  "rating": 2,
+  "locale": "ja"
 }
 

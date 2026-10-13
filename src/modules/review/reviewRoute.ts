@@ -1,6 +1,7 @@
 import express from 'express';
 import reviewController from './reviewController';
 import {
+  createDraftReviewSchema,
   createReviewSchema,
   getMoverIdSchema,
   getMoverReviewsSchema,
@@ -32,4 +33,10 @@ reviewRouter.post(
   reviewController.createReview
 );
 
+reviewRouter.post(
+  '/draft',
+  authenticate,
+  validate(createDraftReviewSchema, 'body'),
+  reviewController.createDraftReview
+);
 export default reviewRouter;

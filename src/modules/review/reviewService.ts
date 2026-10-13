@@ -1,4 +1,5 @@
 import { Prisma } from '../../generated/prisma/client';
+import { ENV } from '../../config/env';
 import {
   BadRequestError,
   ForbiddenError,
@@ -9,10 +10,16 @@ import { estimateRepository } from '../estimate/estimateRepository';
 import moverRepository from '../mover/moverRepository';
 import reviewRepository from './reviewRepository';
 import {
+  CreateDraftReviewInput,
   CreateReviewInput,
   GetMoverReviewsData,
   GetMyReviewsData,
 } from './reviewTypes';
+import { draftSchema } from './reviewSchema';
+import { ApiError, GoogleGenAI } from '@google/genai';
+import { buildDraftPrompt } from './reviewDraftPrompt';
+
+const ai = new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY });
 
 const reviewService = {
   getMyReviews: async ({
@@ -117,6 +124,58 @@ const reviewService = {
     await deleteCacheByPrefix('cache:/mover');
 
     return review;
+  },
+  createDraftReview: async ({
+    estimateId,
+    rating,
+    locale,
+  }: CreateDraftReviewInput) => {
+    //견적서 정보 조회
+    const estimateInfo =
+      await estimateRepository.findByIdWithDetail(estimateId);
+    if (!estimateInfo) {
+      throw new NotFoundError('견적 정보를 찾을 수 없습니다.');
+    }
+
+    const prompt = buildDraftPrompt({
+      locale,
+      rating,
+      nickname: estimateInfo.mover.nickname,
+      route: `${estimateInfo.estimateRequest.departureAddress} - ${estimateInfo.estimateRequest.arrivalAddress}`,
+      moveDate: estimateInfo.estimateRequest.moveDate,
+    });
+
+    //응답시간이 길어지면 요청 시간이 초과되었다는 에러를 발생시킨다.
+    const timeout = new Promise<never>((resolve, reject) => {
+      setTimeout(() => {
+        reject(
+          new ApiError({
+            message: '요청 시간이 초과되었습니다.',
+            status: 408,
+          })
+        );
+      }, 180000); //3분정도 요청 대기.
+    });
+
+    const result = await Promise.race([
+      ai.interactions.create({
+        model: 'gemini-3.5-flash-lite',
+        input: prompt,
+        response_format: {
+          type: 'text',
+          mime_type: 'application/json',
+          schema: draftSchema,
+        },
+      }),
+      timeout,
+    ]);
+
+    if (!result.output_text) {
+      throw new BadRequestError('리뷰 초안을 생성하지 못했습니다.');
+    }
+
+    // 응답 텍스트(JSON 문자열) → 객체로 변환
+    return JSON.parse(result.output_text);
   },
 };
 export default reviewService;
