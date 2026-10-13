@@ -15,6 +15,8 @@ const required = [
   'AWS_REGION',
   'AWS_PRIVATE_BUCKET_NAME',
   'CLOUDFRONT_DOMAIN',
+  'SUPABASE_URL',
+  'SUPABASE_SECRET_KEY',
 ] as const;
 
 for (const key of required) {
@@ -74,6 +76,9 @@ export const ENV = {
     process.env.CLOUDFRONT_DOMAIN!,
     'CLOUDFRONT_DOMAIN'
   ),
+  // 채팅 DB (Supabase). service_role 성격의 secret key만 BE가 씀 — RLS 전부 우회.
+  SUPABASE_URL: process.env.SUPABASE_URL!,
+  SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY!,
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || undefined,
   PROXY_SECRET: process.env.PROXY_SECRET || undefined,
