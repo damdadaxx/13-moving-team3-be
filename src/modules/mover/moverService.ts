@@ -1,5 +1,11 @@
 import { Prisma, Role } from '../../generated/prisma/client';
 import {
+  deleteProfileImageByKey,
+  deleteProfileImageByUrl,
+  StoredProfileImage,
+  uploadProfileImage,
+} from '../../lib/profileImageStorage';
+import {
   BadRequestError,
   ConflictError,
   ForbiddenError,
@@ -7,7 +13,8 @@ import {
 } from '../../utils/error';
 import { paginateByCursor } from '../../utils/cursorPagination';
 import { deleteCacheByPrefix } from '../../lib/redis';
-import { deleteMoverImage, saveMoverImage } from './moverImage';
+// S3 전환 전에 로컬에 저장했던 이미지를 교체·삭제할 때 정리합니다.
+import { deleteLegacyMoverImage } from './moverImage';
 import moverMapper from './moverMapper';
 import moverRepository from './moverRepository';
 import type {
@@ -47,6 +54,46 @@ const validateMoverRole = (role: Role): void => {
   }
 };
 
+/*
+@ 새 이미지 롤백
+
+- S3 업로드는 성공했지만 DB 저장이 실패한 경우에만 사용합니다.
+- 롤백 삭제가 실패해도 원래 발생한 DB 오류를 바꾸지 않고 로그로 남깁니다.
+*/
+const rollbackUploadedImage = async (
+  image: StoredProfileImage | null
+): Promise<void> => {
+  if (!image) {
+    return;
+  }
+
+  try {
+    await deleteProfileImageByKey(image.key);
+  } catch (error: unknown) {
+    // 복구 실패는 API 응답 대신 운영 로그에서 확인해야 하므로 의도적으로 기록합니다.
+    // eslint-disable-next-line no-console
+    console.error('[mover] 새 프로필 이미지 롤백 실패', error);
+  }
+};
+
+/*
+@ 기존 이미지 정리
+
+- DB가 새 이미지 URL 또는 null로 정상 변경된 뒤 실행합니다.
+- S3 전환 전에 저장한 로컬 이미지와 전환 후 S3 이미지를 모두 처리합니다.
+- 정리 실패만으로 이미 성공한 프로필 수정 요청을 500으로 만들지 않습니다.
+*/
+const cleanupPreviousImage = async (imageUrl: string | null): Promise<void> => {
+  try {
+    await deleteLegacyMoverImage(imageUrl);
+    await deleteProfileImageByUrl(imageUrl);
+  } catch (error: unknown) {
+    // 정리 실패는 프로필 저장을 취소하지 않고 운영 로그로 추적합니다.
+    // eslint-disable-next-line no-console
+    console.error('[mover] 기존 프로필 이미지 정리 실패', error);
+  }
+};
+
 /*=================================================
 기사님 Service
 =================================================*/
@@ -72,16 +119,16 @@ const moverService = {
       throw new ConflictError('이미 기사님 프로필이 등록되어 있습니다.');
     }
 
-    let imageUrl: string | null = null;
+    let uploadedImage: StoredProfileImage | null = null;
 
     try {
       if (profileImage) {
-        imageUrl = await saveMoverImage(profileImage);
+        uploadedImage = await uploadProfileImage(profileImage, 'movers');
       }
 
       const profile = await moverRepository.create({
         userId,
-        imgUrl: imageUrl,
+        imgUrl: uploadedImage?.url ?? null,
         nickname: input.nickname,
         careerMonths: input.careerMonths,
         shortIntro: input.shortIntro,
@@ -98,9 +145,9 @@ const moverService = {
       /*
       @ 등록 실패 이미지 롤백
 
-      - DB에 연결되지 않은 로컬 이미지가 남지 않도록 삭제합니다.
+      - DB에 연결되지 않은 S3 이미지가 남지 않도록 삭제합니다.
       */
-      await deleteMoverImage(imageUrl);
+      await rollbackUploadedImage(uploadedImage);
 
       /*
       @ 동시 중복 등록
@@ -192,9 +239,11 @@ const moverService = {
     - null: 기존 이미지 삭제
     */
     let nextImageUrl: string | null | undefined;
+    let uploadedImage: StoredProfileImage | null = null;
 
     if (profileImage) {
-      nextImageUrl = await saveMoverImage(profileImage);
+      uploadedImage = await uploadProfileImage(profileImage, 'movers');
+      nextImageUrl = uploadedImage.url;
     } else if (input.removeImage === true) {
       nextImageUrl = null;
     }
@@ -218,9 +267,7 @@ const moverService = {
       - DB 수정 전에 새로 저장한 이미지만 삭제합니다.
       - null은 이미지 삭제 요청이므로 삭제할 새 파일이 없습니다.
       */
-      if (typeof nextImageUrl === 'string') {
-        await deleteMoverImage(nextImageUrl);
-      }
+      await rollbackUploadedImage(uploadedImage);
 
       throw error;
     }
@@ -230,11 +277,11 @@ const moverService = {
 
     - DB 수정이 성공한 뒤 더 이상 사용하는 곳이 없는 기존 이미지를 삭제합니다.
     - 이 작업은 DB 수정 실패를 처리하는 catch 밖에서 실행합니다.
-    - 기존 이미지 삭제만 실패했을 때 새 이미지까지 롤백하여
-      DB가 존재하지 않는 파일을 가리키는 상황을 방지합니다.
+    - 기존 이미지 삭제만 실패했을 때는 새 이미지를 롤백하지 않습니다.
+      그래야 DB가 삭제된 새 파일을 가리키는 상황을 방지할 수 있습니다.
     */
     if (nextImageUrl !== undefined && existingProfile.imgUrl !== nextImageUrl) {
-      await deleteMoverImage(existingProfile.imgUrl);
+      await cleanupPreviousImage(existingProfile.imgUrl);
     }
 
     // 수정된 프로필이 목록·상세에 바로 보이도록 기사님 조회 캐시 삭제

@@ -3,7 +3,7 @@
 # 쿠키는 클라이언트가 쿠키 jar로 자동 관리한다(회원가입/로그인 후 이어지는 요청에 자동 첨부).
 # VS Code REST Client는 setting `rest-client.rememberCookiesForSubsequentRequests: true`(기본값) 필요.
 
-@host = http://localhost:3000
+@host = http://localhost:3001
 @email = customer-tester@example.com
 @moverEmail = mover-tester@example.com
 @password = password123!
@@ -53,6 +53,7 @@ Content-Type: application/json
 
 ### 프로필 최초 등록 (201) — multer multipart (profileImage 필드)
 # 로컬 이미지 경로를 프로젝트 기준으로 바꿔서 실행한다.
+# 성공하면 S3에 파일이 생기고 응답 imgUrl에는 CloudFront 주소가 들어간다.
 # POST {{host}}/customer/profile
 # Content-Type: multipart/form-data; boundary=----FormBoundary
 #

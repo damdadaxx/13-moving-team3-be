@@ -109,8 +109,9 @@ Content-Type: image/png
 
 # createMoverProfile 응답의 imgUrl을 자동으로 가져옵니다.
 # 반드시 4번 프로필 등록 요청을 먼저 실행해야 합니다.
+# imgUrl은 완성된 CloudFront URL이므로 baseUrl을 앞에 붙이지 않습니다.
 
-GET {{baseUrl}}{{createMoverProfile.response.body.data.imgUrl}}
+GET {{createMoverProfile.response.body.data.imgUrl}}
 
 
 ###
@@ -357,8 +358,9 @@ Content-Type: image/png
 # =================================================
 
 # 13번 응답의 imgUrl을 이용해 새 이미지가 실제로 열리는지 확인합니다.
+# imgUrl은 완성된 CloudFront URL이므로 baseUrl을 앞에 붙이지 않습니다.
 
-GET {{baseUrl}}{{updateMoverProfileImage.response.body.data.imgUrl}}
+GET {{updateMoverProfileImage.response.body.data.imgUrl}}
 
 
 ###
@@ -367,7 +369,8 @@ GET {{baseUrl}}{{updateMoverProfileImage.response.body.data.imgUrl}}
 # =================================================
 
 # removeImage를 true로 보내면 DB의 imgUrl이 null로 변경되고
-# uploads/movers에 있던 기존 로컬 이미지도 삭제됩니다.
+# S3에 있던 기존 이미지도 삭제됩니다.
+# S3 전환 전 uploads/movers에 저장했던 로컬 이미지도 호환을 위해 삭제합니다.
 
 # @name removeMoverProfileImage
 PATCH {{baseUrl}}/mover/profile
