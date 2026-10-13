@@ -69,8 +69,13 @@ describe('authService.login', () => {
 
     const result = await authService.login(INPUT);
 
+    // role 은 Supabase 예약값 'authenticated' 로 고정, 실제 역할은 app_role 에 담는다
     const payload = jwt.verify(result.accessToken, ENV.JWT_ACCESS_SECRET);
-    expect(payload).toMatchObject({ sub: 'mover-1', role: 'MOVER' });
+    expect(payload).toMatchObject({
+      sub: 'mover-1',
+      role: 'authenticated',
+      app_role: 'MOVER',
+    });
     expect(result.user).not.toHaveProperty('password');
     expect(updateRefreshToken).toHaveBeenCalledWith(
       'mover-1',
