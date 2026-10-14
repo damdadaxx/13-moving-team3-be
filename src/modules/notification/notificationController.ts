@@ -1,20 +1,11 @@
 import { Request, Response } from 'express';
-import { UnauthorizedError } from '../../utils/error';
+import { getUserId } from '../../utils/authUser';
 import notificationService from './notificationService';
 import notificationSse from './notificationSse';
 import type {
   GetNotificationsQuery,
   ReadNotificationParams,
 } from './notificationSchema';
-
-// TODO: 다른 곳에서도 사용됨. 유틸함수로 빼기 (authController.ts 에 있음)
-const getUserId = (req: Request) => {
-  const userId = req.auth?.sub;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
-  return userId;
-};
 
 const notificationController = {
   /** SSE 알림 스트림 — 연결 시 현재 뱃지, 이후 생성/읽음 이벤트를 푸시 */
