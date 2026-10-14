@@ -422,9 +422,9 @@
  *     summary: 견적 상태 전환 (발송 / 반려 / 확정)
  *     description: |
  *       body.status 값에 따라 세 가지 동작을 처리한다.
- *       - PROPOSED (MOVER): DESIGNATED → PROPOSED, price/comment 필요
- *       - REJECTED (MOVER): DESIGNATED → REJECTED, rejectReason 필요
- *       - ACCEPTED (CUSTOMER): PROPOSED → ACCEPTED, 추가 필드 없음
+ *       - PROPOSED (MOVER): DESIGNATED → PROPOSED, price/comment 필요. 고객에게 NEW_ESTIMATE 알림
+ *       - REJECTED (MOVER): DESIGNATED → REJECTED, rejectReason 필요. 고객에게 ESTIMATE_REJECTED 알림
+ *       - ACCEPTED (CUSTOMER): PROPOSED → ACCEPTED, 추가 필드 없음. 양쪽에게 ESTIMATE_CONFIRMED 알림
  *
  *       ACCEPTED 처리 시 같은 요청의 나머지 PROPOSED 견적은 NOT_SELECTED로,
  *       견적 요청은 CONFIRMED로 함께 전환된다. DESIGNATED로 남은 행은 건드리지 않는다.

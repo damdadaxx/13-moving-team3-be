@@ -12,8 +12,8 @@
 # @id 는 목록 응답의 알림 id. 커서·개별 읽음에 쓴다.
 
 @BASE_URL = http://localhost:3001
-@email = test1@gmail.com
-@password = asdf1234!
+@email = seo.donghyuk@example.com
+@password = test1234!
 @role = CUSTOMER
 @id = 502dff89-9ad7-43dd-9bc4-e33c2bf32dae
 @moverEmail = kim.minjae@moving.kr
@@ -154,6 +154,16 @@ Content-Type: application/json
   "status": "PROPOSED",
   "price": 180000,
   "comment": "원룸 기준으로 안전하게 옮기겠습니다."
+}
+
+### [F-reject] 지정 견적 반려 (DESIGNATED → REJECTED) — ESTIMATE_REJECTED → 고객 스트림
+# [F] 대신 보낸다. 같은 견적에 PROPOSED 후 REJECTED는 409.
+PATCH {{BASE_URL}}/estimates/{{estimateId}}
+Content-Type: application/json
+
+{
+  "status": "REJECTED",
+  "rejectReason": "해당 날짜에 이미 확정된 이사 일정이 있어 어렵습니다."
 }
 
 ###############################################################################

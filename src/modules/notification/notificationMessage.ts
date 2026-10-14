@@ -59,6 +59,10 @@ const notificationMessage = {
       ? `${name} 기사님의 견적이 확정되었어요.`
       : `${name}님의 견적이 확정되었어요.`,
 
+  /** 지정 견적 요청이 반려되었어요. */
+  estimateRejected: (moverName: string, serviceType: ServiceType) =>
+    `${moverName} 기사님이 ${SERVICE_TYPE_LABEL[serviceType]} 지정 견적 요청을 반려했어요.`,
+
   /** 이사 예정일 알림 */
   moveDay: (relativeDay: string, departure: string, arrival: string) =>
     `${relativeDay}은 ${departure} → ${arrival} 이사 예정일이에요.`,

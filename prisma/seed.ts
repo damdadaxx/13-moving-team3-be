@@ -2464,6 +2464,13 @@ const notifications = [
     createdAt: days(-2),
   },
   {
+    userId: CUSTOMER.jimin,
+    type: 'ESTIMATE_REJECTED',
+    content: notificationMessage.estimateRejected('최유리', 'SMALL_MOVE'),
+    isRead: true,
+    createdAt: days(-2),
+  },
+  {
     userId: MOVER.minjae,
     type: 'NEW_REQUEST',
     content: notificationMessage.newRequest('한지민', 'SMALL_MOVE'),

@@ -89,6 +89,39 @@ describe('/estimates', () => {
     expect(requestAfter?.status).toBe('CONFIRMED');
   });
 
+  test('PATCH /:id: 기사님이 지정 견적을 반려하면 고객에게만 ESTIMATE_REJECTED 알림이 생긴다', async () => {
+    const { customer, mover, estimateRequest } = await setup();
+    const estimate = await prisma.estimate.create({
+      data: {
+        estimateRequestId: estimateRequest.id,
+        moverId: mover.id,
+        isDesignated: true,
+        status: 'DESIGNATED',
+      },
+    });
+    const agent = await loginAs(mover);
+
+    await agent
+      .patch(`/estimates/${estimate.id}`)
+      .send({
+        status: 'REJECTED',
+        rejectReason: '해당 날짜에 이미 확정된 이사 일정이 있어 어렵습니다.',
+      })
+      .expect(200);
+
+    const customerNotifications = await prisma.notification.findMany({
+      where: { userId: customer.id, type: 'ESTIMATE_REJECTED' },
+    });
+    expect(customerNotifications).toHaveLength(1);
+    expect(customerNotifications[0].targetPath).toBeNull();
+    expect(customerNotifications[0].content).toContain('테스트기사');
+
+    const moverNotifications = await prisma.notification.findMany({
+      where: { userId: mover.id, type: 'ESTIMATE_REJECTED' },
+    });
+    expect(moverNotifications).toHaveLength(0);
+  });
+
   test('GET /:id: 본인 견적만 조회할 수 있다', async () => {
     const { customer, mover, estimateRequest } = await setup();
     const estimate = await prisma.estimate.create({
