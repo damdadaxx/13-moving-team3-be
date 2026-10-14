@@ -3,11 +3,8 @@ import { CookieOptions, NextFunction, Request, Response } from 'express';
 import passport from 'passport';
 import { ENV } from '../../config/env';
 import { Role } from '../../generated/prisma/client';
-import {
-  BadRequestError,
-  ConflictError,
-  UnauthorizedError,
-} from '../../utils/error';
+import { getUserId } from '../../utils/authUser';
+import { BadRequestError, ConflictError } from '../../utils/error';
 import { isSameSecret } from '../../utils/hash';
 import { isSocialConfigured, SocialProfile } from './authPassport';
 import { resetLoginRateLimit } from './authRateLimit';
@@ -144,14 +141,6 @@ const logSocialError = (error: unknown) => {
   if (ENV.NODE_ENV !== 'production') {
     console.error('[social] login failed', error);
   }
-};
-
-const getUserId = (req: Request) => {
-  const userId = req.auth?.sub;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
-  return userId;
 };
 
 const authController = {

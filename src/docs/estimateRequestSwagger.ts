@@ -57,28 +57,6 @@
  *         estimates:
  *           type: array
  *           items: { $ref: '#/components/schemas/EstimateSummary' }
- *
- *     ValidationErrorResponse:
- *       type: object
- *       properties:
- *         path: { type: string }
- *         method: { type: string }
- *         errors:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               field: { type: string, example: "limit" }
- *               message: { type: string, example: "limit은 50 이하여야 합니다." }
- *         date: { type: string, format: date-time }
- *
- *     ErrorResponse:
- *       type: object
- *       properties:
- *         path: { type: string }
- *         method: { type: string }
- *         message: { type: string, example: "이미 진행 중인 견적 요청이 있습니다." }
- *         date: { type: string, format: date-time }
  */
 
 /**
@@ -145,7 +123,7 @@
  *         description: 검증 실패 (이사일이 과거, serviceType 오류 등)
  *         content:
  *           application/json:
- *             schema: { $ref: '#/components/schemas/ValidationErrorResponse' }
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       403:
  *         description: MOVER 토큰으로 호출
  *       409:
@@ -284,7 +262,7 @@
  *         description: cursor 형식 오류 / limit 범위 초과
  *         content:
  *           application/json:
- *             schema: { $ref: '#/components/schemas/ValidationErrorResponse' }
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       403:
  *         description: MOVER 토큰으로 호출
  */
@@ -358,7 +336,7 @@
  *         description: uuid 형식 오류 / 이미 확정된(CONFIRMED) 요청
  *         content:
  *           application/json:
- *             schema: { $ref: '#/components/schemas/ValidationErrorResponse' }
+ *             schema: { $ref: '#/components/schemas/ErrorResponse' }
  *       403:
  *         description: 본인의 견적 요청이 아님 / MOVER 토큰으로 호출
  *       404:

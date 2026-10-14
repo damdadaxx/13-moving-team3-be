@@ -32,7 +32,7 @@ export const pageSizeSchema = (defaultSize: number = DEFAULT_PAGE_SIZE) =>
     .number('페이지 크기는 숫자여야 합니다.')
     .int('페이지 크기는 정수여야 합니다.')
     .min(1, '페이지 크기는 1 이상이어야 합니다.')
-    .max(MAX_PAGE_SIZE, `페이지 크기는 최대 ${MAX_PAGE_SIZE}까지 가능합니다.`)
+    .max(MAX_PAGE_SIZE, `페이지 크기는 ${MAX_PAGE_SIZE} 이하여야 합니다.`)
     .default(defaultSize);
 
 /** 오프셋 페이지네이션의 페이지 번호(1부터 시작) 스키마. */

@@ -1,4 +1,5 @@
 import './config/env';
+import './config/zod';
 import path from 'node:path';
 import express from 'express';
 import errorHandler from './middlewares/errorHandler';
