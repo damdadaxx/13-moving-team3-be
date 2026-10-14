@@ -31,5 +31,5 @@
  *                     example: status
  *                   message:
  *                     type: string
- *                     example: status 값이 올바르지 않습니다.
+ *                     example: 견적 상태 값이 올바르지 않습니다.
  */
