@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  createDraftReviewSchema,
   createReviewSchema,
   getMoverIdSchema,
   getMoverReviewsSchema,
@@ -15,3 +16,5 @@ export type GetMoverReviewsData = GetMoverReviewsRequest & GetMoverIdRequest;
 
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export type CreateReviewData = CreateReviewInput & { moverId: string };
+
+export type CreateDraftReviewInput = z.infer<typeof createDraftReviewSchema>;

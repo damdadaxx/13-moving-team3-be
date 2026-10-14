@@ -105,4 +105,7 @@ export const ENV = {
     process.env.SCHEDULER_CLOSE_REQUESTS_CRON || '0 * * * *',
   // cron 표현식 해석 기준 시간대. 서버가 UTC로 떠도 KST 기준으로 돈다.
   SCHEDULER_TIMEZONE: process.env.SCHEDULER_TIMEZONE || 'Asia/Seoul',
+
+  // 제미나이 API 키
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };

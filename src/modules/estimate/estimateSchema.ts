@@ -15,7 +15,7 @@ const statusQuerySchema = z
         .every((status) =>
           ESTIMATE_STATUS_VALUES.includes(status as EstimateStatus)
         ),
-    { message: 'status 값이 올바르지 않습니다.' }
+    { message: '견적 상태 값이 올바르지 않습니다.' }
   )
   .optional();
 
@@ -40,18 +40,25 @@ export type GetEstimateDetailParamsDto = z.infer<
 // PATCH /estimates/:estimateId — status별로 요구되는 나머지 필드가 달라서 개별 스키마로 둔다.
 // status 자체가 셋 중 하나인지는 서비스에서 먼저 확인해 INVALID_STATUS로 분리 응답한다.
 export const proposeEstimateSchema = z.object({
-  status: z.literal('PROPOSED'),
-  price: z.number().int().positive('price는 양의 정수여야 합니다.'),
-  comment: z.string().min(10, 'comment은 10자 이상이어야 합니다.'),
+  status: z.literal('PROPOSED', '견적 상태 값이 올바르지 않습니다.'),
+  price: z
+    .number('견적 금액을 입력해 주세요.')
+    .int('견적 금액은 정수여야 합니다.')
+    .positive('견적 금액은 1 이상이어야 합니다.'),
+  comment: z
+    .string('견적 코멘트를 입력해 주세요.')
+    .min(10, '견적 코멘트는 10자 이상 입력해 주세요.'),
 });
 
 export const rejectEstimateSchema = z.object({
-  status: z.literal('REJECTED'),
-  rejectReason: z.string().min(10, 'rejectReason은 10자 이상이어야 합니다.'),
+  status: z.literal('REJECTED', '견적 상태 값이 올바르지 않습니다.'),
+  rejectReason: z
+    .string('반려 사유를 입력해 주세요.')
+    .min(10, '반려 사유는 10자 이상 입력해 주세요.'),
 });
 
 export const acceptEstimateSchema = z.object({
-  status: z.literal('ACCEPTED'),
+  status: z.literal('ACCEPTED', '견적 상태 값이 올바르지 않습니다.'),
 });
 
 export type ProposeEstimateInput = z.infer<typeof proposeEstimateSchema>;
@@ -60,9 +67,14 @@ export type AcceptEstimateInput = z.infer<typeof acceptEstimateSchema>;
 
 // POST /estimates — 기사님이 지정 없이(PENDING 상태의 열린 요청에) 견적을 새로 보낸다.
 export const createEstimateSchema = z.object({
-  estimateRequestId: z.uuid(),
-  price: z.number().int().positive('price는 양의 정수여야 합니다.'),
-  comment: z.string().min(10, 'comment은 10자 이상이어야 합니다.'),
+  estimateRequestId: z.uuid('견적 요청 ID 형식이 올바르지 않습니다.'),
+  price: z
+    .number('견적 금액을 입력해 주세요.')
+    .int('견적 금액은 정수여야 합니다.')
+    .positive('견적 금액은 1 이상이어야 합니다.'),
+  comment: z
+    .string('견적 코멘트를 입력해 주세요.')
+    .min(10, '견적 코멘트는 10자 이상 입력해 주세요.'),
 });
 
 export type CreateEstimateInput = z.infer<typeof createEstimateSchema>;

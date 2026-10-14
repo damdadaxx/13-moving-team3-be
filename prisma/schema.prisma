@@ -39,8 +39,7 @@ enum Region {
   SEJONG
   DAEJEON
   JEONBUK
-  JEONNAM
-  GWANGJU
+  JEONNAM_GWANGJU // 전남광주통합특별시 (구 전라남도·광주광역시)
   GYEONGBUK
   GYEONGNAM
   DAEGU

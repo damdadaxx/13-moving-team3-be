@@ -81,7 +81,7 @@
  *               description: Supabase Storage presigned 업로드 URL (PUT)
  *             path:
  *               type: string
- *               description: 버킷 내 저장 경로. 업로드 성공 후 이 경로를 공개 URL로 변환해 imageUrl로 사용.
+ *               description: 버킷 내 저장 경로. 업로드 성공 후 이 경로를 메시지 전송의 imagePath로 그대로 보낸다.
  *             token:
  *               type: string
  *               description: presigned 업로드용 토큰
@@ -216,7 +216,7 @@
  *     tags: [Chat]
  *     summary: 채팅 메시지 전송
  *     description: |
- *       content 또는 imageUrl 중 하나는 반드시 있어야 합니다.
+ *       content 또는 imagePath 중 하나는 반드시 있어야 합니다.
  *       이사 완료(COMPLETED) 후에는 전송할 수 없고 조회만 가능합니다.
  *     security:
  *       - cookieAuth: []

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { pageSizeSchema } from '../../utils/paginationSchema';
 
 export const likeMoverIdSchema = z.object({
-  moverId: z.uuid('기사 ID는 필수 입력 필드입니다.'),
+  moverId: z.uuid('기사님 ID 형식이 올바르지 않습니다.'),
 });
 
 export const getLikeMoverListSchema = z.object({
@@ -12,9 +12,9 @@ export const getLikeMoverListSchema = z.object({
 
 export const bulkDeleteLikeSchema = z.object({
   moverIds: z
-    .array(z.uuid('기사 ID는 필수 입력 필드입니다.'))
-    .min(1, '기사 ID는 1개 이상이어야 합니다.')
+    .array(z.uuid('기사님 ID 형식이 올바르지 않습니다.'))
+    .min(1, '기사님 ID를 1개 이상 선택해 주세요.')
     .refine((ids) => new Set(ids).size === ids.length, {
-      message: '중복된 기사 ID가 있습니다.',
+      message: '기사님 ID를 중복해서 선택할 수 없습니다.',
     }),
 });

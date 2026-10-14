@@ -39,19 +39,21 @@ src/docs/estimateRequestSwagger.ts   Swagger 주석
 
 ```json
 {
-  "path": "/estimate-requests",
-  "method": "POST",
-  "errors": [
-    {
-      "field": "serviceType",
-      "message": "serviceType은 SMALL_MOVE, HOME_MOVE, OFFICE_MOVE 중 하나여야 합니다."
-    },
-    {
-      "field": "moveDate",
-      "message": "moveDate는 올바른 날짜 형식이어야 합니다."
-    }
-  ],
-  "date": "2026-09-08T05:05:04.342Z"
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "요청 값이 올바르지 않습니다.",
+    "fields": [
+      {
+        "field": "serviceType",
+        "message": "이용 서비스 값이 올바르지 않습니다."
+      },
+      {
+        "field": "moveDate",
+        "message": "이사일 형식이 올바르지 않습니다."
+      }
+    ]
+  }
 }
 ```
 
@@ -131,8 +133,8 @@ POST /estimate-requests
 | 상태 | message                                                                |
 | ---- | ---------------------------------------------------------------------- |
 | 400  | `이사일은 오늘 이후로 선택해 주세요.`                                  |
-| 400  | `departureZipCode는 5자리 숫자 문자열이어야 합니다.`                   |
-| 400  | `serviceType은 SMALL_MOVE, HOME_MOVE, OFFICE_MOVE 중 하나여야 합니다.` |
+| 400  | `출발지 우편번호 형식이 올바르지 않습니다.`                   |
+| 400  | `이용 서비스 값이 올바르지 않습니다.` |
 | 403  | `일반 유저만 이용할 수 있는 기능입니다.`                               |
 | 409  | `이미 진행 중인 견적 요청이 있습니다.`                                 |
 
@@ -335,10 +337,10 @@ GET /estimate-requests/history?cursor=&limit=
 
 | 상태 | message                                  |
 | ---- | ---------------------------------------- |
-| 400  | `limit은 50 이하여야 합니다.`            |
-| 400  | `limit은 1 이상이어야 합니다.`           |
-| 400  | `limit은 숫자여야 합니다.`               |
-| 400  | `cursor 형식이 올바르지 않습니다.`       |
+| 400  | `페이지 크기는 50 이하여야 합니다.`            |
+| 400  | `페이지 크기는 1 이상이어야 합니다.`           |
+| 400  | `페이지 크기는 숫자여야 합니다.`               |
+| 400  | `커서 형식이 올바르지 않습니다.`       |
 | 403  | `일반 유저만 이용할 수 있는 기능입니다.` |
 
 ---
@@ -411,8 +413,8 @@ POST /estimate-requests/:estimateRequestId/estimates
 
 | 상태 | message                                                       | 조건                                          |
 | ---- | ------------------------------------------------------------- | --------------------------------------------- |
-| 400  | `estimateRequestId 형식이 올바르지 않습니다.`                 | uuid 아님                                     |
-| 400  | `moverId 형식이 올바르지 않습니다.`                           | 누락 또는 uuid 아님                           |
+| 400  | `견적 요청 ID 형식이 올바르지 않습니다.`                 | uuid 아님                                     |
+| 400  | `기사님 ID 형식이 올바르지 않습니다.`                           | 누락 또는 uuid 아님                           |
 | 400  | `이미 견적을 확정한 요청에는 지정 견적을 요청할 수 없습니다.` | 요청이 `CONFIRMED` 상태                       |
 | 403  | `본인의 견적 요청에만 접근할 수 있습니다.`                    | 남의 요청 id                                  |
 | 403  | `일반 유저만 이용할 수 있는 기능입니다.`                      | MOVER 토큰                                    |

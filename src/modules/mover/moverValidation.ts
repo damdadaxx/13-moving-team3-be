@@ -58,23 +58,29 @@ const parseFormDataBoolean = (value: unknown): unknown => {
 const serviceTypesSchema = z.preprocess(
   parseFormDataArray,
   z
-    .array(z.enum(ServiceType))
-    .min(1, '제공 서비스를 한 개 이상 선택해 주세요.')
+    .array(
+      z.enum(ServiceType, { error: '제공 서비스 값이 올바르지 않습니다.' }),
+      '제공 서비스를 1개 이상 선택해 주세요.'
+    )
+    .min(1, '제공 서비스를 1개 이상 선택해 주세요.')
     .refine(
       (serviceTypes) => new Set(serviceTypes).size === serviceTypes.length,
-      { message: '동일한 제공 서비스를 중복해서 선택할 수 없습니다.' }
+      { message: '제공 서비스를 중복해서 선택할 수 없습니다.' }
     )
 );
 
 const serviceRegionsSchema = z.preprocess(
   parseFormDataArray,
   z
-    .array(z.enum(Region))
-    .min(1, '서비스 가능 지역을 한 개 이상 선택해 주세요.')
+    .array(
+      z.enum(Region, { error: '서비스 가능 지역 값이 올바르지 않습니다.' }),
+      '서비스 가능 지역을 1개 이상 선택해 주세요.'
+    )
+    .min(1, '서비스 가능 지역을 1개 이상 선택해 주세요.')
     .refine(
       (serviceRegions) =>
         new Set(serviceRegions).size === serviceRegions.length,
-      { message: '동일한 서비스 지역을 중복해서 선택할 수 없습니다.' }
+      { message: '서비스 가능 지역을 중복해서 선택할 수 없습니다.' }
     )
 );
 
@@ -91,25 +97,25 @@ const serviceRegionsSchema = z.preprocess(
 */
 export const createMoverProfileSchema = z.object({
   nickname: z
-    .string()
+    .string('별명을 입력해 주세요.')
     .trim()
-    .min(2, '별명을 입력해 주세요.')
-    .max(10, '별명은 최대 10자까지 입력할 수 있습니다.'),
+    .min(2, '별명은 2자 이상 입력해 주세요.')
+    .max(10, '별명은 10자 이하로 입력해 주세요.'),
   careerMonths: z.coerce
-    .number()
-    .int('경력은 정수로 입력해 주세요.')
+    .number('경력은 숫자여야 합니다.')
+    .int('경력은 정수여야 합니다.')
     .min(0, '경력은 0개월 이상이어야 합니다.'),
 
   shortIntro: z
-    .string()
+    .string('한 줄 소개를 입력해 주세요.')
     .trim()
     .min(8, '한 줄 소개는 8자 이상 입력해 주세요.')
-    .max(50, '한 줄 소개는 최대 50자까지 입력할 수 있습니다.'),
+    .max(50, '한 줄 소개는 50자 이하로 입력해 주세요.'),
   description: z
-    .string()
+    .string('상세 설명을 입력해 주세요.')
     .trim()
     .min(10, '상세 설명은 10자 이상 입력해 주세요.')
-    .max(300, '상세 설명은 최대 300자까지 입력할 수 있습니다.'),
+    .max(300, '상세 설명은 300자 이하로 입력해 주세요.'),
   serviceTypes: serviceTypesSchema,
   serviceRegions: serviceRegionsSchema,
 });
@@ -127,31 +133,36 @@ export const createMoverProfileSchema = z.object({
 */
 export const updateMoverProfileSchema = z.object({
   nickname: z
-    .string()
+    .string('별명을 입력해 주세요.')
     .trim()
-    .min(2, '별명을 입력해 주세요.')
-    .max(10, '별명은 최대 10자까지 입력할 수 있습니다.')
+    .min(2, '별명은 2자 이상 입력해 주세요.')
+    .max(10, '별명은 10자 이하로 입력해 주세요.')
     .optional(),
   careerMonths: z.coerce
-    .number()
-    .int('경력은 정수로 입력해 주세요.')
+    .number('경력은 숫자여야 합니다.')
+    .int('경력은 정수여야 합니다.')
     .min(0, '경력은 0개월 이상이어야 합니다.')
     .optional(),
   shortIntro: z
-    .string()
+    .string('한 줄 소개를 입력해 주세요.')
     .trim()
     .min(8, '한 줄 소개는 8자 이상 입력해 주세요.')
-    .max(50, '한 줄 소개는 최대 50자까지 입력할 수 있습니다.')
+    .max(50, '한 줄 소개는 50자 이하로 입력해 주세요.')
     .optional(),
   description: z
-    .string()
+    .string('상세 설명을 입력해 주세요.')
     .trim()
     .min(10, '상세 설명은 10자 이상 입력해 주세요.')
-    .max(300, '상세 설명은 최대 300자까지 입력할 수 있습니다.')
+    .max(300, '상세 설명은 300자 이하로 입력해 주세요.')
     .optional(),
   serviceTypes: serviceTypesSchema.optional(),
   serviceRegions: serviceRegionsSchema.optional(),
-  removeImage: z.preprocess(parseFormDataBoolean, z.boolean()).optional(),
+  removeImage: z
+    .preprocess(
+      parseFormDataBoolean,
+      z.boolean('이미지 삭제 여부 값이 올바르지 않습니다.')
+    )
+    .optional(),
 });
 
 /*=================================================
@@ -185,7 +196,7 @@ export const getMoverListQuerySchema = z.object({
   - 직전 응답의 data.nextCursor를 그대로 전달합니다.
   - MoverProfile의 userId는 UUID 기본키이므로 UUID 형식을 검증합니다.
   */
-  cursor: z.uuid('올바른 커서 값이 아닙니다.').optional(),
+  cursor: z.uuid('커서 형식이 올바르지 않습니다.').optional(),
 
   /*
   @ size
@@ -196,9 +207,9 @@ export const getMoverListQuerySchema = z.object({
   */
   size: z.coerce
     .number()
-    .int('size는 정수여야 합니다.')
-    .min(1, 'size는 1 이상이어야 합니다.')
-    .max(100, 'size는 최대 100까지 입력할 수 있습니다.')
+    .int('페이지 크기는 정수여야 합니다.')
+    .min(1, '페이지 크기는 1 이상이어야 합니다.')
+    .max(100, '페이지 크기는 100 이하여야 합니다.')
     .default(10),
 });
 
@@ -207,7 +218,7 @@ export const getMoverListQuerySchema = z.object({
 =================================================*/
 
 export const getMoverParamsSchema = z.object({
-  id: z.uuid('올바른 기사님 ID가 아닙니다.'),
+  id: z.uuid('기사님 ID 형식이 올바르지 않습니다.'),
 });
 
 /*=================================================

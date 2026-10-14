@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import {
+  CreateDraftReviewInput,
   CreateReviewInput,
   GetMoverReviewsRequest,
   GetMyReviewsRequest,
@@ -54,6 +55,17 @@ const reviewController = {
     });
 
     return res.status(201).json({ success: true, data: review });
+  },
+  createDraftReview: async (req: Request, res: Response) => {
+    const { rating, estimateId, locale } =
+      req.validatedData as CreateDraftReviewInput;
+
+    const result = await reviewService.createDraftReview({
+      estimateId,
+      rating,
+      locale,
+    });
+    return res.status(200).json({ success: true, data: result });
   },
 };
 export default reviewController;

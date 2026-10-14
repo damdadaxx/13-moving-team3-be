@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UnauthorizedError as JwtUnauthorizedError } from 'express-jwt';
+import { ApiError } from '@google/genai';
 import { AppError } from '../utils/error';
 import { NextFunction, Request, Response } from 'express';
 import { Prisma } from '../generated/prisma/client';
@@ -12,6 +13,7 @@ const CODE_BY_STATUS: Record<number, string> = {
   401: 'UNAUTHORIZED',
   403: 'FORBIDDEN',
   404: 'NOT_FOUND',
+  408: 'REQUEST_TIMEOUT',
   409: 'CONFLICT',
   429: 'TOO_MANY_REQUESTS',
   503: 'SERVICE_UNAVAILABLE',
@@ -84,6 +86,17 @@ export default function errorHandler(
         },
       });
     }
+  }
+
+  //제미나이 api에러 처리 (토큰 만료, 요청 형식 오류 등)
+  if (error instanceof ApiError) {
+    return res.status(error.status).json({
+      success: false,
+      error: {
+        code: CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
+        message: error.message,
+      },
+    });
   }
 
   if (error instanceof AppError) {

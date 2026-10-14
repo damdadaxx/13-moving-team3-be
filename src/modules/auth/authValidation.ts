@@ -2,15 +2,15 @@ import { z } from 'zod';
 import { SOCIAL_PROVIDERS } from './authPassport';
 
 const roleSchema = z.enum(['CUSTOMER', 'MOVER'], {
-  error: 'role은 CUSTOMER 또는 MOVER여야 합니다.',
+  error: '회원 유형 값이 올바르지 않습니다.',
 });
 
 const emailSchema = z
-  .string('email은 필수 값입니다.')
+  .string('이메일을 입력해 주세요.')
   .trim()
   .toLowerCase()
-  .max(100, '이메일은 100자 이하여야 합니다.')
-  .pipe(z.email('올바른 이메일 형식이 아닙니다.'));
+  .max(100, '이메일은 100자 이하로 입력해 주세요.')
+  .pipe(z.email('이메일 형식이 올바르지 않습니다.'));
 
 /*
 @ 비밀번호 규칙 (회원가입·비밀번호 변경 공통, 프론트 authValidation.ts와 동일하게 유지)
@@ -19,22 +19,22 @@ const emailSchema = z
 - 로그인은 기존 가입자도 들어올 수 있어야 하므로 이 규칙을 적용하지 않는다
 */
 const passwordSchema = z
-  .string('password는 필수 값입니다.')
-  .min(8, '비밀번호는 8자 이상이어야 합니다.')
-  .max(64, '비밀번호는 64자 이하여야 합니다.')
-  .regex(/[0-9]/, '비밀번호에 숫자를 포함해주세요.')
-  .regex(/[!-/:-@[-`{-~]/, '비밀번호에 특수문자를 포함해주세요.');
+  .string('비밀번호를 입력해 주세요.')
+  .min(8, '비밀번호는 8자 이상 입력해 주세요.')
+  .max(64, '비밀번호는 64자 이하로 입력해 주세요.')
+  .regex(/[0-9]/, '비밀번호에 숫자를 포함해 주세요.')
+  .regex(/[!-/:-@[-`{-~]/, '비밀번호에 특수문자를 포함해 주세요.');
 
 const nameSchema = z
-  .string('name은 필수 값입니다.')
+  .string('이름을 입력해 주세요.')
   .trim()
-  .min(2, '이름은 2자 이상이어야 합니다.')
-  .max(20, '이름은 20자 이하여야 합니다.');
+  .min(2, '이름은 2자 이상 입력해 주세요.')
+  .max(20, '이름은 20자 이하로 입력해 주세요.');
 
 const phoneNumberSchema = z
-  .string('phoneNumber는 필수 값입니다.')
+  .string('전화번호를 입력해 주세요.')
   .trim()
-  .regex(/^01[016789]-?\d{3,4}-?\d{4}$/, '올바른 전화번호 형식이 아닙니다.');
+  .regex(/^01[016789]-?\d{3,4}-?\d{4}$/, '전화번호 형식이 올바르지 않습니다.');
 
 export const signupSchema = z.object(
   {
@@ -45,7 +45,7 @@ export const signupSchema = z.object(
     role: roleSchema,
     // 이메일 인증 확인 응답으로 받은 verified 토큰
     emailVerificationToken: z
-      .string('emailVerificationToken은 필수 값입니다.')
+      .string('이메일 인증 토큰을 입력해 주세요.')
       .min(1, '이메일 인증을 먼저 완료해 주세요.'),
   },
   { error: '요청 본문이 올바르지 않습니다.' }
@@ -55,8 +55,8 @@ export const loginSchema = z.object(
   {
     email: emailSchema,
     password: z
-      .string('password는 필수 값입니다.')
-      .min(1, '비밀번호를 입력해주세요.'),
+      .string('비밀번호를 입력해 주세요.')
+      .min(1, '비밀번호를 입력해 주세요.'),
     role: roleSchema,
   },
   { error: '요청 본문이 올바르지 않습니다.' }
@@ -68,14 +68,14 @@ export const updateMeSchema = z
     phoneNumber: phoneNumberSchema.optional(),
   })
   .refine((data) => data.name !== undefined || data.phoneNumber !== undefined, {
-    message: '수정할 이름 또는 전화번호를 입력해주세요.',
+    message: '수정할 이름 또는 전화번호를 입력해 주세요.',
   });
 
 export const updatePasswordSchema = z.object(
   {
     currentPassword: z
-      .string('currentPassword는 필수 값입니다.')
-      .min(1, '현재 비밀번호를 입력해주세요.'),
+      .string('현재 비밀번호를 입력해 주세요.')
+      .min(1, '현재 비밀번호를 입력해 주세요.'),
     newPassword: passwordSchema,
   },
   { error: '요청 본문이 올바르지 않습니다.' }
@@ -90,7 +90,7 @@ export const sendEmailCodeSchema = z.object(
     email: emailSchema,
     role: roleSchema,
   },
-  { error: '이메일과 role 이 필요합니다.' }
+  { error: '요청 본문이 올바르지 않습니다.' }
 );
 
 /*
@@ -103,17 +103,19 @@ export const confirmEmailSchema = z.object(
     email: emailSchema,
     role: roleSchema,
     code: z
-      .string('code는 필수 값입니다.')
+      .string('인증번호를 입력해 주세요.')
       .trim()
-      .regex(/^\d{6}$/, '인증번호 6자리를 입력해주세요.'),
-    token: z.string('token은 필수 값입니다.').min(1, 'token은 필수 값입니다.'),
+      .regex(/^\d{6}$/, '인증번호는 6자리 숫자로 입력해 주세요.'),
+    token: z
+      .string('인증 토큰을 입력해 주세요.')
+      .min(1, '인증 토큰을 입력해 주세요.'),
   },
-  { error: '이메일과 인증번호가 필요합니다.' }
+  { error: '요청 본문이 올바르지 않습니다.' }
 );
 
 export const providerParamSchema = z.object({
   provider: z.enum(SOCIAL_PROVIDERS, {
-    error: 'provider는 google, kakao, naver 중 하나여야 합니다.',
+    error: '소셜 로그인 제공자 값이 올바르지 않습니다.',
   }),
 });
 
@@ -122,7 +124,7 @@ const callbackUrlSchema = z
   .string()
   .max(500)
   .refine((value) => value.startsWith('/') && !value.startsWith('//'), {
-    message: 'callbackUrl은 상대 경로여야 합니다.',
+    message: '콜백 URL은 상대 경로여야 합니다.',
   });
 
 // GET /auth/social/:provider — 소셜 로그인 시작

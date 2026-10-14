@@ -3,40 +3,40 @@ import { Region, ServiceType } from '../../generated/prisma/client';
 import { pageSizeSchema } from '../../utils/paginationSchema';
 
 const serviceTypeSchema = z.enum(['SMALL_MOVE', 'HOME_MOVE', 'OFFICE_MOVE'], {
-  error: 'serviceType은 SMALL_MOVE, HOME_MOVE, OFFICE_MOVE 중 하나여야 합니다.',
+  error: '이용 서비스 값이 올바르지 않습니다.',
 });
 
 // 이사일은 미래만 허용. service에서도 한 번 더 확인합니다.
 const moveDateSchema = z.coerce
-  .date('moveDate는 올바른 날짜 형식이어야 합니다.')
+  .date('이사일 형식이 올바르지 않습니다.')
   .refine((date) => date.getTime() > Date.now(), {
     error: '이사일은 오늘 이후로 선택해 주세요.',
   });
 
 // 우편번호는 5자리 문자열로 받습니다.
 // "04524"처럼 0으로 시작하는 번호를 그대로 보존하기 위함입니다.
-const zipCodeSchema = (field: string) =>
+const zipCodeSchema = (label: string) =>
   z
-    .string(`${field}는 필수 값입니다.`)
+    .string(`${label}를 입력해 주세요.`)
     .trim()
-    .regex(/^\d{5}$/, `${field}는 5자리 숫자 문자열이어야 합니다.`);
+    .regex(/^\d{5}$/, `${label} 형식이 올바르지 않습니다.`);
 
-const addressSchema = (field: string) =>
+const addressSchema = (label: string) =>
   z
-    .string(`${field}는 필수 값입니다.`)
+    .string(`${label}를 입력해 주세요.`)
     .trim()
-    .min(5, `${field}는 5자 이상이어야 합니다.`)
-    .max(200, `${field}는 200자 이하여야 합니다.`);
+    .min(5, `${label}는 5자 이상 입력해 주세요.`)
+    .max(200, `${label}는 200자 이하로 입력해 주세요.`);
 
 /** POST /estimate-requests */
 export const createEstimateRequestSchema = z.object(
   {
     serviceType: serviceTypeSchema,
     moveDate: moveDateSchema,
-    departureZipCode: zipCodeSchema('departureZipCode'),
-    departureAddress: addressSchema('departureAddress'),
-    arrivalZipCode: zipCodeSchema('arrivalZipCode'),
-    arrivalAddress: addressSchema('arrivalAddress'),
+    departureZipCode: zipCodeSchema('출발지 우편번호'),
+    departureAddress: addressSchema('출발지 주소'),
+    arrivalZipCode: zipCodeSchema('도착지 우편번호'),
+    arrivalAddress: addressSchema('도착지 주소'),
   },
   { error: '요청 본문이 올바르지 않습니다.' }
 );
@@ -44,13 +44,13 @@ export const createEstimateRequestSchema = z.object(
 /** GET /estimate-requests/history 의 쿼리스트링 */
 export const historyQuerySchema = z.object({
   // 직전 페이지 마지막 요청의 id
-  cursor: z.uuid('cursor 형식이 올바르지 않습니다.').optional(),
+  cursor: z.uuid('커서 형식이 올바르지 않습니다.').optional(),
   // 쿼리스트링은 문자열로 들어오므로 숫자로 변환합니다.
   limit: z.coerce
-    .number('limit은 숫자여야 합니다.')
-    .int('limit은 정수여야 합니다.')
-    .min(1, 'limit은 1 이상이어야 합니다.')
-    .max(50, 'limit은 50 이하여야 합니다.')
+    .number('페이지 크기는 숫자여야 합니다.')
+    .int('페이지 크기는 정수여야 합니다.')
+    .min(1, '페이지 크기는 1 이상이어야 합니다.')
+    .max(50, '페이지 크기는 50 이하여야 합니다.')
     .optional(),
 });
 
@@ -70,7 +70,7 @@ GET /estimate-requests/received — 기사님이 받은 요청 목록
 */
 export const receivedSortBySchema = z
   .enum(['moveDate', 'createdAt'], {
-    error: 'sortBy는 moveDate 또는 createdAt이어야 합니다.',
+    error: '정렬 기준 값이 올바르지 않습니다.',
   })
   .default('moveDate');
 
@@ -79,7 +79,7 @@ export const receivedSortBySchema = z
 
 - 목록을 좁히는 필터다. 지정 견적을 포함해 모든 결과에 걸린다.
 - 쿼리스트링은 `?regions=SEOUL,GYEONGGI` 와 `?regions=SEOUL&regions=GYEONGGI` 둘 다 받는다.
-- 기사님 프로필의 서비스·지역 매칭은 이 필터가 아니라 isServiceArea 가 담당한다.
+- 기사님 프로필의 서비스 지역 매칭은 이 필터가 아니라 isServiceArea 가 담당한다.
 */
 const splitCsv = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.flatMap((v) => String(v).split(','));
@@ -93,8 +93,8 @@ const dedupe = <T>(values: T[]) => [...new Set(values)];
 const regionsFilterSchema = z.preprocess(
   splitCsv,
   z
-    .array(z.enum(Region, { error: '유효하지 않은 지역입니다.' }))
-    .min(1, '지역을 한 개 이상 선택해 주세요.')
+    .array(z.enum(Region, { error: '지역 값이 올바르지 않습니다.' }))
+    .min(1, '지역을 1개 이상 선택해 주세요.')
     .transform(dedupe)
 );
 
@@ -103,11 +103,10 @@ const serviceTypesFilterSchema = z.preprocess(
   z
     .array(
       z.enum(ServiceType, {
-        error:
-          'serviceTypes는 SMALL_MOVE, HOME_MOVE, OFFICE_MOVE 중에서 선택해 주세요.',
+        error: '제공 서비스 값이 올바르지 않습니다.',
       })
     )
-    .min(1, '제공 서비스를 한 개 이상 선택해 주세요.')
+    .min(1, '제공 서비스를 1개 이상 선택해 주세요.')
     .transform(dedupe)
 );
 
@@ -122,7 +121,7 @@ const keywordSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   return trimmed === '' ? undefined : trimmed;
-}, z.string().max(20, '검색어는 20자 이하여야 합니다.').optional());
+}, z.string().max(20, '검색어는 20자 이하로 입력해 주세요.').optional());
 
 export const receivedRequestsQuerySchema = z.object({
   sortBy: receivedSortBySchema,
@@ -131,7 +130,7 @@ export const receivedRequestsQuerySchema = z.object({
   // 지정 견적 요청만(true) / 지정이 아닌 요청만(false). 생략하면 전체.
   isDesignated: z
     .enum(['true', 'false'], {
-      error: 'isDesignated는 true 또는 false여야 합니다.',
+      error: '지정 견적 여부 값이 올바르지 않습니다.',
     })
     .transform((value) => value === 'true')
     .optional(),
@@ -139,25 +138,25 @@ export const receivedRequestsQuerySchema = z.object({
   // 생략하거나 false 면 서비스·지역과 무관하게 전체 요청을 보여준다.
   isServiceArea: z
     .enum(['true', 'false'], {
-      error: 'isServiceArea는 true 또는 false여야 합니다.',
+      error: '서비스 가능 지역 여부 값이 올바르지 않습니다.',
     })
     .transform((value) => value === 'true')
     .optional(),
   regions: regionsFilterSchema.optional(),
   serviceTypes: serviceTypesFilterSchema.optional(),
-  cursor: z.uuid('cursor 형식이 올바르지 않습니다.').optional(),
+  cursor: z.uuid('커서 형식이 올바르지 않습니다.').optional(),
   size: pageSizeSchema(),
 });
 
 /** POST /estimate-requests/:estimateRequestId/estimates 의 경로 파라미터 */
 export const estimateRequestIdParamSchema = z.object({
-  estimateRequestId: z.uuid('estimateRequestId 형식이 올바르지 않습니다.'),
+  estimateRequestId: z.uuid('견적 요청 ID 형식이 올바르지 않습니다.'),
 });
 
 /** POST /estimate-requests/:estimateRequestId/estimates 의 본문 */
 export const createDesignatedEstimateSchema = z.object(
   {
-    moverId: z.uuid('moverId 형식이 올바르지 않습니다.'),
+    moverId: z.uuid('기사님 ID 형식이 올바르지 않습니다.'),
   },
   { error: '요청 본문이 올바르지 않습니다.' }
 );

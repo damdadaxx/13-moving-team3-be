@@ -1,17 +1,9 @@
 import { Request, Response } from 'express';
-import { UnauthorizedError } from '../../utils/error';
+import { getUserId } from '../../utils/authUser';
 import { customerService } from './customerService';
 import { UpsertProfileInput } from './customerValidation';
 
 const getValidated = <T>(req: Request) => req.validatedData as T;
-
-const getUserId = (req: Request) => {
-  const userId = req.auth?.sub;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
-  return userId;
-};
 
 export const customerController = {
   createProfile: async (req: Request, res: Response) => {

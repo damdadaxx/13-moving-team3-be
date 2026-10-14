@@ -104,4 +104,46 @@ describe('/estimate-requests', () => {
       )
     ).toEqual([seoulRequest.id]);
   });
+
+  test('GET /received: 서비스 가능 지역은 지역만 보고, 서비스 종류는 칩 필터(합집합)가 정한다', async () => {
+    const [homeCustomer, officeCustomer, smallCustomer, busanCustomer] =
+      await Promise.all([
+        createCustomer({ region: 'JEONNAM_GWANGJU' }),
+        createCustomer({ region: 'JEONNAM_GWANGJU' }),
+        createCustomer({ region: 'JEONNAM_GWANGJU' }),
+        createCustomer({ region: 'BUSAN' }),
+      ]);
+    const home = await createEstimateRequest(homeCustomer.id);
+    const office = await createEstimateRequest(officeCustomer.id, {
+      serviceType: 'OFFICE_MOVE',
+    });
+    const small = await createEstimateRequest(smallCustomer.id, {
+      serviceType: 'SMALL_MOVE',
+    });
+    await createEstimateRequest(busanCustomer.id);
+    // 기사님은 사무실이사만 제공하지만, 서비스 지역 체크는 서비스 종류를 보지 않는다
+    const mover = await loginAs(
+      await createMover({
+        regions: ['JEONNAM_GWANGJU'],
+        serviceTypes: ['OFFICE_MOVE'],
+      })
+    );
+    const idsOf = async (query: string) => {
+      const res = await mover
+        .get(`/estimate-requests/received?${query}`)
+        .expect(200);
+      return res.body.data.list
+        .map((item: { estimateRequestId: string }) => item.estimateRequestId)
+        .sort();
+    };
+
+    expect(await idsOf('isServiceArea=true')).toEqual(
+      [home.id, office.id, small.id].sort()
+    );
+    expect(
+      await idsOf(
+        'isServiceArea=true&serviceTypes=HOME_MOVE&serviceTypes=SMALL_MOVE'
+      )
+    ).toEqual([home.id, small.id].sort());
+  });
 });

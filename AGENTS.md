@@ -139,22 +139,28 @@ export default authService;
 
 에러는 `src/utils/error.ts`의 `AppError` 하위 클래스만 쓴다.
 
-| 클래스 | status |
+| 클래스 | status | code |
 | --- | --- | --- |
-| `BadRequestError` | 400 |
-| `UnauthorizedError` | 401 |
-| `ForbiddenError` | 403 |
-| `NotFoundError` | 404 |
-| `ConflictError` | 409 |
+| `BadRequestError` | 400 | `BAD_REQUEST` |
+| `UnauthorizedError` | 401 | `UNAUTHORIZED` |
+| `ForbiddenError` | 403 | `FORBIDDEN` |
+| `NotFoundError` | 404 | `NOT_FOUND` |
+| `ConflictError` | 409 | `CONFLICT` |
+| `ServiceUnavailableError` | 503 | `SERVICE_UNAVAILABLE` |
 
-`errorHandler` 응답 형식(이미 구현됨):
+`errorHandler` 응답 형식(이미 구현됨). `code`는 status로 정해진다:
 
 ```json
-{ "path": "/...", "method": "POST", "message": "...", "date": "..." }
+{ "success": false, "error": { "code": "NOT_FOUND", "message": "..." } }
 ```
 
-Zod 실패는 `errors: [{ field, message }]`.
-성공 응답은 JSON으로 맞추되, 아직 공통 `success` 래퍼는 없다. 새로 만들지 말고 기존 핸들러 형식을 따른다.
+Zod 실패는 `code: "VALIDATION_ERROR"`, `message: "요청 값이 올바르지 않습니다."`에 `fields: [{ field, message }]`가 붙는다.
+액세스 토큰 만료는 `code: "TOKEN_EXPIRED"`, 예상치 못한 에러는 500 `INTERNAL_ERROR`.
+
+Zod 에러 문구는 한글 이름을 주어로 쓴다 (`별명은 2자 이상 입력해 주세요.`).
+사용자가 입력하는 본문 필드는 문구를 직접 적고, 그 외는 `src/config/zod.ts`의 전역 기본 문구를 따른다.
+
+성공 응답은 `{ "success": true, "data": ... }` 형식을 따른다.
 
 라우터는 `app.ts`에서 `errorHandler` **위에** 등록한다.
 

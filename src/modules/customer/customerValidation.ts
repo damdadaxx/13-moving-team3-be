@@ -10,8 +10,7 @@ const REGIONS = [
   'SEJONG',
   'DAEJEON',
   'JEONBUK',
-  'JEONNAM',
-  'GWANGJU',
+  'JEONNAM_GWANGJU', // 전남광주통합특별시
   'GYEONGBUK',
   'GYEONGNAM',
   'DAEGU',
@@ -23,7 +22,7 @@ const REGIONS = [
 const SERVICE_TYPES = ['SMALL_MOVE', 'HOME_MOVE', 'OFFICE_MOVE'] as const;
 
 const regionSchema = z.enum(REGIONS, {
-  error: '유효하지 않은 지역입니다.',
+  error: '지역 값이 올바르지 않습니다.',
 });
 
 const parseServiceTypes = (value: unknown) => {
@@ -41,12 +40,12 @@ const serviceTypesSchema = z.preprocess(
   parseServiceTypes,
   z
     .array(
-      z.enum(SERVICE_TYPES, { error: '유효하지 않은 이용 서비스입니다.' }),
+      z.enum(SERVICE_TYPES, { error: '이용 서비스 값이 올바르지 않습니다.' }),
       {
-        error: '이용 서비스를 1개 이상 선택해주세요.',
+        error: '이용 서비스를 1개 이상 선택해 주세요.',
       }
     )
-    .min(1, '이용 서비스를 1개 이상 선택해주세요.')
+    .min(1, '이용 서비스를 1개 이상 선택해 주세요.')
     .transform((types) => [...new Set(types)])
 );
 
