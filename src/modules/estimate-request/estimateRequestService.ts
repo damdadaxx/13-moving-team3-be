@@ -274,7 +274,6 @@ export const estimateRequestService = {
     */
     const where = estimateRequestRepository.buildReceivedWhere({
       moverId,
-      profileServiceTypes: scope.serviceTypes.map((row) => row.serviceType),
       profileRegions: scope.serviceRegions.map((row) => row.region),
       openFullRequestIds,
       filterServiceTypes: query.serviceTypes,

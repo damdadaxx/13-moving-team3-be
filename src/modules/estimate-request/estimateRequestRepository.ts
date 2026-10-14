@@ -301,14 +301,13 @@ export const estimateRequestRepository = {
   /*
   @ findMoverServiceScope
 
-  - 받은 요청의 기본 범위를 정하려면 기사님의 제공 서비스와 서비스 가능 지역이 필요하다.
+  - 받은 요청의 기본 범위를 정하려면 기사님의 서비스 가능 지역이 필요하다.
   - 목록 쿼리 앞에 1회만 조회한다.
   */
   async findMoverServiceScope(moverId: string) {
     return prisma.moverProfile.findUnique({
       where: { userId: moverId },
       select: {
-        serviceTypes: { select: { serviceType: true } },
         serviceRegions: { select: { region: true } },
       },
     });
@@ -343,7 +342,6 @@ export const estimateRequestRepository = {
   */
   buildReceivedWhere({
     moverId,
-    profileServiceTypes,
     profileRegions,
     filterServiceTypes,
     filterRegions,
@@ -354,8 +352,7 @@ export const estimateRequestRepository = {
     now = new Date(),
   }: {
     moverId: string;
-    /** 기사님 프로필의 제공 서비스·서비스 지역 (isServiceArea 일 때만 쓴다) */
-    profileServiceTypes: ServiceType[];
+    /** 기사님 프로필의 서비스 지역 (isServiceArea 일 때만 쓴다) */
     profileRegions: Region[];
     /** 오픈 견적이 상한까지 찬 요청 id (findOpenFullRequestIds) */
     openFullRequestIds: string[];
@@ -368,7 +365,6 @@ export const estimateRequestRepository = {
     now?: Date;
   }): Prisma.EstimateRequestWhereInput {
     const matchesServiceArea: Prisma.EstimateRequestWhereInput = {
-      serviceType: { in: profileServiceTypes },
       customer: { region: { in: profileRegions } },
     };
 

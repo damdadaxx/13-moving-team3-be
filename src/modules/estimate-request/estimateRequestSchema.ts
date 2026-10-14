@@ -79,7 +79,7 @@ export const receivedSortBySchema = z
 
 - 목록을 좁히는 필터다. 지정 견적을 포함해 모든 결과에 걸린다.
 - 쿼리스트링은 `?regions=SEOUL,GYEONGGI` 와 `?regions=SEOUL&regions=GYEONGGI` 둘 다 받는다.
-- 기사님 프로필의 서비스·지역 매칭은 이 필터가 아니라 isServiceArea 가 담당한다.
+- 기사님 프로필의 서비스 지역 매칭은 이 필터가 아니라 isServiceArea 가 담당한다.
 */
 const splitCsv = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.flatMap((v) => String(v).split(','));
