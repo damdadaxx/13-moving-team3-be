@@ -10,8 +10,7 @@ const REGIONS = [
   'SEJONG',
   'DAEJEON',
   'JEONBUK',
-  'JEONNAM',
-  'GWANGJU',
+  'JEONNAM_GWANGJU', // 전남광주통합특별시
   'GYEONGBUK',
   'GYEONGNAM',
   'DAEGU',

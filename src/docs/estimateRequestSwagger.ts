@@ -367,7 +367,7 @@
  *         region:
  *           type: string
  *           description: 고객 프로필의 지역. 기사님 서비스 지역과 이 값으로 매칭한다.
- *           enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM, GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
+ *           enum: [SEOUL, GYEONGGI, INCHEON, GANGWON, CHUNGBUK, CHUNGNAM, SEJONG, DAEJEON, JEONBUK, JEONNAM_GWANGJU, GYEONGBUK, GYEONGNAM, DAEGU, ULSAN, BUSAN, JEJU]
  *     ReceivedRequestItem:
  *       type: object
  *       properties:
@@ -448,12 +448,12 @@
  *       |---|---|---|---|
  *       | ☐ | ☐ | (없음) | 전체 요청 (서비스·지역 무관) |
  *       | ☑ | ☐ | `isDesignated=true` | 나에게 온 지정 견적 |
- *       | ☐ | ☑ | `isServiceArea=true` | 내 제공 서비스·서비스 지역에 맞는 요청 |
- *       | ☑ | ☑ | `isDesignated=true&isServiceArea=true` | 나에게 온 지정 견적 중 서비스·지역이 맞는 요청 (교집합) |
+ *       | ☐ | ☑ | `isServiceArea=true` | 내 서비스 지역(프로필 등록 지역)의 요청 |
+ *       | ☑ | ☑ | `isDesignated=true&isServiceArea=true` | 나에게 온 지정 견적 중 서비스 지역의 요청 (교집합) |
  *
  *       ### 필터
  *       - `serviceTypes`/`regions`/`keyword` 는 지정 견적을 포함해 **모든 결과에 걸린다.**
- *       - 기사님 프로필의 서비스·지역 매칭은 `isServiceArea=true` 일 때만 적용된다.
+ *       - 기사님 프로필의 서비스 지역 매칭은 `isServiceArea=true` 일 때만 적용된다.
  *
  *       ### 커서 사용법
  *       첫 요청은 `cursor` 없이 보내고, 응답의 `nextCursor` 를 다음 요청의 `cursor` 로 넘긴다.
@@ -508,7 +508,7 @@
  *         description: |
  *           `true` 면 나에게 온 지정 견적 요청만, `false` 면 지정이 아닌 요청만.
  *           생략하면 둘 다 조회한다.
- *           `isServiceArea=true` 와 같이 보내면 지정 견적 중 서비스·지역이 맞는 요청만(교집합) 조회한다.
+ *           `isServiceArea=true` 와 같이 보내면 지정 견적 중 서비스 지역의 요청만(교집합) 조회한다.
  *         schema:
  *           type: string
  *           enum: ['true', 'false']
