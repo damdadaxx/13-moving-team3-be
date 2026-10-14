@@ -354,3 +354,119 @@
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     ReviewDraftResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         data:
+ *           type: object
+ *           properties:
+ *             content:
+ *               type: string
+ *               description: AI가 생성한 리뷰 초안 텍스트
+ *               example: 이사 당일 기사님이 정시에 도착하셔서 짐을 꼼꼼하게 포장해 주셨습니다.
+ *
+ * /reviews/draft:
+ *   post:
+ *     tags: [Review]
+ *     summary: AI 리뷰 초안 생성
+ *     description: |
+ *       선택한 평점과 견적 정보를 기반으로 Gemini AI가 리뷰 초안을 생성합니다.
+ *       locale 파라미터로 초안 언어를 지정할 수 있습니다 (ko/en/zh/ja).
+ *       응답 시간이 3분을 초과하면 408을 반환합니다.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [estimateId, rating]
+ *             properties:
+ *               estimateId:
+ *                 type: string
+ *                 format: uuid
+ *                 description: 견적 ID
+ *               rating:
+ *                 type: integer
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 description: 평점 (1~5)
+ *               locale:
+ *                 type: string
+ *                 enum: [ko, en, zh, ja]
+ *                 default: ko
+ *                 description: 초안 언어 (ko=한국어, en=영어, zh=중국어 간체, ja=일본어)
+ *           examples:
+ *             ko:
+ *               summary: 한국어 초안 (5점)
+ *               value:
+ *                 estimateId: 210d2197-e9d2-42e7-849d-d0f4d3f968bd
+ *                 rating: 5
+ *                 locale: ko
+ *             en:
+ *               summary: 영어 초안 (4점)
+ *               value:
+ *                 estimateId: 210d2197-e9d2-42e7-849d-d0f4d3f968bd
+ *                 rating: 4
+ *                 locale: en
+ *             zh:
+ *               summary: 중국어 간체 초안 (3점)
+ *               value:
+ *                 estimateId: 210d2197-e9d2-42e7-849d-d0f4d3f968bd
+ *                 rating: 3
+ *                 locale: zh
+ *             ja:
+ *               summary: 일본어 초안 (2점)
+ *               value:
+ *                 estimateId: 210d2197-e9d2-42e7-849d-d0f4d3f968bd
+ *                 rating: 2
+ *                 locale: ja
+ *     responses:
+ *       200:
+ *         description: 초안 생성 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ReviewDraftResponse'
+ *       400:
+ *         description: >
+ *           code: VALIDATION_ERROR — estimateId/rating/locale 필드 검증 실패.
+ *           code: BAD_REQUEST — AI 초안 생성 실패.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 정보 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: 존재하지 않는 견적
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       408:
+ *         description: AI 응답 시간 초과 (10초)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: Gemini API 요청 한도 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
