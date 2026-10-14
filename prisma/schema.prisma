@@ -206,7 +206,7 @@ model Estimate {
   id                String         @id @default(uuid()) @db.Uuid
   estimateRequestId String         @db.Uuid
   moverId           String         @db.Uuid
-  price             Int?
+  price             BigInt?
   comment           String?
   isDesignated      Boolean        @default(false)
   status            EstimateStatus @default(PROPOSED)

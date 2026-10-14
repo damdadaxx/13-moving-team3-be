@@ -34,6 +34,7 @@ describe('/estimates', () => {
     expect(response.body.data).toMatchObject({
       status: 'PROPOSED',
       isDesignated: false,
+      price: 250000, // DB 는 BigInt 지만 JSON 은 number
     });
     const notifications = await prisma.notification.findMany({
       where: { userId: customer.id, type: 'NEW_ESTIMATE' },
