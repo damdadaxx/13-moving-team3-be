@@ -373,7 +373,7 @@ const extraMoverServiceRegions = [
   ['GYEONGGI', 'INCHEON'],
   ['BUSAN', 'GYEONGNAM'],
   ['DAEJEON', 'CHUNGNAM', 'SEJONG'],
-  ['GWANGJU', 'JEONNAM'],
+  ['JEONNAM_GWANGJU'],
   ['DAEGU', 'GYEONGBUK'],
 ] as const;
 
@@ -566,7 +566,7 @@ const extraCustomerRegions = [
   'BUSAN',
   'DAEJEON',
   'DAEGU',
-  'GWANGJU',
+  'JEONNAM_GWANGJU',
 ] as const;
 
 const extraCustomerServiceTypes = [

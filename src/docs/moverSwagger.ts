@@ -30,8 +30,7 @@
  *         - SEJONG
  *         - DAEJEON
  *         - JEONBUK
- *         - JEONNAM
- *         - GWANGJU
+ *         - JEONNAM_GWANGJU
  *         - GYEONGBUK
  *         - GYEONGNAM
  *         - DAEGU
