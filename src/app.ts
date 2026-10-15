@@ -22,6 +22,12 @@ import chatRouter from './modules/chat/chatRoute';
 
 const app = express();
 
+// DB 의 BigInt(견적 가격)는 JSON 으로 못 나가므로 number 로 내려준다 (FE 는 number)
+// ponytail: 2^53 초과 시 정밀도 손실. 그만큼 큰 금액이 생기면 string 으로 전환
+app.set('json replacer', (_key: string, value: unknown) =>
+  typeof value === 'bigint' ? Number(value) : value
+);
+
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
