@@ -6,7 +6,8 @@ const reviewRepository = {
   getFindReviewEstimates: async (
     where: Prisma.EstimateWhereInput,
     page: number,
-    pageSize: number
+    pageSize: number,
+    orderBy: Prisma.EstimateOrderByWithRelationInput[]
   ) => {
     const [estimates, estimateCount] = await Promise.all([
       prisma.estimate.findMany({
@@ -35,10 +36,7 @@ const reviewRepository = {
           },
           review: true,
         },
-        // 정렬을 지정하지 않으면 Postgres 가 순서를 보장하지 않아
-        // 페이지를 넘길 때 같은 행이 다시 나오거나 누락된다.
-        // createdAt 이 같은 행이 있어도 흔들리지 않도록 id 를 tie-break 로 둔다.
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
