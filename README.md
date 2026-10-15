@@ -9,7 +9,7 @@
 # 📜 목차
 
 1. [프로젝트 소개](#-프로젝트-소개)
-2. [기능 구현 영상](#-기능-구현-영상)
+2. [기능 시연 영상](#-고객-기능-시연-영상)
 3. [시스템 아키텍처](#-시스템-아키텍처)
 4. [기술 스택](#️-기술-스택)
 5. [주요 라이브러리](#-주요-라이브러리)
@@ -31,9 +31,13 @@
 
 <br/>
 
-# 💻 기능 구현 영상
+# 💻 고객 기능 시연 영상
 
-<!-- TODO: 시연 영상 링크 / 썸네일 -->
+[![무빙 고객 기능 시연 영상](https://img.youtube.com/vi/DfR7eHb9VYA/maxresdefault.jpg)](https://www.youtube.com/watch?v=DfR7eHb9VYA)
+
+# 💻 기사 기능 시연 영상
+
+[![무빙 기사님 기능 시연 영상](https://img.youtube.com/vi/SPF-6KNENOQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=SPF-6KNENOQ)
 
 <br/>
 
