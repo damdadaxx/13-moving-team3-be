@@ -68,6 +68,7 @@ enum NotificationType {
   NEW_ESTIMATE // 새로운 견적 도착 - 일반 유저 수신
   NEW_REQUEST // 새로운 견적 요청 도착 - 기사님 수신
   ESTIMATE_CONFIRMED // 견적 확정 - 양쪽 모두 수신
+  ESTIMATE_REJECTED // 지정 견적 반려 - 일반 유저 수신
   MOVE_DAY // 이사 알림 - 양쪽 모두 수신
 }
 
@@ -206,7 +207,7 @@ model Estimate {
   id                String         @id @default(uuid()) @db.Uuid
   estimateRequestId String         @db.Uuid
   moverId           String         @db.Uuid
-  price             Int?
+  price             BigInt?
   comment           String?
   isDesignated      Boolean        @default(false)
   status            EstimateStatus @default(PROPOSED)

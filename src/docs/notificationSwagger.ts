@@ -8,10 +8,11 @@
  *   schemas:
  *     NotificationType:
  *       type: string
- *       enum: [NEW_ESTIMATE, NEW_REQUEST, ESTIMATE_CONFIRMED, MOVE_DAY]
+ *       enum: [NEW_ESTIMATE, NEW_REQUEST, ESTIMATE_CONFIRMED, ESTIMATE_REJECTED, MOVE_DAY]
  *       description: |
- *         NEW_ESTIMATE는 고객, NEW_REQUEST는 기사님이 받습니다.
+ *         NEW_ESTIMATE·ESTIMATE_REJECTED는 고객, NEW_REQUEST는 기사님이 받습니다.
  *         ESTIMATE_CONFIRMED와 MOVE_DAY는 양쪽 모두 받습니다.
+ *         ESTIMATE_REJECTED는 고객이 반려 견적 상세를 볼 수 없어 targetPath가 null입니다.
  *     Notification:
  *       type: object
  *       properties:

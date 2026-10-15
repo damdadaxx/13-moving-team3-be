@@ -1287,7 +1287,7 @@ const reviewPaginationRequests = Array.from(
             ESTIMATE_ID_PREFIX,
             REVIEW_ESTIMATE_START_SEQUENCE + index + 1
           ),
-          moverId: REVIEW_PAGINATION_MOVER_ID,
+          moverId: REVIEW_PAGINATION_MOVER_ID as string,
           price: 300000 + index * 10000,
           comment: paginationComments[index % paginationComments.length],
           // 작성 가능한 리뷰에서 지정 견적 태그를 보려면 리뷰 없는 건 1개가 필요하다.
@@ -1517,28 +1517,30 @@ const demoExpiredRequests = Array.from(
 );
 
 /** 완료 내역 3건에 탈락 견적을 붙여 받았던 견적에 NOT_SELECTED가 보이게 한다. */
-const lostMoverIds = [MOVER.minjae, MOVER.haneul, MOVER.seojun] as const;
+const lostMoverIds = [MOVER.minjae, MOVER.haneul, MOVER.seojun];
 
-reviewPaginationRequests
-  .slice(0, lostMoverIds.length)
-  .forEach((request, index) => {
-    request.estimates.push({
-      id: seqId(
-        ESTIMATE_ID_PREFIX,
-        DEMO_CLOSED_ESTIMATE_START_SEQUENCE +
-          DEMO_EXPIRED_REQUEST_COUNT +
-          2 +
-          index
-      ),
-      moverId: lostMoverIds[index],
-      price: request.estimates[0].price + 50000,
-      comment: paginationComments[(index + 1) % paginationComments.length],
-      isDesignated: false,
-      status: 'NOT_SELECTED' as EstimateStatus,
-      rejectReason: null,
-      createdAt: request.estimates[0].createdAt,
-    });
+lostMoverIds.forEach((moverId, index) => {
+  const request = reviewPaginationRequests[index];
+  const accepted = request?.estimates[0];
+  if (!accepted) return;
+
+  request.estimates.push({
+    id: seqId(
+      ESTIMATE_ID_PREFIX,
+      DEMO_CLOSED_ESTIMATE_START_SEQUENCE +
+        DEMO_EXPIRED_REQUEST_COUNT +
+        2 +
+        index
+    ),
+    moverId,
+    price: accepted.price + 50000,
+    comment: paginationComments[(index + 1) % paginationComments.length],
+    isDesignated: false,
+    status: 'NOT_SELECTED' as EstimateStatus,
+    rejectReason: null,
+    createdAt: accepted.createdAt,
   });
+});
 
 /** 위 고정 픽스처 + 페이지네이션용 데이터 + 시연용 데이터 */
 const allEstimateRequests = [
@@ -2460,6 +2462,13 @@ const notifications = [
     type: 'NEW_ESTIMATE',
     content: notificationMessage.newEstimate('정하늘', 'SMALL_MOVE'),
     targetPath: ESTIMATE.jiminHaneul,
+    isRead: true,
+    createdAt: days(-2),
+  },
+  {
+    userId: CUSTOMER.jimin,
+    type: 'ESTIMATE_REJECTED',
+    content: notificationMessage.estimateRejected('최유리', 'SMALL_MOVE'),
     isRead: true,
     createdAt: days(-2),
   },
