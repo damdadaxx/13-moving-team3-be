@@ -1,6 +1,14 @@
 import notificationMessage from '../../src/modules/notification/notificationMessage';
 
-const { toMoveDayPlace } = notificationMessage;
+const { toMoveDayPlace, estimateRejected } = notificationMessage;
+
+describe('notificationMessage.estimateRejected', () => {
+  test('기사 이름과 서비스 타입으로 반려 문구를 만든다', () => {
+    expect(estimateRejected('김민재', 'SMALL_MOVE')).toBe(
+      '김민재 기사님이 소형이사 지정 견적 요청을 반려했어요.'
+    );
+  });
+});
 
 describe('notificationMessage.toMoveDayPlace', () => {
   test.each([

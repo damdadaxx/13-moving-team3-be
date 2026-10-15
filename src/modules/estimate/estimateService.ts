@@ -297,10 +297,30 @@ export const estimateService = {
       await notificationService.publishCreated(notifications);
     } else if (status === 'REJECTED') {
       const { rejectReason } = rejectEstimateSchema.parse(body);
-      await estimateRepository.update(estimateId, {
-        status: 'REJECTED',
-        rejectReason,
+
+      const notifications = await prisma.$transaction(async (tx) => {
+        await estimateRepository.update(
+          estimateId,
+          { status: 'REJECTED', rejectReason },
+          tx
+        );
+
+        return [
+          await notificationService.create(
+            {
+              userId: estimate.estimateRequest.customerId,
+              type: 'ESTIMATE_REJECTED',
+              content: notificationMessage.estimateRejected(
+                estimate.mover.user.name,
+                estimate.estimateRequest.serviceType
+              ),
+            },
+            tx
+          ),
+        ];
       });
+
+      await notificationService.publishCreated(notifications);
     } else {
       acceptEstimateSchema.parse(body);
       const customerId = estimate.estimateRequest.customerId;
