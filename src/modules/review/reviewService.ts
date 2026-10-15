@@ -21,12 +21,29 @@ import { buildDraftPrompt } from './reviewDraftPrompt';
 
 const ai = new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY });
 
+function getReviewOrderBy(
+  hasReview: boolean | undefined,
+  sort: 'reviewDate' | 'moveDate' | undefined
+): Prisma.EstimateOrderByWithRelationInput[] {
+  // 정렬을 지정하지 않으면 Postgres 가 순서를 보장하지 않아
+  // 페이지를 넘길 때 같은 행이 다시 나오거나 누락된다.
+  // createdAt 이 같은 행이 있어도 흔들리지 않도록 id 를 tie-break 로 둔다.
+
+  //리뷰를 아직 작성하지 않은 목록
+  if (!hasReview) return [{ createdAt: 'desc' }, { id: 'desc' }];
+  //리뷰를 작성한 목록
+  return sort === 'moveDate'
+    ? [{ estimateRequest: { moveDate: 'desc' } }, { id: 'desc' }] // 이사일순
+    : [{ review: { createdAt: 'desc' } }, { id: 'desc' }]; // 리뷰 작성순
+}
+
 const reviewService = {
   getMyReviews: async ({
     userId,
     page,
     pageSize,
     hasReview,
+    sort,
   }: GetMyReviewsData) => {
     //hasReview에 따라 리뷰할수있는 견적서를 가져올지 리뷰를 완료한 견적서를 가져올지 정한다.
     //실제로 계약한 견적(ACCEPTED)만 리뷰 대상이다. 같은 요청에 달렸어도
@@ -40,8 +57,18 @@ const reviewService = {
       review: hasReview ? { isNot: null } : { is: null },
     };
 
+    const orderBy: Prisma.EstimateOrderByWithRelationInput[] = getReviewOrderBy(
+      hasReview,
+      sort
+    );
+
     const { estimates, estimateCount } =
-      await reviewRepository.getFindReviewEstimates(where, page, pageSize);
+      await reviewRepository.getFindReviewEstimates(
+        where,
+        page,
+        pageSize,
+        orderBy
+      );
 
     //페이지 수 계산을 위해 전체에서 나눈후 올림한다.
     const totalPages = Math.ceil(estimateCount / pageSize);
@@ -141,7 +168,6 @@ const reviewService = {
       locale,
       rating,
       nickname: estimateInfo.mover.nickname,
-      route: `${estimateInfo.estimateRequest.departureAddress} - ${estimateInfo.estimateRequest.arrivalAddress}`,
       moveDate: estimateInfo.estimateRequest.moveDate,
     });
 

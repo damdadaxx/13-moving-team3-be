@@ -19,6 +19,12 @@ Content-Type: application/json
 ###
 GET {{baseUrl}}/reviews/me?page=1&pageSize=10&hasReview=false
 
+### 내 리뷰 목록 - 작성 완료 + 리뷰 작성일순
+GET {{baseUrl}}/reviews/me?page=1&pageSize=10&hasReview=true&sort=reviewDate
+
+### 내 리뷰 목록 - 작성 완료 + 이사일순
+GET {{baseUrl}}/reviews/me?page=1&pageSize=10&hasReview=true&sort=moveDate
+
 ###
 GET {{baseUrl}}/reviews/mover/10000000-0000-4000-8000-000000000001
 ###
