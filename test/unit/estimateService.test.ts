@@ -1,4 +1,8 @@
-import { Prisma, Role } from '../../src/generated/prisma/client';
+import {
+  EstimateStatus,
+  Prisma,
+  Role,
+} from '../../src/generated/prisma/client';
 import { estimateService } from '../../src/modules/estimate/estimateService';
 import { estimateRequestRepository } from '../../src/modules/estimate/estimateRequestRepository';
 import { estimateRepository } from '../../src/modules/estimate/estimateRepository';
@@ -121,5 +125,66 @@ describe('estimateService.createEstimate (일반 견적 보내기)', () => {
       estimateService.createEstimate('mover-1', Role.MOVER, INPUT)
     ).rejects.toThrow('이미 해당 요청에 견적을 보냈습니다.');
     expect(publishCreated).not.toHaveBeenCalled();
+  });
+});
+
+const findByIdWithDetail = jest.mocked(estimateRepository.findByIdWithDetail);
+const updateEstimate = jest.mocked(estimateRepository.update);
+
+const designatedEstimate = () =>
+  ({
+    id: 'estimate-1',
+    moverId: 'mover-1',
+    estimateRequestId: 'request-1',
+    status: EstimateStatus.DESIGNATED,
+    mover: { user: { name: '김기사' } },
+    estimateRequest: {
+      customerId: 'customer-1',
+      status: 'PENDING',
+      moveDate: new Date(Date.now() + DAY),
+      serviceType: 'SMALL_MOVE',
+      customer: { user: { name: '고객' } },
+    },
+  }) as Awaited<ReturnType<typeof estimateRepository.findByIdWithDetail>>;
+
+describe('estimateService.updateEstimateStatus (지정 견적 반려)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('기사님이 반려하면 고객에게 ESTIMATE_REJECTED 알림을 보낸다', async () => {
+    findByIdWithDetail.mockResolvedValue(designatedEstimate());
+    updateEstimate.mockResolvedValue(
+      {} as Awaited<ReturnType<typeof estimateRepository.update>>
+    );
+    createNotification.mockResolvedValue({ id: 'noti-reject' } as Awaited<
+      ReturnType<typeof notificationService.create>
+    >);
+
+    const result = await estimateService.updateEstimateStatus(
+      'mover-1',
+      Role.MOVER,
+      'estimate-1',
+      {
+        status: 'REJECTED',
+        rejectReason: '해당 날짜에 이미 확정된 이사 일정이 있어 어렵습니다.',
+      }
+    );
+
+    expect(result).toMatchObject({
+      estimateId: 'estimate-1',
+      status: 'REJECTED',
+    });
+    expect(createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'customer-1',
+        type: 'ESTIMATE_REJECTED',
+      }),
+      expect.anything()
+    );
+    expect(createNotification.mock.calls[0][0]).not.toHaveProperty(
+      'targetPath'
+    );
+    expect(publishCreated).toHaveBeenCalledWith([{ id: 'noti-reject' }]);
   });
 });
