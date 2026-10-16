@@ -1,10 +1,14 @@
 ![alt text](/attachment/intro.png)
 
-# 이사 견적 비교 서비스, 무빙 — Backend
+# 🚚 무빙 (Moving)
 
-<!-- TODO: 배포 URL, 프론트엔드 레포 링크 -->
+---
 
-### Front-end 깃허브 [Front-end](https://github.com/damdadaxx/13-moving-team3-fe)
+# 이사 소비자와 이사 전문가 매칭 서비스
+
+- 서비스 주소: [moving-team3.xyz](https://moving-team3.xyz)
+- Frontend: [13-moving-team3-fe](https://github.com/damdadaxx/13-moving-team3-fe)
+- Backend: [13-moving-team3-be](https://github.com/damdadaxx/13-moving-team3-be)
 
 # 📜 목차
 
@@ -152,31 +156,51 @@
 
 ## 팀원 소개
 
-<!-- TODO: 이름·역할·GitHub 확인 -->
-
-| 이름   | 역할   | GitHub                                             |
-| ------ | ------ | -------------------------------------------------- |
-| 한효주 | 팀장   | [@damdadaxx](https://github.com/damdadaxx)         |
-| 방민재 | 부팀장 | [@extermins](https://github.com/extermins)         |
-| 김대영 | 팀원   | [@daeyeong1573](https://github.com/daeyeong1573)   |
-| 곽서현 | 팀원   | [@sgwag6799](https://github.com/sgwag6799)         |
-| 윤다정 | 팀원   | [@torang1013](https://github.com/torang1013)       |
-| 전현선 | 팀원   | [@hyeonseon9909](https://github.com/hyeonseon9909) |
+|    이름    |        역할         |                                                              담당                                                               |                       GitHub                       |                                       개인 개발 보고서                                       |
+| :--------: | :-----------------: | :-----------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------: | :------------------------------------------------------------------------------------------: |
+| **한효주** |  👑 팀장 · FE 리드  | ![FE](https://img.shields.io/badge/FE-3178C6?style=flat-square) ![BE](https://img.shields.io/badge/BE-5FA04E?style=flat-square) |     [@damdadaxx](https://github.com/damdadaxx)     | [📄 보고서](https://www.notion.so/damdada/8c37bbb8e51783f68be00149916877ae?source=copy_link) |
+| **방민재** | ⭐ 부팀장 · BE 리드 | ![FE](https://img.shields.io/badge/FE-3178C6?style=flat-square) ![BE](https://img.shields.io/badge/BE-5FA04E?style=flat-square) |     [@extermins](https://github.com/extermins)     | [📄 보고서](https://www.notion.so/damdada/24f7bbb8e5178205a41d01fd68ce9e8b?source=copy_link) |
+| **김대영** |       🙋 팀원       | ![FE](https://img.shields.io/badge/FE-3178C6?style=flat-square) ![BE](https://img.shields.io/badge/BE-5FA04E?style=flat-square) |  [@daeyeong1573](https://github.com/daeyeong1573)  | [📄 보고서](https://www.notion.so/damdada/b4d7bbb8e51783d3a548815fcb32617f?source=copy_link) |
+| **곽서현** |       🙋 팀원       | ![FE](https://img.shields.io/badge/FE-3178C6?style=flat-square) ![BE](https://img.shields.io/badge/BE-5FA04E?style=flat-square) |     [@sgwag6799](https://github.com/sgwag6799)     | [📄 보고서](https://www.notion.so/damdada/6e57bbb8e51782acbc3a81e0e20d280d?source=copy_link) |
+| **윤다정** |       🙋 팀원       | ![FE](https://img.shields.io/badge/FE-3178C6?style=flat-square) ![BE](https://img.shields.io/badge/BE-5FA04E?style=flat-square) |    [@torang1013](https://github.com/torang1013)    | [📄 보고서](https://www.notion.so/damdada/cfd7bbb8e51782c89866818b056d9f77?source=copy_link) |
+| **전현선** |       🙋 팀원       | ![FE](https://img.shields.io/badge/FE-3178C6?style=flat-square) ![BE](https://img.shields.io/badge/BE-5FA04E?style=flat-square) | [@hyeonseon9909](https://github.com/hyeonseon9909) | [📄 보고서](https://www.notion.so/damdada/9107bbb8e51782d0a5a9819db59db9bd?source=copy_link) |
 
 ## 팀 문서
 
-[팀노션](https://www.notion.so/damdada/3377bbb8e51782129977817c0da86c23?v=7f37bbb8e51782efa73e8815e7b07056&source=copy_link)
-<br/>
+### 📝 [팀 노션](https://www.notion.so/damdada/3377bbb8e51782129977817c0da86c23?v=7f37bbb8e51782efa73e8815e7b07056&source=copy_link)
+
+### 📝 [API 문서](https://app.notion.com/p/damdada/API-3c97bbb8e517809bbbcee27e95dabd72)
+
+### 📝 [Swagger 문서](https://api.moving-team3.xyz/api-docs)
 
 # 📋 개인별 주요 작업 내역
 
 <details>
-<summary>방민재</summary>
+<summary>한효주(팀장)</summary>
 
-- **프로젝트 초기 설정**: Prisma 스키마, seed 데이터
-- **견적 요청(Estimate-Request) API**: 견적 요청 생성·진행 중 요청·이력 조회, 기사님 받은 요청 조회
-- **견적 요청 자동 마감 스케줄러**: node-cron 기반 지난 요청 `COMPLETED` / `EXPIRED` 전환
-- **Redis 캐시 미들웨어**: 기사님 목록·상세 조회 캐싱 및 쓰기 시 무효화
+- **프로젝트 초기 개발 환경 세팅**
+  - 팀 컨벤션(AGENTS.md)
+- **알림 API**
+  - REST + SSE 실시간 알림
+  - 견적 이벤트 트리거
+- **견적 확정 채팅 API**
+  - Supabase 연동
+
+</details>
+
+<details>
+<summary>방민재(부팀장)</summary>
+
+- **프로젝트 초기 설정**
+  - Prisma 스키마
+  - seed 데이터
+- **견적 요청(Estimate-Request) API**
+  - 견적 요청 생성·진행 중 요청·이력 조회
+  - 기사님 받은 요청 조회
+- **견적 요청 자동 마감 스케줄러**
+  - node-cron 기반 지난 요청 `COMPLETED` / `EXPIRED` 전환
+- **Redis 캐시 미들웨어**
+  - 기사님 목록·상세 조회 캐싱 및 쓰기 시 무효화
 - **백엔드 전체 리팩토링**
 
 </details>
@@ -184,46 +208,54 @@
 <details>
 <summary>김대영</summary>
 
-- **견적(Estimate) API**: 지정 견적 / 지정 없이 견적 보내기, 견적 확정
+- **견적(Estimate) API**
+  - 지정 견적 / 지정 없이 견적 보내기
+  - 견적 확정
 - **커서 기반 페이지네이션 공용 유틸**
-- **받은 요청 서비스 가능 지역 필터**, 주소 검색 API
-- **CI/CD 워크플로우**: GitHub Actions → EC2 배포, 실패 시 이전 버전 유지
-- **테스트 환경**: Jest + Supertest
+- **받은 요청 서비스 가능 지역 필터**
+  - 주소 검색 API
+- **CI/CD 워크플로우**
+  - GitHub Actions → EC2 배포, 실패 시 이전 버전 유지
+- **테스트 환경**
+  - Jest + Supertest
 
 </details>
 
 <details>
-<summary>HYOJU</summary>
+<summary>곽서현</summary>
 
-- **프로젝트 초기 개발 환경 세팅**, 팀 컨벤션(AGENTS.md)
-- **알림 API**: REST + SSE 실시간 알림, 견적 이벤트 트리거
-- **견적 확정 채팅 API**: Supabase 연동
-
-</details>
-
-<details>
-<summary>sgwag6799</summary>
-
-- **Auth API**: 회원가입·로그인, Refresh 토큰, 소셜 로그인(Google·Naver·Kakao)
-- **이메일 인증**: Resend 발송, 만료·IP 제한
-- **로그인 보안**: 계정당 비밀번호 시도 제한, Rate Limit
-- **Customer API**: 고객 프로필
-
-</details>
-
-<details>
-<summary>torang1013</summary>
-
-- **찜(Like) API**: 찜 등록·해제·일괄 해제
-- **리뷰 API**: 리뷰 작성·조회
-- **리뷰 AI 초안 작성**: Gemini 연동
+- **Auth API**
+  - 회원가입·로그인
+  - Refresh 토큰
+  - 소셜 로그인(Google·Naver·Kakao)
+- **이메일 인증**
+  - Resend 발송
+  - 만료·IP 제한
+- **로그인 보안**
+  - 계정당 비밀번호 시도 제한
+  - Rate Limit
+- **Customer API**
+  - 고객 프로필
 
 </details>
 
 <details>
-<summary>hyeonseon</summary>
+<summary>윤다정</summary>
 
-- **기사님(Mover) API**: 프로필, 목록·상세 조회
+- **찜(Like) API**
+  - 찜 등록·해제·일괄 해제
+- **리뷰 API**
+  - 리뷰 작성·조회
+- **리뷰 AI 초안 작성**
+  - Gemini 연동
+
+</details>
+
+<details>
+<summary>전현선</summary>
+
+- **기사님(Mover) API**
+  - 프로필, 목록·상세 조회
 - **프로필 이미지 S3 전환**
 
 </details>
@@ -269,58 +301,87 @@ test/
 <details>
 <summary>1. 인증 시스템</summary>
 
-- **이메일 회원가입·로그인**: 고객 / 기사님 역할 구분, 비밀번호 특수문자 포함 검증, bcrypt 해시
-- **이메일 인증**: Resend + React Email 인증 메일, 만료 시간·발송 IP 제한
-- **소셜 로그인**: Google · Naver · Kakao (Passport OAuth2, 세션 없이 JWT 발급)
-- **토큰**: Access·Refresh 토큰을 HttpOnly 쿠키로 발급, `/auth/refresh`로 재발급, 만료 시 `TOKEN_EXPIRED`
-- **요청 제한**: `express-rate-limit` + 계정당 비밀번호 시도 제한으로 무차별 대입 방어
+- **이메일 회원가입·로그인**
+  - 고객 / 기사님 역할 구분
+  - 비밀번호 특수문자 포함 검증
+  - bcrypt 해시
+- **이메일 인증**
+  - Resend + React Email 인증 메일
+  - 만료 시간·발송 IP 제한
+- **소셜 로그인**
+  - Google · Naver · Kakao (Passport OAuth2, 세션 없이 JWT 발급)
+- **토큰**
+  - Access·Refresh 토큰을 HttpOnly 쿠키로 발급
+  - `/auth/refresh`로 재발급, 만료 시 `TOKEN_EXPIRED`
+- **요청 제한**
+  - `express-rate-limit` + 계정당 비밀번호 시도 제한으로 무차별 대입 방어
 
 </details>
 
 <details>
 <summary>2. 프로필 등록/수정</summary>
 
-- **고객 프로필**: 이용 서비스 유형, 지역, 프로필 이미지
-- **기사님 프로필**: 서비스 유형(다중), 서비스 가능 지역(다중), 경력(개월)·소개
-- **이미지 업로드**: multer → S3 업로드, CloudFront URL로 서빙
+- **고객 프로필**
+  - 이용 서비스 유형, 지역, 프로필 이미지
+- **기사님 프로필**
+  - 서비스 유형(다중)
+  - 서비스 가능 지역(다중)
+  - 경력(개월)·소개
+- **이미지 업로드**
+  - multer → S3 업로드
+  - CloudFront URL로 서빙
 
 </details>
 
 <details>
 <summary>3. 견적 요청</summary>
 
-- **견적 요청 생성**: 이사 유형·이사일·출발지·도착지
-- **진행 중 요청 1건 제한**: DB 부분 유니크 인덱스(`status IN ('PENDING','CONFIRMED')`)
+- **견적 요청 생성**
+  - 이사 유형·이사일·출발지·도착지
+- **진행 중 요청 1건 제한**
+  - DB 부분 유니크 인덱스(`status IN ('PENDING','CONFIRMED')`)
 - **진행 중 요청 / 이력 조회**
-- **자동 마감**: 이사일이 지나면 node-cron 배치가 `COMPLETED` / `EXPIRED`로 전환
+- **자동 마감**
+  - 이사일이 지나면 node-cron 배치가 `COMPLETED` / `EXPIRED`로 전환
 
 </details>
 
 <details>
 <summary>4. 견적 발송 / 확정</summary>
 
-- **받은 요청 조회(기사님)**: 서비스 가능 지역·서비스 유형 필터, 커서 기반 무한 스크롤
-- **지정 견적 / 일반 견적 발송**, 견적 반려
-- **받은 견적 조회(고객)**: 목록·상세, 기사님 평점·리뷰 수 포함
-- **견적 확정**: 견적 요청을 `CONFIRMED`로 전환하고 알림을 보내며, 확정된 견적부터 채팅 가능
-- **상태 전환 규칙**: 역할·현재 상태별 허용 전환을 테이블로 정의해 잘못된 전환은 `409 CONFLICT`
+- **받은 요청 조회(기사님)**
+  - 서비스 가능 지역·서비스 유형 필터
+  - 커서 기반 무한 스크롤
+- **지정 견적 / 일반 견적 발송**
+  - 견적 반려
+- **받은 견적 조회(고객)**
+  - 목록·상세, 기사님 평점·리뷰 수 포함
+- **견적 확정**
+  - 견적 요청을 `CONFIRMED`로 전환하고 알림을 보내며, 확정된 견적부터 채팅 가능
+- **상태 전환 규칙**
+  - 역할·현재 상태별 허용 전환을 테이블로 정의해 잘못된 전환은 `409 CONFLICT`
 
 </details>
 
 <details>
 <summary>5. 기사님 찾기 / 찜</summary>
 
-- **기사님 목록**: 지역·서비스 필터, 평점·리뷰 수·확정 수·찜 수 정렬 (Raw SQL 집계)
-- **기사님 상세**: 프로필 + 집계 정보, Redis 캐시
-- **찜**: 등록·해제·일괄 해제, 내 찜 목록
+- **기사님 목록**
+  - 지역·서비스 필터, 평점·리뷰 수·확정 수·찜 수 정렬 (Raw SQL 집계)
+- **기사님 상세**
+  - 프로필 + 집계 정보, Redis 캐시
+- **찜**
+  - 등록·해제·일괄 해제, 내 찜 목록
 
 </details>
 
 <details>
 <summary>6. 리뷰</summary>
 
-- **리뷰 작성**: 이사 완료(`COMPLETED`) 요청의 확정 기사님에게만 작성 가능
-- **AI 리뷰 초안**: Gemini로 이사 정보 기반 리뷰 초안 생성
+- **리뷰 작성**
+  - 이사 완료(`COMPLETED`) 요청의 확정 기사님에게만 작성 가능
+- **AI 리뷰 초안**
+  - Gemini로 이사 정보 기반 리뷰 초안 생성
 - **내 리뷰 / 기사님 리뷰 목록**
 
 </details>
@@ -328,7 +389,8 @@ test/
 <details>
 <summary>7. 실시간 알림</summary>
 
-- **SSE 스트림**(`/notifications/stream`): 새 견적, 견적 확정 등 이벤트 실시간 전송
+- **SSE 스트림**(`/notifications/stream`)
+  - 새 견적, 견적 확정 등 이벤트 실시간 전송
 - **알림 목록 / 안 읽은 개수 / 개별·전체 읽음 처리**
 
 </details>
