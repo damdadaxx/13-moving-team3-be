@@ -169,7 +169,9 @@
 
 ### 📝 [API 문서](https://app.notion.com/p/damdada/API-3c97bbb8e517809bbbcee27e95dabd72)
 
-### 📝 [Swagger 문서](https://api.moving-team3.xyz/api-docs)
+### 📝 Swagger 문서
+
+개발 환경에서만 공개합니다. 서버를 `NODE_ENV=production`이 아닌 환경으로 실행한 뒤 `/api-docs`로 접속하세요. (운영 서버에서는 노출되지 않습니다)
 
 <br>
 
@@ -632,7 +634,7 @@ await notificationService.publishCreated(notifications);
 | 2/5  | `STAGE`에서 `prisma migrate deploy`        | 운영 폴더 그대로                 |
 | 3/5  | 운영 파일을 `PREV`로 옮기고 새 파일로 교체 | (복구 대상)                      |
 | 4/5  | pm2로 재시작                               | (복구 대상)                      |
-| 5/5  | `/api-docs/` 응답을 최대 30초 확인         | `PREV`로 되돌려 이전 버전 재시작 |
+| 5/5  | `/health` 응답을 최대 30초 확인            | `PREV`로 되돌려 이전 버전 재시작 |
 
 ```bash
 for item in $ITEMS; do
