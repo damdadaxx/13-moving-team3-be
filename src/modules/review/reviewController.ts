@@ -14,7 +14,7 @@ const reviewController = {
     if (!userId) {
       throw new UnauthorizedError();
     }
-    const { page, pageSize, hasReview } =
+    const { page, pageSize, hasReview, sort } =
       req.validatedData as GetMyReviewsRequest;
 
     const reviews = await reviewService.getMyReviews({
@@ -22,6 +22,7 @@ const reviewController = {
       page,
       pageSize,
       hasReview,
+      sort,
     });
 
     res.status(200).json({ success: true, data: reviews });

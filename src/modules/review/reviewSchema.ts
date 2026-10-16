@@ -21,6 +21,7 @@ export const getMyReviewsSchema = z.object({
     .enum(['true', 'false'])
     .transform((v) => v === 'true')
     .optional(),
+  sort: z.enum(['reviewDate', 'moveDate']).optional(),
 });
 
 export const getMoverIdSchema = z.object({

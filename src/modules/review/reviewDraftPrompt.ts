@@ -40,18 +40,16 @@ export const buildDraftPrompt = ({
   locale,
   rating,
   nickname,
-  route,
   moveDate,
 }: {
   locale: DraftLocale;
   rating: number;
   nickname: string;
-  route: string;
   moveDate: Date;
 }) => {
   const tone = RATING_TONE[locale][rating];
   const date = moveDate.toISOString().slice(0, 10);
-  const nouns = `- mover: ${nickname} - route: ${route}`;
+  const nouns = `- mover: ${nickname}`;
 
   const prompts: Record<DraftLocale, string> = {
     ko: `이사 서비스 고객 리뷰 초안을 한국어로 작성해라.
