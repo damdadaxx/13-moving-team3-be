@@ -117,6 +117,12 @@
  *       hasReview=true 이면 리뷰를 이미 작성한 견적만,
  *       false 이거나 생략하면 아직 리뷰를 쓰지 않은 견적만 반환합니다.
  *       각 행의 isDesignated로 지정 견적 여부를 구분합니다.
+ *
+ *       정렬(sort):
+ *       - hasReview가 true가 아니면(미작성/생략) 견적 생성일(createdAt) 내림차순입니다. sort는 무시됩니다.
+ *       - hasReview=true 이고 sort=moveDate 이면 이사일(moveDate) 내림차순입니다.
+ *       - hasReview=true 이고 sort=reviewDate 이거나 sort를 생략하면 리뷰 작성일 내림차순입니다.
+ *       같은 값이 있어도 페이지가 흔들리지 않도록 id 내림차순으로 한 번 더 정렬합니다.
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -145,6 +151,16 @@
  *         schema:
  *           type: string
  *           enum: [true, false]
+ *       - in: query
+ *         name: sort
+ *         required: false
+ *         description: >
+ *           작성 완료 목록(hasReview=true)의 정렬 기준.
+ *           reviewDate=리뷰 작성일, moveDate=이사일.
+ *           hasReview가 true가 아니면 적용되지 않습니다.
+ *         schema:
+ *           type: string
+ *           enum: [reviewDate, moveDate]
  *     responses:
  *       200:
  *         description: 조회 성공
@@ -153,7 +169,7 @@
  *             schema:
  *               $ref: '#/components/schemas/MyReviewListResponse'
  *       400:
- *         description: page/pageSize/hasReview 값이 올바르지 않음 (VALIDATION_ERROR)
+ *         description: page/pageSize/hasReview/sort 값이 올바르지 않음 (VALIDATION_ERROR)
  *         content:
  *           application/json:
  *             schema:
@@ -458,7 +474,7 @@
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  *       408:
- *         description: AI 응답 시간 초과 (10초)
+ *         description: AI 응답 시간 초과 (3분)
  *         content:
  *           application/json:
  *             schema:
