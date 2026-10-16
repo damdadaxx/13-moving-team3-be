@@ -2,8 +2,6 @@
 
 # 🚚 무빙 (Moving)
 
----
-
 # 이사 소비자와 이사 전문가 매칭 서비스
 
 - 서비스 주소: [moving-team3.xyz](https://moving-team3.xyz)
@@ -173,6 +171,8 @@
 
 ### 📝 [Swagger 문서](https://api.moving-team3.xyz/api-docs)
 
+<br>
+
 # 📋 개인별 주요 작업 내역
 
 <details>
@@ -271,9 +271,17 @@ src/
 ├── config/          # 환경변수, Swagger, Zod 전역 설정
 ├── lib/             # Prisma, Redis, S3, Supabase 클라이언트
 ├── middlewares/     # 인증, 요청 검증, 캐시, 에러 핸들러
+├── types            # 공용 타입
 ├── modules/
-│   ├── auth/              # 회원가입·로그인·소셜 로그인·이메일 인증
+│   ├── auth/        # 회원가입·로그인·소셜 로그인·이메일 인증
+|   |    ├── authController.ts
+|   |    ├── authRepository.ts
+|   |    ├── authSchema.ts
+|   |    ├── authRoute.ts
+|   |    ├── authService.ts
+|   |    └── authValidation.ts
 │   ├── customer/          # 고객 프로필
+|   ├── docs/              # SWAGGER 문서
 │   ├── mover/             # 기사님 프로필·목록·상세
 │   ├── estimate-request/  # 견적 요청
 │   ├── estimate/          # 견적 발송·확정
@@ -292,6 +300,8 @@ prisma/
 test/
 ├── unit/
 └── integration/
+superbase/
+
 ```
 
 <br/>
