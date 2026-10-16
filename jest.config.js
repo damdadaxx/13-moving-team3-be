@@ -23,6 +23,19 @@ const transform = {
 };
 
 module.exports = {
+  // 커버리지는 `npm run test:coverage` 로 측정한다. 결과는 coverage/ (git 제외)
+  // swc 로 변환한 코드라 istanbul 대신 v8 로 측정한다
+  coverageProvider: 'v8',
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/generated/**', // Prisma 생성물
+    '!src/docs/**', // Swagger 주석뿐인 파일
+    '!src/scripts/**',
+    '!src/types/**',
+    '!src/server.ts', // listen 만 하는 진입점
+    '!src/**/*.d.ts',
+  ],
+  coverageReporters: ['text-summary', 'text', 'html', 'lcov'],
   projects: [
     {
       displayName: 'unit',
