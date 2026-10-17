@@ -37,7 +37,17 @@ app.use(express.json());
 registerSocialStrategies();
 app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// ALB 와 배포 스크립트가 서버 생존만 확인하는 경로. DB 같은 외부 의존성은 보지 않는다
+// (DB 가 잠깐 느려졌다고 서버가 로드밸런서에서 빠지거나 롤백되지 않도록)
+app.get('/health', (_req, res) => {
+  res.status(200).json({ success: true, data: { status: 'ok' } });
+});
+
+// API 문서는 개발 환경에서만 공개한다. 운영에서는 라우트를 아예 등록하지 않는다
+if (ENV.NODE_ENV !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
