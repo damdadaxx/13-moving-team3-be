@@ -56,6 +56,7 @@
     "db:chat:studio": "dotenv -e .env.development -- npx prisma studio --config=prisma.chat.config.ts",
     "test": "jest --runInBand",
     "test:db": "docker run --name moving-test-db -e POSTGRES_PASSWORD=password -e POSTGRES_DB=moving_test -p 5433:5432 -d postgres:16",
+    "test:coverage": "jest --runInBand --coverage",
     "test:unit": "jest --selectProjects unit",
     "test:integration": "jest --selectProjects integration --runInBand"
   },
