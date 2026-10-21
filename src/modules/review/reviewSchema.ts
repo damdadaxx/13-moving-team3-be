@@ -49,3 +49,8 @@ export const draftSchema = {
   properties: { content: { type: 'string' } },
   required: ['content'],
 };
+
+//Gemini 가 돌려준 초안을 검증한다. (모델 출력은 신뢰하지 않는다)
+export const draftResultSchema = z.object({
+  content: z.string().trim().min(1),
+});
