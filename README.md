@@ -77,7 +77,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-FF4438?style=flat&logo=redis&logoColor=white)
 ![Amazon S3](https://img.shields.io/badge/Amazon_S3-569A31?style=flat&logo=amazons3&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat&logo=supabase&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=flat&logo=socketdotio&logoColor=white)
 
 ### ✅ CI/CD & Test
 
@@ -108,7 +108,7 @@
 
 - **prisma**, **@prisma/client**, **@prisma/adapter-pg**, **pg**: ORM 및 PostgreSQL 드라이버
 - **ioredis**: Redis 응답 캐시
-- **@supabase/supabase-js**: 채팅 메시지 저장·실시간 연동
+- **socket.io**: 채팅 메시지 실시간 전송
 
 </details>
 
@@ -186,7 +186,7 @@
   - REST + SSE 실시간 알림
   - 견적 이벤트 트리거
 - **견적 확정 채팅 API**
-  - Supabase 연동
+  - Socket.IO 실시간 연동
 
 </details>
 
@@ -271,7 +271,7 @@
 ```
 src/
 ├── config/          # 환경변수, Swagger, Zod 전역 설정
-├── lib/             # Prisma, Redis, S3, Supabase 클라이언트
+├── lib/             # Prisma, Redis, S3, Socket.IO 클라이언트
 ├── middlewares/     # 인증, 요청 검증, 캐시, 에러 핸들러
 ├── types            # 공용 타입
 ├── modules/
@@ -410,7 +410,7 @@ superbase/
 <details>
 <summary>8. 견적 확정 채팅</summary>
 
-- 확정된 견적 단위 1:1 채팅방 (Supabase)
+- 확정된 견적 단위 1:1 채팅방 (Socket.IO)
 - 메시지 전송·조회, 이미지 전송, 읽음 처리, 안 읽은 개수
 
 </details>
