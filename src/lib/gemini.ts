@@ -22,6 +22,15 @@ export const GEMINI_TEXT_MODEL = 'gemini-3.5-flash-lite';
 // 응답을 오래 기다리지 않는다. 재시도는 사용자가 다시 누르는 것으로 대신한다
 const DEFAULT_TIMEOUT_MS = 20_000;
 
+/*
+@ 사용자에게 보이는 실패 문구
+- 원인(쿼터 초과 · 타임아웃 · 빈 응답 · 형식 오류)과 관계없이 사용자가 할 수 있는 일은 "잠시 후 다시"뿐이라
+  문구를 하나로 통일한다. 원인은 서버 로그(console.error)로만 구분한다
+- FE는 이 문구 대신 자체 i18n 문구를 띄우지만, Swagger 등 다른 클라이언트에도 내부 사정이 드러나지 않게 한다
+*/
+const AI_UNAVAILABLE_MESSAGE =
+  '지금은 AI 응답을 받을 수 없어요. 잠시 후 다시 시도해 주세요.';
+
 interface GenerateJsonParams {
   prompt: string;
   schema: Record<string, unknown>;
@@ -56,25 +65,23 @@ export const generateJson = async ({
     outputText = result.output_text;
   } catch (error: unknown) {
     // 원문(키 오류, 쿼터 상세 등)은 서버 로그에만 남긴다
-    console.error('[gemini] 요청 실패', error);
-
-    if (error instanceof ApiError && error.status === 429) {
-      throw new ServiceUnavailableError(
-        'AI 요청이 많아 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
-      );
-    }
-    throw new ServiceUnavailableError(
-      'AI 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요.'
-    );
+    const reason =
+      error instanceof ApiError && error.status === 429
+        ? 'Gemini 한도 초과'
+        : '요청 실패';
+    console.error(`[gemini] ${reason}`, error);
+    throw new ServiceUnavailableError(AI_UNAVAILABLE_MESSAGE);
   }
 
   if (!outputText) {
-    throw new ServiceUnavailableError('AI 응답이 비어 있습니다.');
+    console.error('[gemini] 빈 응답');
+    throw new ServiceUnavailableError(AI_UNAVAILABLE_MESSAGE);
   }
 
   try {
     return JSON.parse(outputText) as unknown;
   } catch {
-    throw new ServiceUnavailableError('AI 응답을 해석하지 못했습니다.');
+    console.error('[gemini] JSON 형식이 아닌 응답');
+    throw new ServiceUnavailableError(AI_UNAVAILABLE_MESSAGE);
   }
 };

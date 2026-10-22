@@ -97,7 +97,7 @@ export default function errorHandler(
       success: false,
       error: {
         code: 'SERVICE_UNAVAILABLE',
-        message: 'AI 응답을 받지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        message: '지금은 AI 응답을 받을 수 없어요. 잠시 후 다시 시도해 주세요.',
       },
     });
   }
