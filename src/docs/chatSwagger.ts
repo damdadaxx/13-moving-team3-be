@@ -11,8 +11,11 @@
  *       properties:
  *         messageId:
  *           type: string
- *           description: Supabase bigint id (문자열로 전달)
- *           example: "42"
+ *           format: uuid
+ *         estimateId:
+ *           type: string
+ *           format: uuid
+ *           description: 여러 채팅방을 동시에 구독(join-room)할 때 어느 방의 이벤트인지 구분하는 용도.
  *         senderId:
  *           type: string
  *           format: uuid
@@ -23,7 +26,7 @@
  *           type: string
  *           nullable: true
  *           description: >
- *             조회 시점에 발급한 signed URL (10분 만료). chat-images 버킷이 private라
+ *             조회 시점에 발급한 S3 presigned GET URL (10분 만료). 버킷이 private라
  *             영구 URL이 없고, 매 응답마다 새로 서명해서 내려준다.
  *         isRead:
  *           type: boolean
@@ -78,13 +81,19 @@
  *           properties:
  *             uploadUrl:
  *               type: string
- *               description: Supabase Storage presigned 업로드 URL (PUT)
+ *               description: >
+ *                 S3 presigned POST 대상 URL. multipart/form-data로 fields를 전부
+ *                 같이 넣고(파일은 "file" 필드로 마지막에) 이 URL에 POST한다 — PUT 아님.
+ *             fields:
+ *               type: object
+ *               additionalProperties:
+ *                 type: string
+ *               description: >
+ *                 POST 바디에 그대로 같이 실어야 하는 폼 필드(policy, signature, key,
+ *                 Content-Type 등). 4MB 초과/MIME 불일치면 S3가 업로드 자체를 거부한다.
  *             path:
  *               type: string
- *               description: 버킷 내 저장 경로. 업로드 성공 후 이 경로를 메시지 전송의 imagePath로 그대로 보낸다.
- *             token:
- *               type: string
- *               description: presigned 업로드용 토큰
+ *               description: 버킷 내 저장 경로(S3 key). 업로드 성공 후 이 경로를 메시지 전송의 imagePath로 그대로 보낸다.
  *     ChatRoomListItem:
  *       type: object
  *       properties:

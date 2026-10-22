@@ -1,6 +1,7 @@
 # 쿠키는 REST Client가 쿠키 jar로 자동 관리한다 (rest-client.rememberCookiesForSubsequentRequests, 기본값 true).
 # 시드 계정(prisma/seed.ts) 비밀번호는 전부 test1234! 이고 bcrypt로 해시돼 있어 실제 /auth/login으로 로그인된다.
-# 메시지는 Supabase(채팅 전용 DB)에 실제로 쌓인다 — 재실행하면 목록에 계속 누적된다.
+# 메시지는 메인 DB(chatMessage 테이블)에 실제로 쌓인다 — 재실행하면 목록에 계속 누적된다.
+# 실시간 수신은 REST가 아니라 Socket.IO(join-room → message 이벤트)로 처리한다.
 
 @baseUrl = http://localhost:3001
 @password = test1234!
@@ -27,7 +28,7 @@ GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
 ### 메시지 목록 - 페이지 크기 지정 + 커서 페이지네이션 확인용
 GET {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages?size=1
 
-### 메시지 전송 (고객 -> 201, Supabase chat_messages에 실제 INSERT)
+### 메시지 전송 (고객 -> 201, 메인 DB chatMessage에 실제 INSERT)
 POST {{baseUrl}}/chat/rooms/40000000-0000-4000-8000-000000000005/messages
 Content-Type: application/json
 
