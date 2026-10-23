@@ -1,12 +1,13 @@
 import './config/env';
 import './config/zod';
 import path from 'node:path';
-import express from 'express';
+import express, { Request } from 'express';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
+import morgan from 'morgan';
 import helmet from 'helmet';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
@@ -20,6 +21,7 @@ import likeRouter from './modules/like/likeRoute';
 import reviewRouter from './modules/review/reviewRoute';
 import notificationRouter from './modules/notification/notificationRoute';
 import chatRouter from './modules/chat/chatRoute';
+import { getClientIp } from './utils/clientIp';
 import aiRouter from './modules/ai/aiRoute';
 import paymentRouter from './modules/payment/paymentRoute';
 
@@ -34,6 +36,23 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
+
+// app.ts (cookieParser 아래)
+morgan.token('client-ip', (req) => getClientIp(req as Request));
+// OAuth 콜백의 code·state가 로그에 남지 않도록 소셜 로그인 경로는 쿼리를 뺀다
+morgan.token('url', (req) => {
+  const url = (req as Request).originalUrl || req.url || '';
+  return url.startsWith('/auth/social/') ? url.split('?')[0] : url;
+});
+app.use(
+  morgan(
+    ENV.NODE_ENV === 'production'
+      ? ':client-ip :method :url :status :res[content-length] - :response-time ms'
+      : 'dev',
+    { skip: (req) => req.url === '/health' || ENV.NODE_ENV === 'test' }
+  )
+);
+
 app.use(express.json());
 
 // 소셜 로그인 전략 등록. 세션은 쓰지 않는다 (JWT 쿠키)
