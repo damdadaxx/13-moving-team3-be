@@ -7,6 +7,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
+import helmet from 'helmet';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import { registerSocialStrategies } from './modules/auth/authPassport';
@@ -20,6 +21,7 @@ import reviewRouter from './modules/review/reviewRoute';
 import notificationRouter from './modules/notification/notificationRoute';
 import chatRouter from './modules/chat/chatRoute';
 import aiRouter from './modules/ai/aiRoute';
+import paymentRouter from './modules/payment/paymentRoute';
 
 const app = express();
 
@@ -28,7 +30,7 @@ const app = express();
 app.set('json replacer', (_key: string, value: unknown) =>
   typeof value === 'bigint' ? Number(value) : value
 );
-
+app.use(helmet({ contentSecurityPolicy: false }));
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
@@ -60,6 +62,7 @@ app.use('/reviews', reviewRouter);
 app.use('/notifications', notificationRouter);
 app.use('/chat/rooms', chatRouter);
 app.use('/ai', aiRouter);
+app.use(paymentRouter); // /estimates/:estimateId/payments, /payments/confirm
 
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use(errorHandler);

@@ -106,6 +106,9 @@ export const ENV = {
   // cron 표현식 해석 기준 시간대. 서버가 UTC로 떠도 KST 기준으로 돈다.
   SCHEDULER_TIMEZONE: process.env.SCHEDULER_TIMEZONE || 'Asia/Seoul',
 
+  // 토스페이먼츠 시크릿 키 (결제 승인). 없으면 결제 승인 때만 503 으로 응답한다
+  TOSS_SECRET_KEY: process.env.TOSS_SECRET_KEY || undefined,
+
   // 제미나이 API 키
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 };
