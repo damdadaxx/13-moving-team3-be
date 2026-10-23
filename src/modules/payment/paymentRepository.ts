@@ -1,5 +1,10 @@
 import { prisma } from '../../lib/prisma';
-import { PaymentStatus, PaymentType } from '../../generated/prisma/client';
+import {
+  Prisma,
+  PaymentStatus,
+  PaymentType,
+} from '../../generated/prisma/client';
+import { buildCursorArgs } from '../../utils/cursorPagination';
 
 // 결제 가능 여부와 주문 정보에 필요한 견적·요청 정보만 가져온다
 const estimateForPaymentSelect = {
@@ -15,6 +20,33 @@ const estimateForPaymentSelect = {
     },
   },
 } as const;
+
+// 결제내역 목록에 보여줄 견적·기사님 정보
+const historyEstimateSelect = {
+  id: true,
+  price: true,
+  mover: {
+    select: { userId: true, nickname: true, user: { select: { name: true } } },
+  },
+  estimateRequest: {
+    select: {
+      serviceType: true,
+      moveDate: true,
+      departureAddress: true,
+      arrivalAddress: true,
+    },
+  },
+} as const;
+
+export type HistoryStatus = PaymentStatus | 'ALL';
+
+const historyWhere = (
+  customerId: string,
+  status: HistoryStatus
+): Prisma.PaymentWhereInput => ({
+  estimate: { estimateRequest: { customerId } },
+  ...(status === 'ALL' ? {} : { status }),
+});
 
 export const paymentRepository = {
   findEstimateForPayment: (estimateId: string) => {
@@ -59,6 +91,14 @@ export const paymentRepository = {
     });
   },
 
+  // 승인 대기 중인 결제의 결제 키를 남겨 둔다. 키가 있는 READY 는 다시 결제할 수 없다
+  savePaymentKey: (id: string, paymentKey: string) => {
+    return prisma.payment.updateMany({
+      where: { id, status: PaymentStatus.READY },
+      data: { paymentKey },
+    });
+  },
+
   markFailed: (id: string, failureMessage: string) => {
     return prisma.payment.updateMany({
       where: { id, status: { not: PaymentStatus.PAID } },
@@ -78,5 +118,30 @@ export const paymentRepository = {
       },
     });
     return prisma.payment.findUniqueOrThrow({ where: { id } });
+  },
+
+  // 결제내역: 고객 본인의 결제, 결제 완료 시각 최신순 (시각이 없는 건은 뒤로)
+  findHistory: (
+    customerId: string,
+    {
+      status,
+      cursor,
+      size,
+    }: { status: HistoryStatus; cursor?: string; size: number }
+  ) => {
+    return prisma.payment.findMany({
+      where: historyWhere(customerId, status),
+      ...buildCursorArgs(cursor, size),
+      orderBy: [
+        { paidAt: { sort: 'desc', nulls: 'last' } },
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      include: { estimate: { select: historyEstimateSelect } },
+    });
+  },
+
+  countHistory: (customerId: string, status: HistoryStatus) => {
+    return prisma.payment.count({ where: historyWhere(customerId, status) });
   },
 };

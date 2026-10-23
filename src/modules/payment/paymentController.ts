@@ -4,10 +4,24 @@ import { paymentService } from './paymentService';
 import {
   createPaymentBodySchema,
   type ConfirmPaymentDto,
+  type GetPaymentHistoryQueryDto,
   type PaymentParamsDto,
 } from './paymentSchema';
 
 export const paymentController = {
+  getPaymentHistory: async (req: Request, res: Response) => {
+    if (!req.auth?.sub) throw new UnauthorizedError();
+
+    const query = req.validatedData as GetPaymentHistoryQueryDto;
+    const result = await paymentService.getPaymentHistory(
+      req.auth.sub,
+      req.auth.role,
+      query
+    );
+
+    res.status(200).json({ success: true, data: result });
+  },
+
   getPayments: async (req: Request, res: Response) => {
     if (!req.auth?.sub) throw new UnauthorizedError();
 

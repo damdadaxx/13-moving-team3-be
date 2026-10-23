@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PaymentType } from '../../generated/prisma/client';
+import { pageSizeSchema } from '../../utils/paginationSchema';
 
 export const paymentParamsSchema = z.object({
   estimateId: z.uuid(),
@@ -22,3 +23,13 @@ export const confirmPaymentSchema = z.object({
   amount: z.number().int().positive(),
 });
 export type ConfirmPaymentDto = z.infer<typeof confirmPaymentSchema>;
+
+// 결제내역 목록. status 를 생략하면 결제 완료(PAID)만 보여 준다
+export const getPaymentHistoryQuerySchema = z.object({
+  cursor: z.uuid().optional(),
+  size: pageSizeSchema(),
+  status: z.enum(['PAID', 'FAILED', 'ALL']).default('PAID'),
+});
+export type GetPaymentHistoryQueryDto = z.infer<
+  typeof getPaymentHistoryQuerySchema
+>;
