@@ -7,6 +7,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
+import helmet from 'helmet';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import { registerSocialStrategies } from './modules/auth/authPassport';
@@ -27,7 +28,7 @@ const app = express();
 app.set('json replacer', (_key: string, value: unknown) =>
   typeof value === 'bigint' ? Number(value) : value
 );
-
+app.use(helmet({ contentSecurityPolicy: false }));
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
