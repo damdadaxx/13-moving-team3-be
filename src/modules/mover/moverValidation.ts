@@ -231,6 +231,47 @@ Mover 요청 타입
 - Zod 스키마와 타입을 따로 중복해서 작성하지 않습니다.
 - Zod가 검증한 결과와 TypeScript 타입이 항상 일치하게 됩니다.
 */
+/*
+@ moverAiSearchQuerySchema
+
+- GET /mover/ai-search 의 자연어 검색 문장을 검증합니다.
+- 길이를 제한해 Gemini 로 보내는 토큰을 줄입니다.
+*/
+export const moverAiSearchQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .min(2, '검색어는 2자 이상 입력해 주세요.')
+    .max(100, '검색어는 100자 이하로 입력해 주세요.'),
+});
+
+/*
+@ moverAiSearchResultSchema
+
+- Gemini 가 돌려준 필터를 한 번 더 검증합니다. (모델 출력은 신뢰하지 않습니다)
+- enum 밖의 값, 잘못된 타입은 에러 대신 null 로 바꿉니다.
+- keyword 는 기존 목록 API 의 별명 검색에 그대로 쓰이므로 30자로 자릅니다.
+*/
+const nullableEnum = <T extends Record<string, string>>(values: T) =>
+  z.enum(values).nullable().catch(null);
+
+export const MOVER_AI_KEYWORD_MAX_LENGTH = 30;
+
+export const moverAiSearchResultSchema = z.object({
+  region: nullableEnum(Region),
+  serviceType: nullableEnum(ServiceType),
+  sortBy: z
+    .enum(['reviewCount', 'rating', 'career', 'confirmedCount'])
+    .nullable()
+    .catch(null),
+  keyword: z
+    .string()
+    .trim()
+    .transform((value) => value.slice(0, MOVER_AI_KEYWORD_MAX_LENGTH) || null)
+    .nullable()
+    .catch(null),
+});
+
 export type CreateMoverProfileInput = z.infer<typeof createMoverProfileSchema>;
 
 export type UpdateMoverProfileInput = z.infer<typeof updateMoverProfileSchema>;
@@ -238,3 +279,7 @@ export type UpdateMoverProfileInput = z.infer<typeof updateMoverProfileSchema>;
 export type GetMoverListQuery = z.infer<typeof getMoverListQuerySchema>;
 
 export type GetMoverParams = z.infer<typeof getMoverParamsSchema>;
+
+export type MoverAiSearchQuery = z.infer<typeof moverAiSearchQuerySchema>;
+
+export type MoverAiSearchResult = z.infer<typeof moverAiSearchResultSchema>;

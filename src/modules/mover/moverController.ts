@@ -1,10 +1,12 @@
 import type { NextFunction, Request, Response } from 'express';
+import { getAiUsageFromRequest } from '../../middlewares/aiRateLimit';
 import { UnauthorizedError } from '../../utils/error';
 import moverService from './moverService';
 import type {
   CreateMoverProfileInput,
   GetMoverListQuery,
   GetMoverParams,
+  MoverAiSearchQuery,
   UpdateMoverProfileInput,
 } from './moverValidation';
 
@@ -134,6 +136,26 @@ const moverController = {
       return res.status(200).json({
         success: true,
         data: result,
+      });
+    } catch (error: unknown) {
+      return next(error);
+    }
+  },
+
+  /*
+  @ aiSearch
+
+  - 자연어 검색 문장을 목록 필터로 바꾼 결과와 오늘 남은 AI 검색 횟수를 반환합니다.
+  - usage 는 limit · remaining · resetAt 만 담습니다 (aiRateLimit.ts 참고).
+  */
+  aiSearch: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { q } = getValidated<MoverAiSearchQuery>(req);
+      const filter = await moverService.parseAiSearch(q);
+
+      return res.status(200).json({
+        success: true,
+        data: { filter, usage: getAiUsageFromRequest(req, 'moverSearch') },
       });
     } catch (error: unknown) {
       return next(error);

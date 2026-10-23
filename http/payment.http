@@ -1,0 +1,103 @@
+# 쿠키는 REST Client가 쿠키 jar로 자동 관리한다 (rest-client.rememberCookiesForSubsequentRequests, 기본값 true).
+# 시드 계정(prisma/seed.ts) 비밀번호는 전부 test1234! 이다.
+#
+# 준비
+#   1) npm run db:deploy        — payment 테이블 마이그레이션 적용
+#   2) .env.development 의 TOSS_SECRET_KEY 에 토스 테스트 시크릿 키(test_sk_...) 입력 후 서버 재시작
+#
+# 결제 흐름: 주문 생성(POST) → 토스 결제창(FE SDK) → successUrl 로 paymentKey 수신 → confirm(POST)
+# paymentKey 는 토스 결제창을 거쳐야 받을 수 있다. 이 파일만으로는 confirm 이 성공하지 않으므로
+# 주문 생성까지는 여기서, 승인은 FE(feat/payment-toss)에서 확인한다.
+
+@baseUrl = http://localhost:3001
+@password = test1234!
+
+# ─────────────────────────────────────────────────────────────
+# A. 선수금만 낼 수 있는 견적 (ACCEPTED + 요청 CONFIRMED, 이사일 전)
+# 고객: 오세훈(oh.sehun@example.com) / estimate.sehunMinjae
+# ─────────────────────────────────────────────────────────────
+@estimateIdA = 40000000-0000-4000-8000-000000000005
+
+### 로그인 (오세훈 / CUSTOMER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "oh.sehun@example.com",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### 결제 현황 — canPayDeposit true, canPayBalance false
+GET {{baseUrl}}/estimates/{{estimateIdA}}/payments
+
+### 선수금 주문 생성 — 같은 요청을 반복하면 같은 orderId
+# @name createDeposit
+POST {{baseUrl}}/estimates/{{estimateIdA}}/payments
+Content-Type: application/json
+
+{ "type": "DEPOSIT" }
+
+### 잔금 주문 — 400 (이사 완료 전, 선수금 미결제)
+POST {{baseUrl}}/estimates/{{estimateIdA}}/payments
+Content-Type: application/json
+
+{ "type": "BALANCE" }
+
+### 승인 — 금액 불일치 400 (토스를 부르기 전에 거절)
+POST {{baseUrl}}/payments/confirm
+Content-Type: application/json
+
+{
+  "paymentKey": "test_payment_key",
+  "orderId": "{{createDeposit.response.body.$.data.orderId}}",
+  "amount": 1
+}
+
+### 승인 — 결제창에서 받은 paymentKey 로 (FE에서 확인. 여기서는 가짜 키라 토스가 400 으로 거절한다)
+POST {{baseUrl}}/payments/confirm
+Content-Type: application/json
+
+{
+  "paymentKey": "test_payment_key",
+  "orderId": "{{createDeposit.response.body.$.data.orderId}}",
+  "amount": {{createDeposit.response.body.$.data.amount}}
+}
+
+# ─────────────────────────────────────────────────────────────
+# B. 선수금 → 잔금 흐름 (ACCEPTED + 요청 COMPLETED, 이사 완료)
+# 고객: 나고객(customer@demo.kr) / 가격 530,000원 → 선수금 53,000 · 잔금 477,000
+# ─────────────────────────────────────────────────────────────
+@estimateIdB = 40000000-0000-4000-8000-000000000077
+
+### 로그인 (나고객 / CUSTOMER)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "customer@demo.kr",
+  "password": "{{password}}",
+  "role": "CUSTOMER"
+}
+
+### 결제 현황 — 선수금 전에는 canPayDeposit true, canPayBalance false
+GET {{baseUrl}}/estimates/{{estimateIdB}}/payments
+
+### 선수금 주문 생성 (amount 53000)
+POST {{baseUrl}}/estimates/{{estimateIdB}}/payments
+Content-Type: application/json
+
+{ "type": "DEPOSIT" }
+
+### 잔금 주문 생성 — 선수금 PAID 이후에만 200 (amount 477000), 그 전에는 400
+POST {{baseUrl}}/estimates/{{estimateIdB}}/payments
+Content-Type: application/json
+
+{ "type": "BALANCE" }
+
+# ─────────────────────────────────────────────────────────────
+# 권한 확인
+# ─────────────────────────────────────────────────────────────
+
+### 다른 고객 계정으로 위 견적 조회 — 403 (먼저 오세훈으로 로그인한 상태에서 B 견적을 조회)
+GET {{baseUrl}}/estimates/{{estimateIdB}}/payments

@@ -13,13 +13,20 @@ import {
 } from '../../utils/error';
 import { paginateByCursor } from '../../utils/cursorPagination';
 import { deleteCacheByPrefix } from '../../lib/redis';
+import { generateJson } from '../../lib/gemini';
 // S3 전환 전에 로컬에 저장했던 이미지를 교체·삭제할 때 정리합니다.
 import { deleteLegacyMoverImage } from './moverImage';
 import moverMapper from './moverMapper';
 import moverRepository from './moverRepository';
+import {
+  buildMoverAiSearchPrompt,
+  moverAiSearchResponseSchema,
+} from './moverAiSearchPrompt';
+import { moverAiSearchResultSchema } from './moverValidation';
 import type {
   CreateMoverProfileInput,
   GetMoverListQuery,
+  MoverAiSearchResult,
   UpdateMoverProfileInput,
 } from './moverValidation';
 
@@ -335,6 +342,31 @@ const moverService = {
     }
 
     return moverMapper.toDetail(profile);
+  },
+
+  /*
+  @ parseAiSearch
+
+  - GET /mover/ai-search. 자연어 검색 문장을 목록 API 필터로 바꿉니다.
+  - 목록 조회는 하지 않습니다. FE가 이 값으로 기존 GET /mover 를 호출합니다
+    (기존 캐시·커서 페이지네이션을 그대로 씁니다).
+  - DB 에 아무것도 저장하지 않고, 검색 문장은 로그에 남기지 않습니다.
+
+  @ 주의사항
+  - 꺾쇠괄호를 지워 프롬프트의 <query> 구분자를 사용자가 닫지 못하게 합니다.
+  - 모델 출력은 moverAiSearchResultSchema 로 다시 검증해, 이상한 값은 null 이 됩니다.
+  */
+  parseAiSearch: async (query: string): Promise<MoverAiSearchResult> => {
+    const sanitizedQuery = query.replace(/[<>]/g, ' ');
+
+    const output = await generateJson({
+      prompt: buildMoverAiSearchPrompt(sanitizedQuery),
+      schema: moverAiSearchResponseSchema,
+    });
+
+    return moverAiSearchResultSchema.parse(
+      typeof output === 'object' && output !== null ? output : {}
+    );
   },
 };
 
