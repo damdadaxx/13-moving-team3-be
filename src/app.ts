@@ -20,6 +20,7 @@ import likeRouter from './modules/like/likeRoute';
 import reviewRouter from './modules/review/reviewRoute';
 import notificationRouter from './modules/notification/notificationRoute';
 import chatRouter from './modules/chat/chatRoute';
+import paymentRouter from './modules/payment/paymentRoute';
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use('/likes', likeRouter);
 app.use('/reviews', reviewRouter);
 app.use('/notifications', notificationRouter);
 app.use('/chat/rooms', chatRouter);
+app.use(paymentRouter); // /estimates/:estimateId/payments, /payments/confirm
 
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use(errorHandler);

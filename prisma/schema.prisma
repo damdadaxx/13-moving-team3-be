@@ -64,6 +64,18 @@ enum EstimateStatus {
   EXPIRED // 확정 없이 이사일 경과
 }
 
+enum PaymentType {
+  DEPOSIT // 선수금 (견적 확정 시)
+  BALANCE // 잔금 (이사 완료 후)
+}
+
+enum PaymentStatus {
+  READY // 주문 생성, 결제 전
+  PAID // 승인 완료
+  CANCELED // 취소 (아직 사용하지 않음)
+  FAILED // 승인 거절
+}
+
 enum NotificationType {
   NEW_ESTIMATE // 새로운 견적 도착 - 일반 유저 수신
   NEW_REQUEST // 새로운 견적 요청 도착 - 기사님 수신
@@ -218,11 +230,32 @@ model Estimate {
   estimateRequest EstimateRequest @relation(fields: [estimateRequestId], references: [id], onDelete: Cascade)
   mover           MoverProfile    @relation(fields: [moverId], references: [userId], onDelete: Cascade)
   review          Review?
+  payments        Payment[]
 
   @@unique([estimateRequestId, moverId])
   @@index([estimateRequestId, isDesignated]) // 상한(5개/3개) 카운트용
   @@index([moverId, status])
   @@map("estimate")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  estimateId     String        @db.Uuid
+  type           PaymentType
+  orderId        String        @unique // 토스 주문번호 (서버가 생성)
+  amount         BigInt // 서버가 견적 가격에서 계산한 금액
+  status         PaymentStatus @default(READY)
+  paymentKey     String?       @unique // 토스 승인 후 받는 결제 키
+  failureMessage String? // 토스가 거절한 사유
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  // 견적당 선수금·잔금은 한 건씩. 결제 실패 후 재시도는 같은 행을 다시 쓴다
+  @@unique([estimateId, type])
+  @@map("payment")
 }
 
 model Like {
