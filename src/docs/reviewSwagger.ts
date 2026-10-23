@@ -388,6 +388,8 @@
  *               type: string
  *               description: AI가 생성한 리뷰 초안 텍스트
  *               example: 이사 당일 기사님이 정시에 도착하셔서 짐을 꼼꼼하게 포장해 주셨습니다.
+ *             usage:
+ *               $ref: '#/components/schemas/AiUsage'
  *
  * /reviews/draft:
  *   post:
@@ -396,7 +398,9 @@
  *     description: |
  *       선택한 평점과 견적 정보를 기반으로 Gemini AI가 리뷰 초안을 생성합니다.
  *       locale 파라미터로 초안 언어를 지정할 수 있습니다 (ko/en/zh/ja).
- *       응답 시간이 3분을 초과하면 408을 반환합니다.
+ *       본인이 확정한 · 이사가 끝난 · 리뷰를 아직 쓰지 않은 견적서만 가능합니다 (리뷰 작성과 같은 기준).
+ *       유저 단위로 하루 5회(한국시간 자정 초기화)까지 사용할 수 있고, 실패한 요청은 하루 횟수에서 차감하지 않습니다.
+ *       응답이 20초 안에 오지 않으면 503을 반환합니다.
  *     security:
  *       - cookieAuth: []
  *     requestBody:
@@ -456,7 +460,7 @@
  *       400:
  *         description: >
  *           code: VALIDATION_ERROR — estimateId/rating/locale 필드 검증 실패.
- *           code: BAD_REQUEST — AI 초안 생성 실패.
+ *           code: BAD_REQUEST — 확정하지 않았거나 이사가 끝나지 않은 견적, 이미 리뷰가 있는 견적, AI 초안 형식 오류.
  *         content:
  *           application/json:
  *             schema:
@@ -467,20 +471,27 @@
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: 본인의 견적서가 아님
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: 존재하지 않는 견적
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *       408:
- *         description: AI 응답 시간 초과 (3분)
+ *       429:
+ *         description: >
+ *           code: DAILY_LIMIT_EXCEEDED — 오늘 5회를 모두 사용함.
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
- *       429:
- *         description: Gemini API 요청 한도 초과
+ *       503:
+ *         description: Gemini 응답 실패·시간 초과(20초)·Gemini 한도 초과
  *         content:
  *           application/json:
  *             schema:

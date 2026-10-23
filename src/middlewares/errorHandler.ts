@@ -88,13 +88,16 @@ export default function errorHandler(
     }
   }
 
-  //제미나이 api에러 처리 (토큰 만료, 요청 형식 오류 등)
+  // Gemini 에러는 lib/gemini.ts 가 503 으로 바꿔 던진다. 여기는 그걸 거치지 않은 경우의 안전망이다.
+  // - status 를 그대로 쓰지 않는다: Gemini 의 401·403(키 오류)을 받으면 FE 가 세션 만료로 보고 refresh 한다
+  // - 원문 메시지(키·쿼터 상세)는 응답에 싣지 않고 서버 로그에만 남긴다
   if (error instanceof ApiError) {
-    return res.status(error.status).json({
+    console.error('[gemini]', error);
+    return res.status(503).json({
       success: false,
       error: {
-        code: CODE_BY_STATUS[error.status] ?? 'INTERNAL_ERROR',
-        message: error.message,
+        code: 'SERVICE_UNAVAILABLE',
+        message: '지금은 AI 응답을 받을 수 없어요. 잠시 후 다시 시도해 주세요.',
       },
     });
   }
