@@ -48,7 +48,8 @@ export const buildDraftPrompt = ({
   moveDate: Date;
 }) => {
   const tone = RATING_TONE[locale][rating];
-  const date = moveDate.toISOString().slice(0, 10);
+  // toISOString은 UTC라 한국시간 자정 이사일(예: 10-08 00:00 KST = 10-07 15:00Z)이 하루 앞당겨진다
+  const date = moveDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
   const nouns = `- mover: ${nickname}`;
 
   const prompts: Record<DraftLocale, string> = {
