@@ -399,7 +399,7 @@
  *       선택한 평점과 견적 정보를 기반으로 Gemini AI가 리뷰 초안을 생성합니다.
  *       locale 파라미터로 초안 언어를 지정할 수 있습니다 (ko/en/zh/ja).
  *       본인이 확정한 · 이사가 끝난 · 리뷰를 아직 쓰지 않은 견적서만 가능합니다 (리뷰 작성과 같은 기준).
- *       유저 단위로 10분 3회 · 하루 5회(한국시간 자정 초기화)까지 사용할 수 있고, 실패한 요청은 하루 횟수에서 차감하지 않습니다.
+ *       유저 단위로 하루 5회(한국시간 자정 초기화)까지 사용할 수 있고, 실패한 요청은 하루 횟수에서 차감하지 않습니다.
  *       응답이 20초 안에 오지 않으면 503을 반환합니다.
  *     security:
  *       - cookieAuth: []
@@ -485,7 +485,6 @@
  *               $ref: '#/components/schemas/ErrorResponse'
  *       429:
  *         description: >
- *           code: TOO_MANY_REQUESTS — 10분 3회 초과.
  *           code: DAILY_LIMIT_EXCEEDED — 오늘 5회를 모두 사용함.
  *         content:
  *           application/json:

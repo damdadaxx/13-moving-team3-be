@@ -58,18 +58,19 @@ describe('moverAiSearchRateLimit', () => {
     return app;
   };
 
-  test('성공하면 하루 남은 횟수가 1씩 줄고, 1분에 4번째 요청은 429', async () => {
-    const app = buildApp('user-burst');
+  // 분 단위 제한은 없다 — 연달아 5번까지 성공하고 6번째에서 하루 한도로 막힌다
+  test('성공하면 하루 남은 횟수가 1씩 줄고, 6번째 요청은 하루 한도 429', async () => {
+    const app = buildApp('user-daily');
 
-    const first = await request(app).get('/ok');
-    expect(first.body.usage.remaining).toBe(4);
-    const second = await request(app).get('/ok');
-    expect(second.body.usage.remaining).toBe(3);
-    await request(app).get('/ok');
+    for (let expected = 4; expected >= 0; expected -= 1) {
+      const res = await request(app).get('/ok');
+      expect(res.status).toBe(200);
+      expect(res.body.usage.remaining).toBe(expected);
+    }
 
     const blocked = await request(app).get('/ok');
     expect(blocked.status).toBe(429);
-    expect(blocked.body.error.code).toBe('TOO_MANY_REQUESTS');
+    expect(blocked.body.error.code).toBe('DAILY_LIMIT_EXCEEDED');
   });
 
   test('실패한 요청은 하루 횟수에서 차감하지 않는다', async () => {

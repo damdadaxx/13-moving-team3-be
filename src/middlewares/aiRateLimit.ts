@@ -8,9 +8,9 @@ AI 기능 요청 제한 (Gemini 비용·무료 한도 보호)
 =================================================*/
 /*
 @ 가이드
-- 유저 단위로 센다 (authenticate 뒤에 둔다). 리미터 두 개를 차례로 건다
-  ① 짧은 한도: 연타 방지. 실패한 요청도 센다
-  ② 하루 한도: 한국시간 자정에 초기화. 실패한 요청(Gemini 오류 등)은 차감하지 않는다
+- 유저 단위로 센다 (authenticate 뒤에 둔다). 하루 한도 하나만 건다
+  - 한국시간 자정에 초기화. 실패한 요청(Gemini 오류 등)은 차감하지 않는다
+  - 분 단위 연타 제한은 두지 않는다 (하루 5회라 연타해도 최대 5번)
 - 하루 한도의 남은 횟수는 응답 바디의 usage 로 내려준다.
   FE 프록시가 RateLimit 헤더를 전달하지 않기 때문이다
 @ 주의사항
@@ -22,16 +22,12 @@ AI 기능 요청 제한 (Gemini 비용·무료 한도 보호)
 export type AiFeature = 'moverSearch' | 'reviewDraft';
 
 interface AiLimitConfig {
-  burstWindowMs: number;
-  burstLimit: number;
   dailyLimit: number;
 }
 
-const MINUTE_MS = 60 * 1000;
-
 export const AI_LIMITS: Record<AiFeature, AiLimitConfig> = {
-  moverSearch: { burstWindowMs: MINUTE_MS, burstLimit: 3, dailyLimit: 5 },
-  reviewDraft: { burstWindowMs: 10 * MINUTE_MS, burstLimit: 3, dailyLimit: 5 },
+  moverSearch: { dailyLimit: 5 },
+  reviewDraft: { dailyLimit: 5 },
 };
 
 export interface AiUsage {
@@ -70,18 +66,7 @@ export const toAiUsage = (feature: AiFeature, hits: number): AiUsage => {
 };
 
 const createAiRateLimit = (feature: AiFeature) => {
-  const { burstWindowMs, burstLimit, dailyLimit } = AI_LIMITS[feature];
-
-  const burst = createRateLimit(
-    burstWindowMs,
-    burstLimit,
-    getUserKey,
-    undefined,
-    {
-      store: new RedisOrMemoryStore(`ai:${feature}:burst:`),
-      passOnStoreError: true,
-    }
-  );
+  const { dailyLimit } = AI_LIMITS[feature];
 
   const daily = createRateLimit(
     DAY_MS,
@@ -104,7 +89,7 @@ const createAiRateLimit = (feature: AiFeature) => {
     }
   );
 
-  return { middleware: [burst, daily], daily };
+  return { middleware: daily, daily };
 };
 
 const limiters: Record<AiFeature, ReturnType<typeof createAiRateLimit>> = {

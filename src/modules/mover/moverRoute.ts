@@ -81,7 +81,7 @@ router.get(
 @ GET /mover/ai-search
 
 - 자연어 검색 문장(q)을 Gemini로 목록 필터(region · serviceType · sortBy · keyword)로 바꿉니다.
-- Gemini 비용 때문에 로그인 사용자만, 유저 단위로 요청을 제한합니다 (1분 3회 · 하루 5회).
+- Gemini 비용 때문에 로그인 사용자만, 유저 단위로 요청을 제한합니다 (하루 5회, 한국시간 자정 초기화).
 - 결과는 사용자마다 남은 횟수가 달라 응답 캐시를 붙이지 않습니다.
 
 @ 라우트 순서

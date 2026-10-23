@@ -707,7 +707,7 @@
  *       자연어 검색 문장을 Gemini로 GET /mover 의 필터(region · serviceType · sortBy · keyword)로 바꿉니다.
  *       목록은 반환하지 않습니다. 받은 filter 로 GET /mover 를 호출합니다.
  *       문장에서 근거를 찾지 못한 조건은 null 입니다.
- *       로그인 사용자만, 유저 단위로 1분 3회 · 하루 5회(한국시간 자정 초기화)까지 사용할 수 있습니다.
+ *       로그인 사용자만, 유저 단위로 하루 5회(한국시간 자정 초기화)까지 사용할 수 있습니다.
  *     security:
  *       - cookieAuth: []
  *     parameters:
@@ -769,7 +769,6 @@
  *               $ref: '#/components/schemas/ErrorResponse'
  *       429:
  *         description: >
- *           code: TOO_MANY_REQUESTS — 1분 3회 초과.
  *           code: DAILY_LIMIT_EXCEEDED — 오늘 5회를 모두 사용함.
  *         content:
  *           application/json:
