@@ -45,18 +45,16 @@ const accessInfo = (
   }) as AccessInfo;
 
 const message = (
-  id: number,
+  id: string,
   overrides: Partial<ChatMessageRow> = {}
 ): ChatMessageRow => ({
   id,
-  estimate_id: ESTIMATE_ID,
-  customer_id: 'customer-1',
-  mover_id: 'mover-1',
-  sender_id: 'customer-1',
+  estimateId: ESTIMATE_ID,
+  senderId: 'customer-1',
   content: `메시지 ${id}`,
-  image_url: null,
-  is_read: false,
-  created_at: `2026-10-13T00:00:0${id}.000Z`,
+  imagePath: null,
+  isRead: false,
+  createdAt: new Date('2026-10-13T00:00:00.000Z'),
   ...overrides,
 });
 
@@ -147,9 +145,9 @@ describe('chatService', () => {
       expect(insertMessage).not.toHaveBeenCalled();
     });
 
-    test('성공하면 참여자 id 와 보낸 사람을 저장한다', async () => {
+    test('성공하면 estimateId 와 보낸 사람을 저장하고, 소켓 미초기화 상태여도 실패하지 않는다', async () => {
       findAccessInfo.mockResolvedValue(accessInfo());
-      insertMessage.mockResolvedValue(message(1));
+      insertMessage.mockResolvedValue(message('1'));
 
       const result = await chatService.sendMessage(
         'customer-1',
@@ -160,8 +158,6 @@ describe('chatService', () => {
 
       expect(insertMessage).toHaveBeenCalledWith({
         estimateId: ESTIMATE_ID,
-        customerId: 'customer-1',
-        moverId: 'mover-1',
         senderId: 'customer-1',
         content: '안녕하세요',
         imagePath: undefined,
@@ -236,12 +232,12 @@ describe('chatService', () => {
           },
         },
       ] as Awaited<ReturnType<typeof chatRoomRepository.findRoomsForUser>>);
-      countUnread.mockRejectedValue(new Error('supabase down'));
+      countUnread.mockRejectedValue(new Error('db down'));
       getLastMessage.mockResolvedValue(null);
 
       await expect(
         chatService.getRooms('customer-1', Role.CUSTOMER)
-      ).rejects.toThrow('supabase down');
+      ).rejects.toThrow('db down');
     });
 
     test('상대방 정보와 마지막 메시지를 붙이고 최신 메시지 순으로 정렬한다', async () => {
@@ -268,14 +264,14 @@ describe('chatService', () => {
       );
       getLastMessage.mockImplementation(async (estimateId) =>
         estimateId === 'newer'
-          ? message(2, {
-              estimate_id: 'newer',
-              image_url: 'newer/a.png',
-              created_at: '2026-10-13T12:00:00.000Z',
+          ? message('2', {
+              estimateId: 'newer',
+              imagePath: 'newer/a.png',
+              createdAt: new Date('2026-10-13T12:00:00.000Z'),
             })
-          : message(1, {
-              estimate_id: 'older',
-              created_at: '2026-10-13T01:00:00.000Z',
+          : message('1', {
+              estimateId: 'older',
+              createdAt: new Date('2026-10-13T01:00:00.000Z'),
             })
       );
       signImageUrls.mockResolvedValue(

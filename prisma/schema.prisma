@@ -231,6 +231,7 @@ model Estimate {
   mover           MoverProfile    @relation(fields: [moverId], references: [userId], onDelete: Cascade)
   review          Review?
   payments        Payment[]
+  chatMessages    ChatMessage[]
 
   @@unique([estimateRequestId, moverId])
   @@index([estimateRequestId, isDesignated]) // 상한(5개/3개) 카운트용
@@ -305,4 +306,22 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notification")
+}
+
+// Supabase에서 메인 DB로 이전 (Socket.IO 직접 구현으로 전환하면서 Realtime 필요성이 없어짐).
+// 참여자(sender) 검증은 chatService.assertAccess에서 Estimate 기준으로 한다 — DB 레벨 CHECK는 두지 않는다.
+model ChatMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  estimateId String   @db.Uuid
+  senderId   String   @db.Uuid
+  content    String?
+  imagePath  String? // S3 버킷 내 경로(key). 조회 시점에 presigned GET URL로 변환해서 내려준다.
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  estimate Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+
+  @@index([estimateId, createdAt(sort: Desc), id(sort: Desc)]) // 채팅방 커서 페이지네이션
+  @@index([estimateId, isRead], where: raw("\"isRead\" = false")) // 미읽음 수 집계용
+  @@map("chatMessage")
 }
