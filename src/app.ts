@@ -36,6 +36,11 @@ app.use(cookieParser());
 
 // app.ts (cookieParser 아래)
 morgan.token('client-ip', (req) => getClientIp(req as Request));
+// OAuth 콜백의 code·state가 로그에 남지 않도록 소셜 로그인 경로는 쿼리를 뺀다
+morgan.token('url', (req) => {
+  const url = (req as Request).originalUrl || req.url || '';
+  return url.startsWith('/auth/social/') ? url.split('?')[0] : url;
+});
 app.use(
   morgan(
     ENV.NODE_ENV === 'production'
