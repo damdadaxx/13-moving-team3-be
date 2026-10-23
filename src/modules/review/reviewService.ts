@@ -1,5 +1,4 @@
 import { Prisma } from '../../generated/prisma/client';
-import { ENV } from '../../config/env';
 import {
   BadRequestError,
   ForbiddenError,
@@ -15,11 +14,9 @@ import {
   GetMoverReviewsData,
   GetMyReviewsData,
 } from './reviewTypes';
-import { draftSchema } from './reviewSchema';
-import { ApiError, GoogleGenAI } from '@google/genai';
+import { draftResultSchema, draftSchema } from './reviewSchema';
+import { generateJson } from '../../lib/gemini';
 import { buildDraftPrompt } from './reviewDraftPrompt';
-
-const ai = new GoogleGenAI({ apiKey: ENV.GEMINI_API_KEY });
 
 function getReviewOrderBy(
   hasReview: boolean | undefined,
@@ -152,17 +149,30 @@ const reviewService = {
 
     return review;
   },
-  createDraftReview: async ({
-    estimateId,
-    rating,
-    locale,
-  }: CreateDraftReviewInput) => {
+  createDraftReview: async (
+    userId: string,
+    { estimateId, rating, locale }: CreateDraftReviewInput
+  ) => {
     //견적서 정보 조회
     const estimateInfo =
       await estimateRepository.findByIdWithDetail(estimateId);
     if (!estimateInfo) {
       throw new NotFoundError('견적 정보를 찾을 수 없습니다.');
     }
+
+    //리뷰를 쓸 수 있는 견적서인지 createReview 와 같은 기준으로 확인한다.
+    //이 검증이 없으면 로그인한 누구나 남의 견적서 ID로 초안을 만들어
+    //Gemini 사용량을 쓰고 기사님 별명·이사일을 알아낼 수 있다.
+    if (estimateInfo.estimateRequest.customerId !== userId)
+      throw new ForbiddenError('리뷰 작성 권한이 없는 견적서입니다.');
+    if (estimateInfo.status !== 'ACCEPTED')
+      throw new BadRequestError('확정한 견적서만 리뷰를 할 수 있습니다.');
+    if (estimateInfo.estimateRequest.status !== 'COMPLETED')
+      throw new BadRequestError(
+        '완료된 상태의 견적서만 리뷰를 할 수 있습니다.'
+      );
+    if (estimateInfo.review != null)
+      throw new BadRequestError('이미 작성된 리뷰가 있는 견적서 입니다.');
 
     const prompt = buildDraftPrompt({
       locale,
@@ -171,37 +181,14 @@ const reviewService = {
       moveDate: estimateInfo.estimateRequest.moveDate,
     });
 
-    //응답시간이 길어지면 요청 시간이 초과되었다는 에러를 발생시킨다.
-    const timeout = new Promise<never>((resolve, reject) => {
-      setTimeout(() => {
-        reject(
-          new ApiError({
-            message: '요청 시간이 초과되었습니다.',
-            status: 408,
-          })
-        );
-      }, 180000); //3분정도 요청 대기.
-    });
+    //타임아웃·Gemini 오류는 generateJson 이 503 으로 바꿔 던진다.
+    const output = await generateJson({ prompt, schema: draftSchema });
 
-    const result = await Promise.race([
-      ai.interactions.create({
-        model: 'gemini-3.5-flash-lite',
-        input: prompt,
-        response_format: {
-          type: 'text',
-          mime_type: 'application/json',
-          schema: draftSchema,
-        },
-      }),
-      timeout,
-    ]);
-
-    if (!result.output_text) {
+    const draft = draftResultSchema.safeParse(output);
+    if (!draft.success) {
       throw new BadRequestError('리뷰 초안을 생성하지 못했습니다.');
     }
-
-    // 응답 텍스트(JSON 문자열) → 객체로 변환
-    return JSON.parse(result.output_text);
+    return draft.data;
   },
 };
 export default reviewService;

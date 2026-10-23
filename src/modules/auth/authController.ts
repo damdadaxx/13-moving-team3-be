@@ -9,7 +9,6 @@ import { isSameSecret } from '../../utils/hash';
 import { isSocialConfigured, SocialProfile } from './authPassport';
 import { resetLoginRateLimit } from './authRateLimit';
 import authService from './authService';
-import { PublicUser } from './authRepository';
 import {
   ACCESS_TOKEN_COOKIE,
   ACCESS_TOKEN_MAX_AGE_MS,
@@ -37,15 +36,6 @@ const getValidated = <T>(req: Request) => req.validatedData as T;
 
 const success = <T>(res: Response, data: T, status = 200) =>
   res.status(status).json({ success: true, data });
-
-// login/refresh/getMe 공통 — accessToken은 쿠키(httpOnly)로도 내려가지만, FE JS가
-// Supabase 클라이언트(Realtime 등)에 붙이려면 바디에도 같이 필요하다.
-const successWithAccessToken = (
-  res: Response,
-  user: PublicUser,
-  accessToken: string,
-  status = 200
-) => success(res, { ...user, accessToken }, status);
 
 // 쿠키 (인증서 전달 = 응답 관심사라 컨트롤러에 둔다)
 // - secure: 개발은 http 라 false, 배포(https)만 true. true 고정 시 로컬에서 쿠키가 안 실림
@@ -177,7 +167,7 @@ const authController = {
     // 성공했으므로 그동안 쌓인 비밀번호 오류 횟수를 지운다 ("연속 실패 10회" 기준)
     resetLoginRateLimit(req);
     setAuthCookies(res, accessToken, refreshToken);
-    successWithAccessToken(res, user, accessToken);
+    success(res, user);
   },
 
   logout: async (req: Request, res: Response) => {
@@ -194,16 +184,12 @@ const authController = {
       req.cookies?.[REFRESH_TOKEN_COOKIE]
     );
     setAuthCookies(res, accessToken, refreshToken);
-    successWithAccessToken(res, user, accessToken);
+    success(res, user);
   },
 
   getMe: async (req: Request, res: Response) => {
     const user = await authService.getMe(getUserId(req));
-    // 새로고침 시 세션 하이드레이션용. authenticate가 이미 검증한 쿠키 값이라
-    // 새로 서명할 필요 없이 그대로 돌려준다 (login/refresh와 같은 용도: FE가
-    // 메모리에 들고 있다가 Supabase 클라이언트에 붙임).
-    const accessToken = req.cookies?.[ACCESS_TOKEN_COOKIE];
-    successWithAccessToken(res, user, accessToken);
+    success(res, user);
   },
 
   updateMe: async (req: Request, res: Response) => {

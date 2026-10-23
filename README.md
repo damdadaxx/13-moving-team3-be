@@ -29,7 +29,7 @@
 
 - 이사 소비자와 이사 전문가(기사님)를 연결하는 **견적 매칭 플랫폼**의 백엔드 API 서버입니다.
   고객이 이사 조건으로 견적을 요청하면, 서비스 가능 지역·서비스 유형이 맞는 기사님이 견적을 보내고, 고객은 견적을 비교해 확정합니다.
-  확정 이후에는 1:1 채팅, 이사 완료 후 리뷰 작성(AI 초안 지원)까지 하나의 흐름으로 이어집니다.
+  확정 이후에는 선수금 결제와 1:1 채팅이 이어지고, 이사가 끝나면 잔금 결제와 리뷰 작성(AI 초안 지원)까지 하나의 흐름으로 이어집니다.
 
 <br/>
 
@@ -77,7 +77,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-FF4438?style=flat&logo=redis&logoColor=white)
 ![Amazon S3](https://img.shields.io/badge/Amazon_S3-569A31?style=flat&logo=amazons3&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=flat&logo=supabase&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-010101?style=flat&logo=socketdotio&logoColor=white)
 
 ### ✅ CI/CD & Test
 
@@ -108,7 +108,7 @@
 
 - **prisma**, **@prisma/client**, **@prisma/adapter-pg**, **pg**: ORM 및 PostgreSQL 드라이버
 - **ioredis**: Redis 응답 캐시
-- **@supabase/supabase-js**: 채팅 메시지 저장·실시간 연동
+- **socket.io**: 채팅 메시지 실시간 전송
 
 </details>
 
@@ -134,7 +134,7 @@
 
 - **@aws-sdk/client-s3**: 이미지 S3 업로드
 - **resend**, **@react-email/components**, **@react-email/render**: 이메일 인증 메일 발송
-- **@google/genai**: Gemini 기반 리뷰 초안 생성
+- **@google/genai**: Gemini 기반 리뷰 초안·기사님 AI 검색
 - **node-cron**: 지난 견적 요청 자동 마감 배치
 
 </details>
@@ -169,7 +169,9 @@
 
 ### 📝 [API 문서](https://app.notion.com/p/damdada/API-3c97bbb8e517809bbbcee27e95dabd72)
 
-### 📝 [Swagger 문서](https://api.moving-team3.xyz/api-docs)
+### 📝 Swagger 문서
+
+개발 환경에서만 공개합니다. 서버를 `NODE_ENV=production`이 아닌 환경으로 실행한 뒤 `/api-docs`로 접속하세요. (운영 서버에서는 노출되지 않습니다)
 
 <br>
 
@@ -184,7 +186,8 @@
   - REST + SSE 실시간 알림
   - 견적 이벤트 트리거
 - **견적 확정 채팅 API**
-  - Supabase 연동
+  - 메시지 저장소를 Supabase에서 메인 DB(`chatMessage`)와 S3로 이전
+  - Socket.IO 실시간 수신 (방 입장 시 견적 참여자 검증, 저장·읽음 후 `message`·`read` 전송)
 
 </details>
 
@@ -202,6 +205,9 @@
 - **Redis 캐시 미들웨어**
   - 기사님 목록·상세 조회 캐싱 및 쓰기 시 무효화
 - **백엔드 전체 리팩토링**
+- **보안·요청 로그**
+  - helmet 보안 헤더
+  - morgan 액세스 로그
 
 </details>
 
@@ -218,6 +224,9 @@
   - GitHub Actions → EC2 배포, 실패 시 이전 버전 유지
 - **테스트 환경**
   - Jest + Supertest
+  - 커버리지 측정
+- **결제 API**
+  - 토스페이먼츠 선수금(10%)·잔금(90%) 생성·승인·내역 조회
 
 </details>
 
@@ -236,6 +245,9 @@
   - Rate Limit
 - **Customer API**
   - 고객 프로필
+- **기사님 AI 검색**
+  - 자연어를 목록 필터로 변환 (Gemini)
+  - 리뷰 초안과 함께 유저당 하루 요청 제한·소유권 검사
 
 </details>
 
@@ -269,39 +281,38 @@
 ```
 src/
 ├── config/          # 환경변수, Swagger, Zod 전역 설정
-├── lib/             # Prisma, Redis, S3, Supabase 클라이언트
+├── docs/            # Swagger 문서
+├── lib/             # Prisma, Redis, S3, Socket.IO 클라이언트
 ├── middlewares/     # 인증, 요청 검증, 캐시, 에러 핸들러
-├── types            # 공용 타입
+├── types/           # 공용 타입
 ├── modules/
-│   ├── auth/        # 회원가입·로그인·소셜 로그인·이메일 인증
-|   |    ├── authController.ts
-|   |    ├── authRepository.ts
-|   |    ├── authSchema.ts
-|   |    ├── authRoute.ts
-|   |    ├── authService.ts
-|   |    └── authValidation.ts
+│   ├── auth/              # 회원가입·로그인·소셜 로그인·이메일 인증
+│   │   ├── authController.ts
+│   │   ├── authRepository.ts
+│   │   ├── authSchema.ts
+│   │   ├── authRoute.ts
+│   │   ├── authService.ts
+│   │   └── authValidation.ts
 │   ├── customer/          # 고객 프로필
-|   ├── docs/              # SWAGGER 문서
-│   ├── mover/             # 기사님 프로필·목록·상세
+│   ├── mover/             # 기사님 프로필·목록·상세·AI 검색
 │   ├── estimate-request/  # 견적 요청
 │   ├── estimate/          # 견적 발송·확정
 │   ├── like/              # 찜
 │   ├── review/            # 리뷰·AI 초안
 │   ├── notification/      # 알림 (REST + SSE)
-│   └── chat/              # 견적 확정 채팅
+│   ├── chat/              # 견적 확정 채팅
+│   ├── payment/           # 토스 결제 (선수금·잔금)
+│   └── ai/                # AI 사용 횟수 조회
 ├── scheduler/       # node-cron 작업
 ├── scripts/         # 배치 1회 실행 CLI
 ├── utils/           # 에러 클래스, 커서 페이지네이션, 메일러
 ├── app.ts
 └── server.ts
 prisma/
-├── schema.prisma    # 메인 DB 스키마
-└── schema.chat.prisma
+└── schema.prisma    # DB 스키마 (채팅 메시지 포함)
 test/
 ├── unit/
 └── integration/
-superbase/
-
 ```
 
 <br/>
@@ -380,6 +391,9 @@ superbase/
   - 지역·서비스 필터, 평점·리뷰 수·확정 수·찜 수 정렬 (Raw SQL 집계)
 - **기사님 상세**
   - 프로필 + 집계 정보, Redis 캐시
+- **AI 검색** (`GET /mover/ai-search`)
+  - 자연어를 지역·서비스·정렬 필터로 변환 (Gemini)
+  - 로그인 사용자, 하루 5회 (한국시간 자정 초기화)
 - **찜**
   - 등록·해제·일괄 해제, 내 찜 목록
 
@@ -392,6 +406,7 @@ superbase/
   - 이사 완료(`COMPLETED`) 요청의 확정 기사님에게만 작성 가능
 - **AI 리뷰 초안**
   - Gemini로 이사 정보 기반 리뷰 초안 생성
+  - 하루 5회. 기사님 AI 검색과 함께 남은 횟수는 `GET /ai/usage`
 - **내 리뷰 / 기사님 리뷰 목록**
 
 </details>
@@ -408,8 +423,18 @@ superbase/
 <details>
 <summary>8. 견적 확정 채팅</summary>
 
-- 확정된 견적 단위 1:1 채팅방 (Supabase)
+- 확정된 견적 단위 1:1 채팅방 (Socket.IO)
 - 메시지 전송·조회, 이미지 전송, 읽음 처리, 안 읽은 개수
+
+</details>
+
+<details>
+<summary>9. 결제</summary>
+
+- **토스페이먼츠**
+  - 확정 견적 기준 선수금 10%, 이사 완료 후 잔금 90%
+  - 금액은 서버가 견적 가격으로 계산
+  - 결제 생성·승인·내역 조회
 
 </details>
 
@@ -632,7 +657,7 @@ await notificationService.publishCreated(notifications);
 | 2/5  | `STAGE`에서 `prisma migrate deploy`        | 운영 폴더 그대로                 |
 | 3/5  | 운영 파일을 `PREV`로 옮기고 새 파일로 교체 | (복구 대상)                      |
 | 4/5  | pm2로 재시작                               | (복구 대상)                      |
-| 5/5  | `/api-docs/` 응답을 최대 30초 확인         | `PREV`로 되돌려 이전 버전 재시작 |
+| 5/5  | `/health` 응답을 최대 30초 확인            | `PREV`로 되돌려 이전 버전 재시작 |
 
 ```bash
 for item in $ITEMS; do

@@ -1,12 +1,14 @@
 import './config/env';
 import './config/zod';
 import path from 'node:path';
-import express from 'express';
+import express, { Request } from 'express';
 import errorHandler from './middlewares/errorHandler';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import swaggerUi from 'swagger-ui-express';
+import morgan from 'morgan';
+import helmet from 'helmet';
 import { swaggerSpec } from './config/swagger';
 import { ENV } from './config/env';
 import { registerSocialStrategies } from './modules/auth/authPassport';
@@ -19,6 +21,9 @@ import likeRouter from './modules/like/likeRoute';
 import reviewRouter from './modules/review/reviewRoute';
 import notificationRouter from './modules/notification/notificationRoute';
 import chatRouter from './modules/chat/chatRoute';
+import { getClientIp } from './utils/clientIp';
+import aiRouter from './modules/ai/aiRoute';
+import paymentRouter from './modules/payment/paymentRoute';
 
 const app = express();
 
@@ -27,17 +32,44 @@ const app = express();
 app.set('json replacer', (_key: string, value: unknown) =>
   typeof value === 'bigint' ? Number(value) : value
 );
-
+app.use(helmet({ contentSecurityPolicy: false }));
 // 쿠키 기반 인증: 크로스 오리진에서 쿠키가 오가려면 origin 명시 + credentials 필요
 app.use(cors({ origin: ENV.FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
+
+// app.ts (cookieParser 아래)
+morgan.token('client-ip', (req) => getClientIp(req as Request));
+// OAuth 콜백의 code·state가 로그에 남지 않도록 소셜 로그인 경로는 쿼리를 뺀다
+morgan.token('url', (req) => {
+  const url = (req as Request).originalUrl || req.url || '';
+  return url.startsWith('/auth/social/') ? url.split('?')[0] : url;
+});
+app.use(
+  morgan(
+    ENV.NODE_ENV === 'production'
+      ? ':client-ip :method :url :status :res[content-length] - :response-time ms'
+      : 'dev',
+    { skip: (req) => req.url === '/health' || ENV.NODE_ENV === 'test' }
+  )
+);
+
 app.use(express.json());
 
 // 소셜 로그인 전략 등록. 세션은 쓰지 않는다 (JWT 쿠키)
 registerSocialStrategies();
 app.use(passport.initialize());
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// ALB 와 배포 스크립트가 서버 생존만 확인하는 경로. DB 같은 외부 의존성은 보지 않는다
+// (DB 가 잠깐 느려졌다고 서버가 로드밸런서에서 빠지거나 롤백되지 않도록)
+app.get('/health', (_req, res) => {
+  res.status(200).json({ success: true, data: { status: 'ok' } });
+});
+
+// API 문서는 개발 환경에서만 공개한다. 운영에서는 라우트를 아예 등록하지 않는다
+if (ENV.NODE_ENV !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+}
 
 app.use('/auth', authRouter);
 app.use('/estimate-requests', estimateRequestRouter);
@@ -48,6 +80,8 @@ app.use('/likes', likeRouter);
 app.use('/reviews', reviewRouter);
 app.use('/notifications', notificationRouter);
 app.use('/chat/rooms', chatRouter);
+app.use('/ai', aiRouter);
+app.use(paymentRouter); // /estimates/:estimateId/payments, /payments/confirm
 
 // 라우터는 여기에 추가 (반드시 errorHandler 위에)
 app.use(errorHandler);

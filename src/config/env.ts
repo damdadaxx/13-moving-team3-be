@@ -15,8 +15,6 @@ const required = [
   'AWS_REGION',
   'AWS_PRIVATE_BUCKET_NAME',
   'CLOUDFRONT_DOMAIN',
-  'SUPABASE_URL',
-  'SUPABASE_SECRET_KEY',
 ] as const;
 
 for (const key of required) {
@@ -76,9 +74,6 @@ export const ENV = {
     process.env.CLOUDFRONT_DOMAIN!,
     'CLOUDFRONT_DOMAIN'
   ),
-  // 채팅 DB (Supabase). service_role 성격의 secret key만 BE가 씀 — RLS 전부 우회.
-  SUPABASE_URL: process.env.SUPABASE_URL!,
-  SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY!,
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   COOKIE_DOMAIN: process.env.COOKIE_DOMAIN || undefined,
   PROXY_SECRET: process.env.PROXY_SECRET || undefined,
@@ -105,6 +100,9 @@ export const ENV = {
     process.env.SCHEDULER_CLOSE_REQUESTS_CRON || '0 * * * *',
   // cron 표현식 해석 기준 시간대. 서버가 UTC로 떠도 KST 기준으로 돈다.
   SCHEDULER_TIMEZONE: process.env.SCHEDULER_TIMEZONE || 'Asia/Seoul',
+
+  // 토스페이먼츠 시크릿 키 (결제 승인). 없으면 결제 승인 때만 503 으로 응답한다
+  TOSS_SECRET_KEY: process.env.TOSS_SECRET_KEY || undefined,
 
   // 제미나이 API 키
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,

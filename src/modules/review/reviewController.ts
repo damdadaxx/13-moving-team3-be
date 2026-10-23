@@ -7,6 +7,7 @@ import {
 } from './reviewTypes';
 import reviewService from './reviewService';
 import { UnauthorizedError } from '../../utils/error';
+import { getAiUsageFromRequest } from '../../middlewares/aiRateLimit';
 
 const reviewController = {
   getMyReviews: async (req: Request, res: Response) => {
@@ -58,15 +59,23 @@ const reviewController = {
     return res.status(201).json({ success: true, data: review });
   },
   createDraftReview: async (req: Request, res: Response) => {
+    const userId = req.auth?.sub;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
     const { rating, estimateId, locale } =
       req.validatedData as CreateDraftReviewInput;
 
-    const result = await reviewService.createDraftReview({
+    const result = await reviewService.createDraftReview(userId, {
       estimateId,
       rating,
       locale,
     });
-    return res.status(200).json({ success: true, data: result });
+    //usage 는 오늘 남은 초안 생성 횟수 (limit · remaining · resetAt 만)
+    return res.status(200).json({
+      success: true,
+      data: { ...result, usage: getAiUsageFromRequest(req, 'reviewDraft') },
+    });
   },
 };
 export default reviewController;

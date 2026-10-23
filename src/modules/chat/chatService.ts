@@ -4,6 +4,8 @@ import { chatRoomRepository } from './chatRoomRepository';
 import { chatRepository } from './chatRepository';
 import type { ChatMessageRow } from './chatRepository';
 import { chatMapper } from './chatMapper';
+import { paginateByCursor } from '../../utils/cursorPagination';
+import { broadcastToRoom } from '../../lib/socket';
 import {
   CreateImageUploadInput,
   GetMessagesQueryDto,
@@ -21,7 +23,7 @@ type RoomAccess = {
  * - ACCEPTED로 전환되면 estimateRequest는 항상 CONFIRMED이고, 이사일이 지나면
  * - 스케줄러(closePastEstimateRequestsJob)가 COMPLETED로 바꾼다 — 그때부터는 조회만 허용.
  */
-const assertAccess = async (
+export const assertAccess = async (
   userId: string,
   role: Role,
   estimateId: string
@@ -62,21 +64,21 @@ const assertWritable = (access: RoomAccess) => {
   }
 };
 
-/** 메시지들의 image_url(저장된 path)을 조회 시점에 signed URL로 바꿔치기한다.
+/** 메시지들의 imagePath(저장된 path)을 조회 시점에 signed URL로 바꿔치기한다.
  * - chat-images 버킷이 private라 path를 그대로 내려주면 클라이언트가 쓸 수 없다.
  */
 const withSignedImageUrls = async (
   rows: ChatMessageRow[]
 ): Promise<ChatMessageRow[]> => {
   const paths = rows
-    .map((row) => row.image_url)
+    .map((row) => row.imagePath)
     .filter((path): path is string => !!path);
   if (paths.length === 0) return rows;
 
   const signedUrlByPath = await chatRepository.signImageUrls(paths);
   return rows.map((row) =>
-    row.image_url
-      ? { ...row, image_url: signedUrlByPath.get(row.image_url) ?? null }
+    row.imagePath
+      ? { ...row, imagePath: signedUrlByPath.get(row.imagePath) ?? null }
       : row
   );
 };
@@ -89,10 +91,9 @@ export const chatService = {
 
     const estimateIds = rooms.map((room) => room.id);
 
-    // 방마다 따로(병렬로) 조회한다 — 방 전체를 한 쿼리로 긁어 추리면 PostgREST 기본
-    // 행 캡에 걸려 메시지/안읽음이 많은 유저는 조용히 틀어질 수 있다.
-    // 두 Promise.all을 하나로 묶어서 기다린다 — 따로 두면 await 안 한 쪽이 이후 await보다
-    // 먼저 reject될 때 그 reject를 아무도 못 잡아 unhandledRejection으로 서버가 죽는다.
+    // 방마다 따로(병렬로) 조회한다. 두 Promise.all을 하나로 묶어서 기다린다 — 따로 두면
+    // await 안 한 쪽이 이후 await보다 먼저 reject될 때 그 reject를 아무도 못 잡아
+    // unhandledRejection으로 서버가 죽는다.
     const [unreadCounts, lastMessages] = await Promise.all([
       Promise.all(
         estimateIds.map((estimateId) =>
@@ -149,12 +150,16 @@ export const chatService = {
       });
     });
 
-    // 마지막 메시지가 최신인 방부터. 메시지가 없는 방(createdAt='')은 뒤로 밀린다.
-    list.sort((a, b) =>
-      (b.lastMessage?.createdAt ?? '').localeCompare(
-        a.lastMessage?.createdAt ?? ''
-      )
-    );
+    // 마지막 메시지가 최신인 방부터. 메시지가 없는 방은 맨 뒤로 밀린다.
+    list.sort((a, b) => {
+      const bTime = b.lastMessage
+        ? new Date(b.lastMessage.createdAt).getTime()
+        : 0;
+      const aTime = a.lastMessage
+        ? new Date(a.lastMessage.createdAt).getTime()
+        : 0;
+      return bTime - aTime;
+    });
 
     return { list };
   },
@@ -174,10 +179,7 @@ export const chatService = {
       size: query.size,
     });
 
-    const hasNext = rows.length > query.size;
-    const items = hasNext ? rows.slice(0, query.size) : rows;
-    const nextCursor = hasNext ? String(items[items.length - 1].id) : null;
-
+    const { items, nextCursor } = paginateByCursor(rows, query.size);
     const signedItems = await withSignedImageUrls(items);
     return { list: signedItems.map(chatMapper.toMessage), nextCursor };
   },
@@ -204,15 +206,17 @@ export const chatService = {
 
     const row = await chatRepository.insertMessage({
       estimateId,
-      customerId: access.customerId,
-      moverId: access.moverId,
       senderId: userId,
       content: input.content,
       imagePath: input.imagePath,
     });
 
     const [signedRow] = await withSignedImageUrls([row]);
-    return chatMapper.toMessage(signedRow);
+    const message = chatMapper.toMessage(signedRow);
+
+    broadcastToRoom(estimateId, 'message', message);
+
+    return message;
   },
 
   /** 채팅 메시지 읽음 처리
@@ -224,6 +228,10 @@ export const chatService = {
     await assertAccess(userId, role, estimateId);
 
     await chatRepository.markRead({ estimateId, readerId: userId });
+
+    // 상대방이 보낸 메시지를 내가 읽었다는 뜻이라, 브로드캐스트는 상대방(발신자)이
+    // 자기가 보낸 메시지의 읽음 표시를 실시간으로 갱신하는 데 쓴다.
+    broadcastToRoom(estimateId, 'read', { estimateId, readerId: userId });
   },
 
   /** 채팅 메시지 읽지 않은 개수 조회 */
@@ -248,12 +256,9 @@ export const chatService = {
     const access = await assertAccess(userId, role, estimateId);
     assertWritable(access);
 
-    const { signedUrl, path, token } =
-      await chatRepository.createImageUploadUrl({
-        estimateId,
-        fileName: input.fileName,
-      });
-
-    return { uploadUrl: signedUrl, path, token };
+    return chatRepository.createImageUploadUrl({
+      estimateId,
+      fileName: input.fileName,
+    });
   },
 };

@@ -2,12 +2,13 @@ import type { ChatMessageRow } from './chatRepository';
 
 export const chatMapper = {
   toMessage: (row: ChatMessageRow) => ({
-    messageId: String(row.id),
-    senderId: row.sender_id,
+    messageId: row.id,
+    estimateId: row.estimateId,
+    senderId: row.senderId,
     content: row.content,
-    imageUrl: row.image_url,
-    isRead: row.is_read,
-    createdAt: row.created_at,
+    imageUrl: row.imagePath,
+    isRead: row.isRead,
+    createdAt: row.createdAt,
   }),
 
   toRoom: (room: {

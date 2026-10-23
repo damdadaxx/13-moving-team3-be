@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
 import { getClientIp } from '../../utils/clientIp';
 import {
   LOGIN_ATTEMPT_WINDOW_MS,
@@ -29,7 +29,7 @@ export const createRateLimit = (
   limit: number,
   keyGenerator: (req: Request) => string,
   handler?: (req: Request, res: Response) => void,
-  options?: { skipSuccessfulRequests?: boolean }
+  options?: Partial<Options>
 ) =>
   rateLimit({
     windowMs,

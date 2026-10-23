@@ -698,6 +698,92 @@
 
 /**
  * @openapi
+ * /mover/ai-search:
+ *   get:
+ *     tags: [Mover]
+ *     operationId: parseMoverAiSearch
+ *     summary: 기사님 AI 검색 (자연어 → 목록 필터)
+ *     description: |
+ *       자연어 검색 문장을 Gemini로 GET /mover 의 필터(region · serviceType · sortBy · keyword)로 바꿉니다.
+ *       목록은 반환하지 않습니다. 받은 filter 로 GET /mover 를 호출합니다.
+ *       문장에서 근거를 찾지 못한 조건은 null 입니다.
+ *       로그인 사용자만, 유저 단위로 하루 5회(한국시간 자정 초기화)까지 사용할 수 있습니다.
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *           minLength: 2
+ *           maxLength: 100
+ *         example: 부산에서 사무실 이사 리뷰 많은 순
+ *     responses:
+ *       200:
+ *         description: 변환 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     filter:
+ *                       type: object
+ *                       properties:
+ *                         region:
+ *                           allOf:
+ *                             - $ref: '#/components/schemas/MoverRegion'
+ *                           nullable: true
+ *                         serviceType:
+ *                           allOf:
+ *                             - $ref: '#/components/schemas/MoverServiceType'
+ *                           nullable: true
+ *                         sortBy:
+ *                           type: string
+ *                           enum: [reviewCount, rating, career, confirmedCount]
+ *                           nullable: true
+ *                         keyword:
+ *                           type: string
+ *                           maxLength: 30
+ *                           nullable: true
+ *                           description: 기사님 별명이 문장에 명시된 경우에만
+ *                     usage:
+ *                       $ref: '#/components/schemas/AiUsage'
+ *       400:
+ *         description: "code: VALIDATION_ERROR — q 검증 실패"
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: 인증 정보 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: >
+ *           code: DAILY_LIMIT_EXCEEDED — 오늘 5회를 모두 사용함.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: Gemini 응답 실패·시간 초과(20초)·Gemini 한도 초과. 하루 횟수에서 차감하지 않습니다.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
  * /mover/{id}:
  *   get:
  *     tags: [Mover]
